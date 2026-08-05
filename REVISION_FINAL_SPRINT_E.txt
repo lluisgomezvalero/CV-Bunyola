@@ -1,0 +1,21 @@
+VOLLEYCOACH HUB — SPRINT E DE CIERRE
+
+Revisión realizada:
+- Sintaxis de app.js y data.js.
+- Integridad de los archivos del proyecto.
+- Revisión estática de referencias CSS/JS y recursos locales.
+- Eliminación de una carga duplicada de Lucide Icons.
+- Actualización de versiones de caché de styles.css, data.js y app.js a v=1700.
+- Conservación de compatibilidad con los datos y copias de seguridad anteriores.
+- Inclusión de los sprints A, B, C y D en una única versión final.
+
+Flujos que deben verificarse en navegador real antes de producción:
+1. Inicio de sesión como entrenador y jugadora.
+2. Cambio de rol y permisos de cada módulo.
+3. Exportación, importación y recuperación de copias.
+4. Estados Borrador / Publicado / Archivado.
+5. Cálculos del panel de pendientes con datos reales.
+6. Modales, formularios y pistas tácticas en móvil de 320–390 px.
+7. Persistencia tras cerrar y volver a abrir el navegador.
+
+Nota: la revisión automatizada completa en navegador no pudo ejecutarse en este entorno debido a las restricciones locales de navegación del navegador headless. No se afirma que todos los flujos hayan sido validados en ejecución real.

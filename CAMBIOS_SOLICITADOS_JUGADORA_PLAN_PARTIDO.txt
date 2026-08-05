@@ -1,0 +1,16 @@
+CAMBIOS IMPLEMENTADOS
+
+INTERFAZ JUGADORA
+- Los PDF e imágenes de las sesiones se abren en un visor dentro de la propia web.
+- Se oculta correctamente el botón + Agendar Evento del calendario.
+- En la ficha de sesión no se muestra el RPE del entrenador.
+- En la ficha de sesión no se muestra la media de RPE de las jugadoras.
+- Wellness muestra un acceso directo para registrar el estado diario de 0 a 5.
+
+PLAN DE JUEGO
+- Eliminada la tarjeta de estadística de nuestra recepción.
+- Añadidas cuatro receptoras rivales editables por partido.
+- Cada receptora tiene nombre y nivel rojo, amarillo o verde.
+- Rojo = recepción más floja; amarillo = intermedia; verde = más fuerte.
+- El plan de scouting se guarda de manera independiente para cada partido.
+- Las jugadoras pueden consultar el plan, pero solo el entrenador puede editarlo.

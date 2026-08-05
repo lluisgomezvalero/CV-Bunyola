@@ -1,0 +1,11 @@
+ARQUITECTURA DE SESIONES · NÚCLEO UNIFICADO
+
+- El calendario abre directamente la ficha completa cuando el evento es un entrenamiento.
+- El dashboard abre la sesión concreta, no solo el listado general.
+- Se normalizan automáticamente los entrenamientos antiguos al nuevo modelo de sesión.
+- El wellness diario queda vinculado a la sesión del mismo día cuando existe.
+- La ficha de sesión muestra el wellness de ese día, no una mezcla de toda la semana.
+- Los registros antiguos se migran de forma automática cuando solo hay una sesión ese día.
+- Se mantienen objetivos, adjuntos, asistencia, RPE, valoración del entrenador y comentarios en una única ficha.
+
+Esta versión sigue usando almacenamiento local/IndexedDB. La sincronización entre dispositivos llegará con el backend.

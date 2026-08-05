@@ -1,0 +1,14 @@
+FASE 2A · PLAYER PASSPORT
+
+- Rediseño completo de la ficha de jugadora como pasaporte deportivo.
+- Indicador de compromiso 0-100 basado en hábitos controlables: asistencia, wellness, objetivos y constancia.
+- XP y nivel derivados de participación, no de estadísticas de partido.
+- Resumen visual de entrenamientos, racha, asistencia, wellness, objetivos y partidos.
+- Estado actual estimado a partir del último wellness.
+- Actividad reciente automática.
+- Hitos e insignias de constancia con siguiente desbloqueo.
+- Estadísticas deportivas separadas del sistema de XP.
+- Herramientas de entrenador integradas sin perder edición de ficha, foto o dorsal.
+- Diseño responsive para ordenador y móvil.
+
+Nota: todos los datos siguen almacenándose localmente en el navegador mediante localStorage.

@@ -1,0 +1,10 @@
+PLAN DE JUEGO 2.0 · PISTAS INDEPENDIENTES
+
+- Cinco tarjetas independientes: dos receptoras de zona 4, una opuesta de zona 2 y dos centrales de zona 3.
+- Cada atacante tiene su propia pista de voleibol con suelo beige, red, línea de ataque y fondo de pista.
+- Las trayectorias parten siempre desde el punto de contacto junto a la red.
+- Direcciones disponibles: línea, diagonal larga, diagonal media, diagonal corta y finta.
+- El entrenador puede mostrar u ocultar individualmente cada pista para las jugadoras.
+- Las jugadoras solo ven las pistas publicadas y con información, sin controles de edición.
+- La cuadrícula se adapta automáticamente al número de pistas visibles.
+- Compatibilidad con los planes de juego guardados anteriormente.

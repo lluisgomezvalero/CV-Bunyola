@@ -1,0 +1,7 @@
+RC1.4 — Plantilla: fotos y acciones
+
+- Se recuperan las fotografías en la vista móvil de Plantilla.
+- Las imágenes predeterminadas antiguas (avatar genérico y fotos demo de Unsplash) ya no se muestran como fotos de jugadora.
+- Si una jugadora todavía no ha subido una foto real, se muestra el escudo del club como sustituto uniforme.
+- Los botones Cambiar foto y Editar responden con un solo clic/toque.
+- El clic de los botones ya no se propaga a la tarjeta ni abre la ficha por accidente.

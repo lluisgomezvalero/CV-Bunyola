@@ -1,0 +1,10 @@
+PLAN DE JUEGO 2.1 · SPRINT 3
+
+- Separación por partido entre borrador y versión publicada.
+- Migración automática de planes antiguos al nuevo formato.
+- Las jugadoras solo ven la última versión publicada.
+- Los cambios posteriores del entrenador permanecen en el borrador hasta volver a publicar.
+- Botones de Vista previa y Publicar/Actualizar publicación.
+- La vista previa reproduce la interfaz limpia de las jugadoras.
+- Mensaje específico cuando todavía no existe una publicación.
+- Adaptación móvil de la barra de publicación y de la cabecera del plan.

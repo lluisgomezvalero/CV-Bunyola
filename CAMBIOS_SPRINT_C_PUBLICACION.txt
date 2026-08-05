@@ -1,0 +1,10 @@
+SPRINT C · SISTEMA COMÚN DE PUBLICACIÓN
+
+- Planes tácticos con estados Borrador, Publicado y Archivado.
+- Archivar oculta el plan a las jugadoras sin eliminarlo.
+- Recuperar un plan archivado lo devuelve a borrador.
+- Estadísticas de partido con estados Borrador, Publicado y Archivado.
+- Solo las estadísticas publicadas son accesibles para las jugadoras.
+- Filtro del entrenador por estado de publicación.
+- Acciones rápidas para publicar y archivar desde las tarjetas.
+- Los datos anteriores se migran de forma compatible: estadísticas existentes se consideran publicadas y los planes mantienen su estado previo.

@@ -1,0 +1,15 @@
+CAMBIOS AÑADIDOS
+
+1. Editor de foto de perfil con recorte cuadrado/circular, zoom y desplazamiento horizontal/vertical.
+2. Foto de perfil más grande en escritorio y nombre oculto junto al avatar en la cabecera.
+3. El próximo entrenamiento muestra el plan/objetivos y permite previsualizar el archivo adjunto.
+4. Cambio de contraseña validado con contraseña actual, confirmación y persistencia en localStorage.
+5. Botón de regreso reducido a una flecha para entrenador y jugadoras.
+
+IMPORTANTE SOBRE CONTRASEÑAS
+La aplicación es estática y guarda los datos en localStorage. La contraseña actualizada funciona en el mismo navegador y dispositivo. Para sincronizar contraseñas entre dispositivos o usuarios reales se necesita un servicio de autenticación/backend (por ejemplo, Supabase o Firebase).
+
+COPIAS DE SEGURIDAD
+- app.before_player_changes.js
+- index.before_player_changes.html
+- styles.before_player_changes.css

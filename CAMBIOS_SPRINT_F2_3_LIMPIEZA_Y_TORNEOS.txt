@@ -1,0 +1,6 @@
+SPRINT F.2.3
+- Cabecera de Plantilla simplificada.
+- Reinicio único de eventos, asistencias, wellness, RPE, confirmaciones y objetivos.
+- Fecha de nacimiento añadida a Información privada.
+- Fotos eliminadas del resumen de asistencia por jugadora.
+- Torneos con partidos manuales Equipo 1 vs Equipo 2, sin depender de la clasificación.

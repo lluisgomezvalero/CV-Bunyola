@@ -1,0 +1,13 @@
+REDISEÑO DEL MÓDULO DE ENTRENAMIENTOS Y RPE
+
+- El módulo deja de mostrar una lista interminable.
+- Vista Próximos: máximo cuatro sesiones y la próxima destacada.
+- Vista Historial y RPE: registro permanente de entrenamientos finalizados.
+- Las jugadoras pueden consultar objetivos, descripción y archivo adjunto.
+- El RPE de jugadora solo se habilita al terminar la sesión.
+- Cada respuesta queda guardada por entrenamiento y jugadora.
+- El entrenador registra su propia exigencia (coachRpe), separada de las respuestas de las jugadoras.
+- Comparación visual entre RPE del entrenador y media del equipo.
+- El entrenador puede abrir cada entrenamiento histórico y consultar todas las respuestas individuales.
+- Se mantiene confirmación de asistencia, validación, XP por RPE y edición de sesiones.
+- Se migran visualmente los antiguos valores event.rpe a event.coachRpe.

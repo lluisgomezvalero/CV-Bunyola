@@ -1,0 +1,21 @@
+FASE 1 · PASO 3 COMPLETADO — MICROANIMACIONES
+
+- Entrada escalonada y suave del hero, títulos, tarjetas e indicadores.
+- Animación de crecimiento de las barras de progreso.
+- Conteo animado de indicadores numéricos al renderizar el dashboard.
+- Hover más sutil y coherente en tarjetas, iconos, escudos y enlaces.
+- Respuesta táctil al pulsar botones y accesos rápidos.
+- Pulso discreto en las etiquetas de cuenta atrás.
+- Estados de foco visibles para navegación con teclado.
+- Desactivación automática de movimientos con prefers-reduced-motion.
+- En dispositivos táctiles se eliminan efectos hover innecesarios.
+
+ARCHIVOS MODIFICADOS
+- app.js
+- styles.css
+- index.html (actualización de versión CSS)
+
+COPIAS PREVIAS
+- app.before_step3.js
+- styles.before_step3.css
+- index.before_step3.html

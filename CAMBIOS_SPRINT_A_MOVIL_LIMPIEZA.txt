@@ -1,0 +1,22 @@
+SPRINT A · REVISIÓN MÓVIL Y LIMPIEZA TÉCNICA
+
+- Añadida una capa responsive global para evitar desbordamientos horizontales.
+- Tarjetas, nombres, cifras y formularios permiten contracción y salto de línea seguro.
+- Tablas anchas se desplazan dentro de su propio contenedor sin ensanchar toda la app.
+- Modales limitados al alto real disponible, incluido el teclado móvil y las áreas seguras.
+- Bloqueo de scroll del fondo mientras hay una ventana emergente abierta.
+- Formularios, barras de acciones y cabeceras se reorganizan en móvil.
+- Campos a 16 px en móvil para evitar el zoom automático de iOS.
+- Navegación superior desplazable sin romper el ancho.
+- Estadísticas adaptadas a 2 columnas y a 1 columna en 360 px.
+- Pistas tácticas, gráficos y canvas limitados al ancho de pantalla.
+- Ajustes específicos para 768, 520 y 360 px.
+- Sincronización ligera de la altura útil mediante visualViewport.
+
+VALIDACIÓN REALIZADA
+- Sintaxis JavaScript.
+- Integridad del ZIP.
+- Arranque estático mediante Chromium headless.
+
+PENDIENTE
+- Verificación manual completa de todos los flujos con cuentas de entrenador y jugadora.

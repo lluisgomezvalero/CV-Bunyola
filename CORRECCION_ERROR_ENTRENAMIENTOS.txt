@@ -1,0 +1,13 @@
+CORRECCIÓN DEL MÓDULO DE ENTRENAMIENTOS
+
+Problema localizado:
+- El botón de editar sesión llamaba a openEditEventModal(), una función inexistente.
+- La edición de eventos no distinguía entre crear y modificar, por lo que podía duplicar sesiones.
+
+Cambios:
+- El botón usa la función real editEventFromModal().
+- Se añade un estado de edición para actualizar la sesión existente.
+- Se conserva el archivo adjunto al editar si no se selecciona uno nuevo.
+- Se reinicia correctamente el modo edición al crear una sesión nueva.
+- Próximos e historial usan la duración real de la sesión para decidir si ha terminado.
+- Se valida la sintaxis completa de app.js.

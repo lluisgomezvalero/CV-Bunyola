@@ -1,0 +1,10 @@
+PRIVACIDAD DEL WELLNESS EN EL DASHBOARD DE JUGADORA
+
+- La jugadora solo ve sus propios registros semanales de wellness.
+- La matriz filtra exclusivamente la fila asociada a su usuario.
+- El gráfico de jugadora utiliza únicamente sus registros personales.
+- Se eliminan de la vista de jugadora la media del equipo y los puntos de otras jugadoras.
+- La media del equipo, el detalle individual del equipo y el resumen colectivo de RPE quedan reservados al entrenador.
+- Los textos de la pantalla cambian según el rol para dejar clara la privacidad.
+
+Nota técnica: esta versión aplica la privacidad en la interfaz local. Al migrar a Supabase, debe reforzarse con políticas RLS para impedir también el acceso directo a datos ajenos desde el backend.

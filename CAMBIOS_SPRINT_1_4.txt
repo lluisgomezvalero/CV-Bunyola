@@ -1,0 +1,12 @@
+SPRINT 1.4 — PULIDO UX DEL PLAN DE JUEGO
+
+- Tarjetas de atacantes más ligeras y compactas.
+- Controles tácticos unificados como chips redondeados.
+- Estados hover, focus y pulsación más claros.
+- Transiciones discretas en flechas, zonas y mapas de calor.
+- Mejor accesibilidad con foco visible y respeto a prefers-reduced-motion.
+- Zonas táctiles optimizadas para móvil sin aumentar el tamaño de las pistas.
+- Inputs de tendencias con mejor feedback de edición.
+- Leyendas, espaciados y jerarquía visual homogeneizados.
+
+No se ha modificado la lógica ni la compatibilidad de datos del Sprint 1.3.

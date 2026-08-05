@@ -1,0 +1,8 @@
+CAMBIOS ESTADÍSTICAS: ATAQUE Y ERRORES
+
+- Añadida efectividad de ataque (%).
+- Añadidos errores de ataque y errores de saque.
+- Añadidos error nuestro y error rival, excluyendo recepción y defensa.
+- Las nuevas métricas aparecen en el resumen de temporada y en cada partido.
+- Formulario de estadísticas ampliado y adaptado a móvil.
+- Resumen compacto: 5 columnas en escritorio, 3 en tablet y 2 en móvil.

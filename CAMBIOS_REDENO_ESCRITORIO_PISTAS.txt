@@ -1,0 +1,17 @@
+VOLLEYCOACH HUB · REDISEÑO DE ESCRITORIO Y PISTAS REGLAMENTARIAS
+
+1. Navegación de escritorio
+- La barra superior deja de ser fija/sticky.
+- Altura compacta de aproximadamente 60 px.
+- Sin sombra flotante permanente.
+- Estado activo más discreto mediante subrayado/acento amarillo.
+
+2. Pistas de voleibol
+- La pista completa representa 9 x 18 m y se muestra en vertical.
+- Cada lado de la red queda como un cuadrado exacto de 9 x 9 m.
+- Las pistas individuales de ataque mantienen relación 1:1 (9 x 9 m).
+- Superficie beige uniforme, sin rayas ni degradados decorativos.
+- Líneas de ataque situadas a 3 m de la red.
+- Objetivos y tendencias reutilizan las mismas proporciones.
+
+Nota: esta entrega se centra en navegación y geometría de pistas. No modifica los datos guardados.

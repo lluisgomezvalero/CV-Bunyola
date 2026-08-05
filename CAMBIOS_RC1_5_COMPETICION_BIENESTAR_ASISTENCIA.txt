@@ -1,0 +1,6 @@
+RC1.5 — Competición, Bienestar y asistencia
+
+- Clasificación: eliminado el distintivo "Nuestro equipo". El equipo propio se muestra como "CV Bunyola" y queda resaltado visualmente.
+- Bienestar: la jugadora ya no ve la leyenda de Borg dentro de "Mi registro".
+- Modo de prueba: las jugadoras pueden contestar el cuestionario de bienestar una vez cada día. Tras contestar, queda bloqueado hasta el día siguiente.
+- Asistencia: una vez que la jugadora confirma "Asistiré" o "No asistiré", la elección queda cerrada y no puede modificarse desde su perfil.

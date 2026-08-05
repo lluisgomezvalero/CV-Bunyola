@@ -1,0 +1,14 @@
+SPRINT 1.2 — SISTEMA DE ZONAS TÁCTICAS
+
+- Se ha creado un sistema común de 9 zonas para la media pista:
+  4 · 3 · 2
+  7 · 8 · 9
+  5 · 6 · 1
+- Cada zona dispone de un punto de anclaje proporcional y reutilizable.
+- Diagonal media desde Z4 termina en zona 9.
+- Diagonal media desde Z2 termina en zona 7.
+- Diagonal corta desde Z4 termina en zona 2.
+- Diagonal corta desde Z2 termina en zona 4.
+- Línea y diagonal larga también usan los anclajes de las zonas profundas.
+- Las centrales a zona 5 y zona 1 utilizan el mismo sistema.
+- La finta queda anclada provisionalmente en zona 8.

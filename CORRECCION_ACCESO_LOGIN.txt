@@ -1,0 +1,25 @@
+CORRECCIÓN DEL ACCESO / LOGIN
+
+Problema encontrado:
+El listener del formulario de inicio de sesión se inicializaba después de más de veinte módulos. Si Antigravity introducía un error en cualquier inicializador anterior, JavaScript detenía la ejecución y el botón de login quedaba sin respuesta.
+
+No estaba causado por que todas las cuentas compartan la misma contraseña. Eso es inseguro para producción, pero no impide que el formulario funcione.
+
+Cambios:
+- El login se inicializa antes que calendario, gráficas, dashboard y otros módulos.
+- Cada módulo se inicia dentro de un bloque seguro independiente.
+- Un error en un módulo ya no bloquea el acceso.
+- Se reparan sesiones incompletas de sessionStorage.
+- Se evita registrar varias veces el listener del formulario.
+- Se validan de forma segura usuarios, contraseñas y elementos del DOM.
+- Se actualizó la versión de caché de app.js y data.js.
+
+Prueba recomendada:
+1. Abrir la web en una pestaña privada.
+2. Acceder con admin / 123456.
+3. Cerrar sesión.
+4. Acceder con una jugadora.
+5. Abrir la consola: cualquier error de un módulo aparecerá identificado, pero no impedirá iniciar sesión.
+
+Nota de seguridad:
+Antes de publicar para uso real, conviene migrar las contraseñas a un servicio de autenticación real. localStorage y contraseñas visibles en JavaScript no ofrecen seguridad real.

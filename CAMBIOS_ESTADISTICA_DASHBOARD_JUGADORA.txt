@@ -1,0 +1,9 @@
+ESTADÍSTICA EN EL DASHBOARD DE JUGADORA
+
+- La pestaña Estadísticas ya está disponible para las jugadoras.
+- La vista de jugadora no muestra el resumen acumulado ni los gráficos globales del equipo.
+- Se muestra una lista compacta de partidos.
+- Al pulsar un partido finalizado se abre un resumen con los indicadores publicados.
+- El entrenador elige, partido a partido, qué métricas son visibles para las jugadoras.
+- Las métricas no seleccionadas permanecen privadas para el cuerpo técnico.
+- La tarjeta es accesible mediante teclado y está adaptada a móvil.

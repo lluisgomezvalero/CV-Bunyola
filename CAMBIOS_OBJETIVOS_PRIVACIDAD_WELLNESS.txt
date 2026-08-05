@@ -1,0 +1,24 @@
+CAMBIOS REALIZADOS
+
+1. Objetivos personales
+- Las jugadoras pueden crear sus propios objetivos sin fecha ni duración.
+- Los objetivos permanecen activos hasta que la jugadora los marca como conseguidos.
+- Al conseguir uno queda visible como objetivo cumplido y puede crear otro.
+- Se mantiene un historial de objetivos activos y conseguidos.
+- El entrenador puede consultar los objetivos, pero no crear objetivos desde esta vista.
+
+2. Wellness móvil
+- Escala adaptada de 0 a 5.
+- Diseño responsive en 2 filas para evitar que los niveles 4 y 5 salgan de pantalla.
+- El modal queda por encima de la barra inferior.
+- Botones Cancelar/Registrar permanecen accesibles mediante una zona inferior fija dentro del modal.
+
+3. Privacidad entre jugadoras
+- Al abrir la ficha de otra compañera no se muestra altura ni CMJ.
+- No se muestra su estado actual de wellness.
+- No se muestra su actividad reciente.
+- El entrenador y la propia jugadora sí conservan acceso a estos datos.
+
+4. Permisos de plantilla
+- Las jugadoras no pueden exportar CSV.
+- Las jugadoras no pueden añadir nuevas jugadoras.

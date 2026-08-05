@@ -1,0 +1,11 @@
+CAMBIO · GAMIFICACIÓN Y OBJETIVOS PERSONALES
+
+- Los objetivos técnicos, tácticos y personales de cada jugadora quedan totalmente desvinculados del XP y de los logros.
+- Marcar un objetivo personal como completado ya no concede ni retira XP.
+- Se eliminan del historial de XP las recompensas antiguas generadas por objetivos personales.
+- La misión «Completar objetivos de la semana» ahora significa:
+  1) contestar la carga/wellness semanal del lunes;
+  2) registrar la percepción del esfuerzo (RPE) después de cada entrenamiento de esa semana.
+- El progreso de esa misión se muestra como 1 registro semanal + un RPE por cada entrenamiento.
+- La «Semana perfecta» se concede por cumplir esos registros, no por objetivos técnicos o tácticos.
+- Se mantienen separadas las misiones de confirmar asistencia y asistir a los entrenamientos.

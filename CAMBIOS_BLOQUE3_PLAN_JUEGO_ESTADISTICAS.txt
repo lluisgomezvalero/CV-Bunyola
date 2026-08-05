@@ -1,0 +1,25 @@
+BLOQUE 3 · PLAN DE JUEGO Y ESTADÍSTICAS
+
+1. Objetivos de saque
+- Receptoras rivales representadas dentro de una pista 2D.
+- Color individual: rojo, amarillo o verde.
+- Profundidad de saque por receptora: corta (3–5 m), media (5–7 m) o larga (7–8 m).
+- Vista visual disponible para las jugadoras y edición reservada al entrenador.
+
+2. Ataque rival
+- Dos atacantes de zona 4, una atacante de zona 2 y dos centrales de zona 3.
+- Nombre editable para cada atacante.
+- Selección múltiple: línea, diagonal larga, diagonal media, diagonal corta y finta.
+- Traducción automática a una pista 2D con flechas de colores.
+
+3. Tendencias de saque rival
+- Entrada numérica del porcentaje estimado para las seis zonas.
+- Mapa de calor automático: mayor intensidad de color para las zonas con más porcentaje.
+
+4. Estadísticas
+- Botón Añadir estadística funcional.
+- Formulario simplificado para introducir directamente:
+  * % de error en recepción
+  * % de recepción perfecta
+  * Número de aces
+- Compatibilidad con datos antiguos almacenados mediante recuentos.

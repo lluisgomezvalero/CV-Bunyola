@@ -1,0 +1,9 @@
+RC1.8 — Lecturas del plan, recorte táctil y bienestar
+
+- Usuarios queda reservado al Administrador.
+- Seguimiento de lectura de cada publicación del Plan de Juego, con fecha/hora por jugadora.
+- Al actualizar la publicación se reinicia el seguimiento para la nueva versión.
+- Editor de foto tipo app móvil: arrastrar, pellizcar, rueda y botones de zoom; sin barras horizontal/vertical.
+- Perfil del entrenador/administrador sin dorsal o camiseta.
+- Leyenda RPE eliminada de la parte superior de Bienestar y situada junto a los resultados de Carga.
+- Nueva pregunta de sueño: ¿Cómo estás durmiendo? (Muy bien, Bien, Regular, Mal, Muy mal).

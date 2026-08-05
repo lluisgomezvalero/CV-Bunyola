@@ -1,0 +1,33 @@
+SPRINT DE RENDIMIENTO 1 — FLUIDEZ Y NAVEGACIÓN
+
+1. Carga inicial bajo demanda
+- Ya no se construyen durante el arranque las vistas pesadas de calendario, plantilla, wellness, entrenamientos, táctica, estadísticas y usuarios.
+- Cada módulo se renderiza cuando se abre por primera vez.
+
+2. Caché de vistas
+- Si se vuelve a un módulo y los datos no han cambiado, se reutiliza la vista ya creada.
+- La caché se invalida automáticamente al guardar cambios.
+- La caché distingue entre entrenador y jugadora para no reutilizar contenido de otro rol.
+
+3. Vuelta al menú principal
+- El dashboard principal solo se vuelve a generar cuando cambian los datos, el usuario/rol o el día.
+- Al regresar sin cambios se muestra inmediatamente la vista existente.
+- Las animaciones de entrada del dashboard no se reinician en cada vuelta.
+
+4. Navegación
+- Se ha eliminado el desplazamiento suave obligatorio al cambiar de módulo, que hacía que la transición pareciera más lenta.
+- Se han eliminado retrasos artificiales de 100–150 ms al abrir Estadísticas y Wellness.
+- Las gráficas de wellness se montan en el siguiente frame para no bloquear la aparición inicial de la pantalla.
+
+5. Guardado local
+- No se vuelve a escribir localStorage cuando el estado serializado no ha cambiado.
+- La copia de seguridad completa se mantiene, pero se limita a una vez cada 30 segundos por sesión en lugar de duplicar cada escritura.
+- Cada cambio real incrementa una revisión interna que invalida las vistas necesarias.
+
+VALIDACIÓN REALIZADA
+- Sintaxis de app.js comprobada con node --check.
+- Sintaxis de data.js comprobada con node --check.
+- Integridad del ZIP comprobada.
+
+PENDIENTE
+- Prueba visual y de rendimiento en navegador/móvil real para medir la mejora y detectar algún flujo que necesite renderizado forzado.

@@ -1,0 +1,6 @@
+RC1.6
+- Flecha de retorno con controlador único, protección frente a dobles pulsaciones y zona táctil ampliada.
+- La lista validada por el entrenador confirma la asistencia y activa inmediatamente el objetivo correspondiente.
+- Misiones semanales separadas: confirmar “Asistiré”, asistencia validada, Bienestar y Carga de todos los entrenamientos finalizados.
+- Cuestionario de Bienestar renombrado a “¿Cómo te encuentras hoy?” con escala 1–5; 1 = Muy bien.
+- Botones Cancelar/Enviar del modal de Bienestar dejan de estar anclados en móvil.

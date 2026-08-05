@@ -1,0 +1,8 @@
+VOLLEYCOACH HUB · RC1
+
+- Cabecera superior de escritorio conservada con accesos directos.
+- En móvil, cabecera compacta con flecha integrada, título y acceso a Mi perfil.
+- Botón Salir visible únicamente en la pantalla principal.
+- Navegación contextual de sesiones: Inicio → sesión → Inicio; Entrenos → sesión → Entrenos.
+- Eliminados registros de demostración de SJ, CMJ, Abalakov y Drop Jump.
+- Se mantiene el guardado robusto del calendario de la versión F.2.5.

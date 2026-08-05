@@ -1,0 +1,7 @@
+SPRINT F.2.4 · PRUEBAS MÓVIL
+
+- Ajustes del club: espacio inferior seguro para que la barra móvil no tape Cancelar/Guardar.
+- Calendario: acciones de Cancelar/Agendar dejan de quedar fijas; guardado robusto con validación y estado "Guardando…".
+- Dashboard: la capa oscura del banner se hace translúcida para integrarse con la foto de fondo elegida.
+- Nomenclatura: Wellness pasa a llamarse Bienestar en toda la interfaz visible.
+- La percepción del esfuerzo se presenta como Carga y el historial de RPE pasa a llamarse Carga.

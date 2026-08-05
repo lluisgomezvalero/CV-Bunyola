@@ -1,0 +1,12 @@
+SPRINT 1.3 · SISTEMA TÁCTICO UNIFICADO
+
+- Se ha creado una cuadrícula táctica común de 9 zonas:
+  4 · 3 · 2
+  7 · 8 · 9
+  5 · 6 · 1
+- Objetivos de saque: cada zona alterna entre sin objetivo, alternativa y principal.
+- Tendencias de saque: ampliadas de 6 a 9 zonas.
+- Objetivos y tendencias utilizan el mismo componente base de media pista.
+- Se mantiene compatibilidad con planes guardados anteriormente.
+- Validación realizada: sintaxis JavaScript e integridad del ZIP.
+- Pendiente: comprobación visual e interacción completa en navegador real.

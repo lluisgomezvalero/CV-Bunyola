@@ -1,0 +1,20 @@
+CORRECCIONES · ARCHIVOS, WELLNESS DIARIO Y PERSISTENCIA
+
+1. Archivos de sesiones
+- El entrenador puede adjuntar imágenes o PDF de hasta 20 MB.
+- Los archivos se guardan en IndexedDB, no en localStorage.
+- Se muestra el nombre y tamaño del archivo seleccionado.
+- Los PDF se abren en una pestaña nueva y las imágenes también pueden visualizarse.
+- Al editar una sesión se conserva el archivo anterior salvo que se sustituya.
+
+2. Borg / wellness diario
+- El formulario puede contestarse todos los días de la semana.
+- Cada jugadora puede registrar una respuesta por día.
+- Al día siguiente vuelve a habilitarse automáticamente.
+- El entrenador puede consultar registros de diferentes días y perfiles.
+
+3. Persistencia de datos
+- Guardado protegido con copia de seguridad local.
+- Los errores de cuota ya no reinician silenciosamente todos los datos.
+- Se evita guardar archivos pesados dentro del JSON principal.
+- Los datos siguen siendo locales al navegador/dispositivo porque la app aún no tiene backend.

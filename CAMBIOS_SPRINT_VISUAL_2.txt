@@ -1,0 +1,10 @@
+SPRINT VISUAL 2 · PLAN DE JUEGO
+
+- Controles de dirección convertidos en chips más compactos.
+- Tarjetas de atacantes aligeradas, sin fondos pesados ni sombras innecesarias.
+- Trayectorias normales redibujadas como curvas suaves y uniformes.
+- La finta conserva el color rojo, el trazo discontinuo y una curva más marcada.
+- Objetivos de saque representados como manchas translúcidas sobre la pista.
+- Tendencias de saque representadas con calor radial suave por zona.
+- Cabeceras, márgenes y leyendas compactados y unificados.
+- Se mantiene el tamaño actual de las pistas, según lo solicitado.

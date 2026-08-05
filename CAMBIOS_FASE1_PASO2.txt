@@ -1,0 +1,11 @@
+FASE 1 · PASO 2 COMPLETADO
+
+- Tarjetas del dashboard unificadas visualmente.
+- Accesos rápidos con títulos más cortos y metadatos dinámicos.
+- Estados visuales verde, amarillo, rojo, azul y dorado según los datos.
+- Contadores de calendario, wellness, entrenamientos, objetivos, estadísticas y usuarios.
+- Mejor jerarquía tipográfica, espaciado, sombras y estados hover/focus.
+- Mejoras responsive para móvil.
+- Se mantienen todas las funciones, permisos y localStorage.
+
+Archivos modificados: index.html, app.js y styles.css.

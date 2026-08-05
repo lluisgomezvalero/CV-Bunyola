@@ -1,0 +1,29 @@
+VOLLEYCOACH HUB · FASE 2B (PRIMER BLOQUE)
+
+Objetivo
+Premiar hábitos controlables y participación real en la aplicación, no el rendimiento estadístico en partido.
+
+Novedades
+- Motor de XP con registro único por acción para evitar duplicados.
+- XP por wellness semanal, respuesta temprana, confirmar asistencia, asistir, registrar RPE y completar objetivos.
+- Bonus automático por semana perfecta de objetivos obligatorios.
+- Misiones semanales visibles en el dashboard de la jugadora.
+- Progreso de nivel conectado al XP real.
+- Player Passport actualizado para mostrar el XP del nuevo sistema.
+- Las estadísticas deportivas continúan separadas del compromiso.
+- Migración automática de datos antiguos al nuevo sistema.
+- Nueva estructura engagementLedger y engagementSettings en data.js.
+
+Valores iniciales
+- Wellness: +15 XP
+- Wellness temprano: +5 XP
+- Confirmar asistencia: +5 XP
+- Asistir a entrenamiento: +20 XP
+- Registrar RPE: +10 XP
+- Completar objetivo: +25 XP
+- Semana perfecta: +30 XP
+
+Notas
+- No se han añadido monedas ni tienda.
+- No se restan puntos por ausencias o tareas no realizadas.
+- El registro de XP usa referencias únicas para no sumar dos veces la misma acción.

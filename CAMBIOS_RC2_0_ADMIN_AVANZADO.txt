@@ -1,0 +1,6 @@
+RC2.0 — Administración avanzada
+- Permisos configurables por entrenador.
+- Comunicados oficiales visibles en el dashboard.
+- Auditoría local de acciones administrativas.
+- Copias de seguridad, restauración previa y exportación CSV de usuarios.
+- Nuevas pestañas del panel de administración.

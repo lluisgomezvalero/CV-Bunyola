@@ -1,0 +1,7 @@
+CORRECCIÓN — ORIGEN DE LAS FLECHAS DEL ATAQUE RIVAL
+
+- La media pista se interpreta desde nuestro lado del campo.
+- La atacante rival de Z4 aparece enfrentada a nuestra Z2, por lo que sus flechas salen desde la derecha.
+- La opuesta rival de Z2 aparece enfrentada a nuestra Z4, por lo que sus flechas salen desde la izquierda.
+- Se han espejado también las trayectorias de línea, diagonal larga, diagonal media y diagonal corta para conservar su sentido real.
+- Las centrales continúan saliendo desde el centro.

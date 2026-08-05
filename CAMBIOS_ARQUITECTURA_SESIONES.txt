@@ -1,0 +1,10 @@
+VOLLEYCOACH HUB · ARQUITECTURA DE SESIONES
+
+- El módulo Entrenamientos pasa a llamarse Sesiones.
+- Cada tarjeta abre una ficha centralizada de la sesión.
+- La ficha reúne objetivos, archivo, asistencia, wellness semanal, RPE del entrenador y media del equipo.
+- El entrenador puede guardar valoración y notas para la próxima sesión.
+- Las jugadoras pueden añadir un comentario privado opcional.
+- Los comentarios y puntuaciones quedan asociados al entrenamiento concreto.
+- Se mantiene la vista resumida de próximas sesiones y el historial de RPE.
+- No se han añadido constructor, biblioteca de ejercicios, plantillas ni monedas.

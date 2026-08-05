@@ -1,0 +1,9 @@
+SPRINT F.2.5
+- Rehecho el guardado de eventos con una única función robusta.
+- El botón Agendar Evento dispone de escucha directa para móviles.
+- Guardado inmediato en localStorage antes de refrescar las vistas.
+- Los errores de renderizado posteriores ya no impiden cerrar el modal ni guardar.
+- Torneos pueden guardarse aunque todavía no tengan partidos añadidos.
+- Título y ubicación reciben valores seguros si están vacíos.
+- Eliminada la foto propia de la tarjeta superior del dashboard.
+- La tarjeta pasa a ser translúcida y deja ver el fondo general seleccionado.

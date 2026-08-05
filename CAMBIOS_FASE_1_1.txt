@@ -1,0 +1,8 @@
+FASE 1.1
+
+- Corregida la flecha naranja de la pantalla principal: la barra interior queda realmente oculta en Inicio, incluso frente a reglas CSS con !important.
+- La flecha aparece al entrar en un módulo/ficha.
+- Preferencias de ataque rival ordenadas: Z4-1, Z4-2, Z2, Central-1 y Central-2.
+- En escritorio se muestran tres fichas arriba y las dos centrales juntas en la fila inferior.
+- Eliminadas de la pista las palabras Corta, Media y Larga.
+- En las zonas objetivo solo se conserva la distancia (3–5 m, 5–7 m, 7–8 m).

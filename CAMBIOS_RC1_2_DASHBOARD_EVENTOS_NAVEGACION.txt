@@ -1,0 +1,7 @@
+RC1.2 — Dashboard, calendario y navegación móvil
+
+- Próximo entrenamiento se calcula desde todos los eventos de entrenamiento válidos.
+- Próximo partido incluye Partido, Amistoso y Torneo.
+- Los eventos del día actual permanecen visibles en el dashboard durante todo el día.
+- Al guardar un evento se invalidan inmediatamente las cachés de Inicio, Calendario y Entrenos.
+- La barra inferior móvil sustituye Inicio por Entrenos.

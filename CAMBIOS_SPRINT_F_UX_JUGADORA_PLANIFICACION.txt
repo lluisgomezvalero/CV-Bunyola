@@ -1,0 +1,11 @@
+SPRINT F - UX JUGADORA Y PLANIFICACIÓN
+
+- RPE bloqueado fuera del día del entrenamiento y aviso centrado.
+- Perfil de jugadora sin correo inventado, antropometría ni CMJ.
+- Cambio de contraseña mediante enlace y modal independiente.
+- Objetivos personales separados de los hitos y la gamificación.
+- Barra móvil: Inicio, Plan, Entrenos, Plantilla y Perfil.
+- Compensación inferior para que la barra no tape contenido.
+- Aviso superior dinámico con tareas pendientes de la jugadora.
+- Nueva pestaña privada de Planificación para imagen, PDF y Excel.
+- Los tests físicos no aparecen como tarea pendiente.

@@ -1,0 +1,9 @@
+CAMBIOS DE INTERACCIÓN EN LA TARJETA DE ENTRENAMIENTO
+
+- La tarjeta completa deja de ser clicable.
+- Solo la cabecera gris con el título, fecha, hora y ubicación abre el entrenamiento.
+- La cabecera muestra feedback visual al pasar el cursor, pulsar o usar teclado.
+- Se añade una flecha discreta para indicar que la cabecera abre el detalle.
+- Los botones de asistencia y "Cambiar" mantienen una acción independiente y resaltan más.
+- El resto del contenido de la tarjeta no ejecuta ninguna acción al pulsarlo.
+- La apertura por teclado funciona con Enter y barra espaciadora.

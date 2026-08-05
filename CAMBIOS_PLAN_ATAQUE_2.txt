@@ -1,0 +1,19 @@
+SPRINT PLAN DE ATAQUE · PUNTO 2
+
+1. Estado de visibilidad
+- Al activar una tarjeta, el texto cambia inmediatamente a «Visible».
+- Al desactivarla, muestra «Oculto».
+- Se mantiene el color verde del estado publicado.
+- El icono cambia entre ojo abierto y ojo cerrado sin esperar a guardar.
+
+2. Zona de finta
+- Al marcar «Finta» aparece un selector específico de zona.
+- Se puede escoger cualquiera de las nueve zonas de la pista.
+- La flecha roja discontinua termina en la zona elegida.
+- En la vista de jugadora, la leyenda indica «Finta · Z[número]».
+- Los planes antiguos se normalizan automáticamente usando la zona 8 como valor inicial.
+
+VALIDACIÓN
+- Sintaxis de app.js y data.js comprobada con node --check.
+- Integridad del ZIP comprobada.
+- Pendiente de revisión visual y funcional en navegador y móvil.

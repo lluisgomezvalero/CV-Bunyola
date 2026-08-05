@@ -1,0 +1,8 @@
+CAMBIOS REALIZADOS
+
+- Cambiado el nombre Volei Muro por CV Muro.
+- Eliminada la frase "Ordenada automáticamente por puntos acumulados" de la clasificación.
+- Rediseñado el resumen de Estadísticas en una única franja horizontal y compacta.
+- Separados Aces y Bloqueos para mejorar la lectura.
+- Simplificados los títulos: Balance, Recepción perfecta, Error recepción, Aces y Bloqueos.
+- Adaptación responsive: 5 columnas en escritorio, 3 en tablet y 2 en móvil.
