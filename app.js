@@ -370,7 +370,7 @@ function clearLocalAuthCache() {
 
 function mapSupabaseIdentityToLegacy(identity) {
   if (!identity?.profile) return null;
-  const { profile, player, authUser } = identity;
+  const { profile, player, authUser, teams = [] } = identity;
   const roleMap = { administrator: "admin", coach: "coach", player: "player" };
   const localPlayer = player
     ? (appState.players || []).find(p =>
@@ -378,6 +378,7 @@ function mapSupabaseIdentityToLegacy(identity) {
         String(p.username || "").toLowerCase() === String(profile.username || "").toLowerCase()
       )
     : null;
+  const primaryTeam = teams[0] || player?.teams || null;
 
   return {
     authId: authUser?.id || profile.id,
@@ -386,11 +387,88 @@ function mapSupabaseIdentityToLegacy(identity) {
     role: roleMap[profile.role] || "player",
     supabaseRole: profile.role,
     clubId: profile.club_id || null,
+    teamId: player?.team_id || primaryTeam?.id || null,
+    teamName: primaryTeam?.name || null,
+    teamCategory: primaryTeam?.category || null,
+    teams: (teams || []).map(team => ({ id: team.id, name: team.name, category: team.category, active: team.active !== false })),
+    language: profile.preferred_language || "es",
+    supabasePlayerId: player?.id || null,
     playerId: localPlayer?.id || player?.legacy_id || player?.id || null,
     avatar: profile.avatar_path || localPlayer?.avatar || null,
-    active: profile.active !== false,
+    active: profile.active !== false && player?.active !== false,
     lastLogin: profile.last_login_at || null
   };
+}
+
+function hydrateLocalProfileFromSupabase(identity) {
+  if (!identity?.profile) return null;
+  const { profile, player, teams = [] } = identity;
+  appState.users = Array.isArray(appState.users) ? appState.users : [];
+  appState.players = Array.isArray(appState.players) ? appState.players : [];
+
+  const roleMap = { administrator: "administrator", coach: "coach", player: "player" };
+  let localUser = appState.users.find(user => String(user.authId || "") === String(profile.id));
+  if (!localUser) {
+    localUser = appState.users.find(user => String(user.username || "").toLowerCase() === String(profile.username || "").toLowerCase());
+  }
+  const userPayload = {
+    authId: profile.id,
+    username: profile.username,
+    name: profile.full_name,
+    role: roleMap[profile.role] || "player",
+    active: profile.active !== false,
+    avatar: profile.avatar_path || localUser?.avatar || null,
+    language: profile.preferred_language || "es",
+    clubId: profile.club_id || null,
+    teamId: player?.team_id || teams[0]?.id || null,
+    lastLogin: profile.last_login_at || null
+  };
+  if (localUser) Object.assign(localUser, userPayload);
+  else {
+    localUser = { ...userPayload, password: null, playerId: null };
+    appState.users.push(localUser);
+  }
+
+  if (profile.role === "player" && player) {
+    let localPlayer = appState.players.find(item =>
+      String(item.id) === String(player.legacy_id || "") ||
+      String(item.supabaseId || "") === String(player.id) ||
+      String(item.username || "").toLowerCase() === String(profile.username || "").toLowerCase()
+    );
+    const localId = localPlayer?.id || player.legacy_id || player.id;
+    const privateData = player.private_data && typeof player.private_data === "object" ? player.private_data : {};
+    const playerPayload = {
+      id: localId,
+      supabaseId: player.id,
+      authId: profile.id,
+      teamId: player.team_id || null,
+      username: profile.username,
+      name: profile.full_name,
+      number: player.dorsal ?? localPlayer?.number ?? "",
+      birthDate: player.birth_date || localPlayer?.birthDate || "",
+      position: player.position || localPlayer?.position || "",
+      status: player.status || localPlayer?.status || "Disponible",
+      avatar: profile.avatar_path || localPlayer?.avatar || DEFAULT_AVATAR,
+      height: privateData.height || localPlayer?.height || "",
+      healthNote: privateData.healthNote || localPlayer?.healthNote || ""
+    };
+    if (localPlayer) Object.assign(localPlayer, playerPayload);
+    else {
+      localPlayer = { ...playerPayload, stats: {}, cmj: "", reachAtaque: "", reachBloqueo: "", phone: "", email: "" };
+      appState.players.push(localPlayer);
+    }
+    localUser.playerId = localPlayer.id;
+  }
+
+  const selectedTeam = teams[0] || player?.teams || null;
+  if (selectedTeam && appState.teamInfo) {
+    appState.teamInfo.currentTeamId = selectedTeam.id;
+    appState.teamInfo.currentTeamName = selectedTeam.name;
+    if (selectedTeam.category) appState.teamInfo.category = selectedTeam.category;
+  }
+
+  try { saveAppData(appState); } catch (error) { console.warn("[Supabase Profile] No se pudo guardar la copia local:", error); }
+  return { localUser, selectedTeam };
 }
 
 async function restoreSupabaseSession() {
@@ -407,6 +485,7 @@ async function restoreSupabaseSession() {
       return null;
     }
 
+    hydrateLocalProfileFromSupabase(identity);
     const user = mapSupabaseIdentityToLegacy(identity);
     if (!user) return null;
     sessionStorage.setItem("volley_authenticated", "true");
@@ -516,6 +595,7 @@ function initLoginListener() {
           throw new Error("Esta cuenta está desactivada.");
         }
 
+        hydrateLocalProfileFromSupabase(identity);
         const authenticatedUser = mapSupabaseIdentityToLegacy(identity);
         sessionStorage.setItem("volley_authenticated", "true");
         sessionStorage.setItem("volley_current_user", JSON.stringify(authenticatedUser));

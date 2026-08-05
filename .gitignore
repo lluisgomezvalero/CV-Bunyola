@@ -1,2 +1,3 @@
 *.backup.*
 *.before_*
+~$*

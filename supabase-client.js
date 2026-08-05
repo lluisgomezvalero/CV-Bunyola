@@ -99,23 +99,82 @@
 
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
-      .select('id, club_id, username, full_name, role, avatar_path, active, last_login_at')
+      .select('id, club_id, username, full_name, role, avatar_path, active, last_login_at, preferred_language')
       .eq('id', authData.user.id)
       .single();
     if (profileError) return { data: null, error: profileError };
 
     let player = null;
+    let teams = [];
+
     if (profile.role === 'player') {
       const playerResult = await supabaseClient
         .from('players')
-        .select('id, legacy_id, team_id, dorsal, birth_date, position, status')
+        .select('id, legacy_id, club_id, team_id, dorsal, birth_date, position, status, private_data, active, teams:team_id(id, name, category, active)')
         .eq('profile_id', authData.user.id)
         .maybeSingle();
       if (playerResult.error) return { data: null, error: playerResult.error };
       player = playerResult.data || null;
+      if (player?.teams) teams = [player.teams];
+    } else if (profile.role === 'coach') {
+      const staffResult = await supabaseClient
+        .from('team_staff')
+        .select('teams:team_id(id, name, category, active)')
+        .eq('profile_id', authData.user.id);
+      if (staffResult.error) return { data: null, error: staffResult.error };
+      teams = (staffResult.data || []).map(row => row.teams).filter(Boolean);
+    } else if (profile.role === 'administrator' && profile.club_id) {
+      const teamsResult = await supabaseClient
+        .from('teams')
+        .select('id, name, category, active')
+        .eq('club_id', profile.club_id)
+        .eq('active', true)
+        .order('name');
+      if (teamsResult.error) return { data: null, error: teamsResult.error };
+      teams = teamsResult.data || [];
     }
 
-    return { data: { authUser: authData.user, profile, player }, error: null };
+    return { data: { authUser: authData.user, profile, player, teams }, error: null };
+  }
+
+  async function updateOwnProfile(changes) {
+    const supabaseClient = getClient();
+    if (!supabaseClient) return { data: null, error: new Error('Supabase no inicializado') };
+    const { data: authData, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !authData?.user) return { data: null, error: authError || new Error('No hay una sesión activa') };
+
+    const allowed = {};
+    if (typeof changes?.full_name === 'string') allowed.full_name = changes.full_name.trim();
+    if (typeof changes?.avatar_path === 'string' || changes?.avatar_path === null) allowed.avatar_path = changes.avatar_path;
+    if (['es', 'ca'].includes(changes?.preferred_language)) allowed.preferred_language = changes.preferred_language;
+    if (!Object.keys(allowed).length) return { data: null, error: new Error('No hay cambios válidos') };
+
+    return supabaseClient
+      .from('profiles')
+      .update(allowed)
+      .eq('id', authData.user.id)
+      .select('id, club_id, username, full_name, role, avatar_path, active, last_login_at, preferred_language')
+      .single();
+  }
+
+  async function updateOwnPlayer(changes) {
+    const supabaseClient = getClient();
+    if (!supabaseClient) return { data: null, error: new Error('Supabase no inicializado') };
+    const { data: authData, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !authData?.user) return { data: null, error: authError || new Error('No hay una sesión activa') };
+
+    const allowed = {};
+    if (Number.isInteger(Number(changes?.dorsal))) allowed.dorsal = Number(changes.dorsal);
+    if (typeof changes?.birth_date === 'string' || changes?.birth_date === null) allowed.birth_date = changes.birth_date || null;
+    if (typeof changes?.position === 'string') allowed.position = changes.position.trim();
+    if (!Object.keys(allowed).length) return { data: null, error: new Error('No hay cambios válidos') };
+
+    return supabaseClient
+      .from('players')
+      .update(allowed)
+      .eq('profile_id', authData.user.id)
+      .select('id, legacy_id, team_id, dorsal, birth_date, position, status, active')
+      .single();
   }
 
   async function touchLastLogin() {
@@ -172,6 +231,8 @@
     getSession,
     getProfile,
     getIdentity,
+    updateOwnProfile,
+    updateOwnPlayer,
     touchLastLogin,
     updatePassword
   });

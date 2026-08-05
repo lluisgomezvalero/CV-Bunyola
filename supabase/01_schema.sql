@@ -89,6 +89,7 @@ create table if not exists public.profiles (
   full_name text not null,
   role public.app_role not null default 'player',
   avatar_path text,
+  preferred_language text not null default 'es' check (preferred_language in ('es','ca')),
   active boolean not null default true,
   last_login_at timestamptz,
   created_at timestamptz not null default now(),
