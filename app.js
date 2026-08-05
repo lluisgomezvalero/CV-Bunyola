@@ -7068,3 +7068,190 @@ renderWellness = function renderWellnessRC201() {
   } catch (_) {}
 };
 window.renderWellness = renderWellness;
+
+
+/* ==========================================================================\n   RC2.0.3 — SEGUIMIENTO SEMANAL, RPE Y SUEÑO OBLIGATORIO\n   ========================================================================== */
+(function(){
+  const normalizeId = value => String(value ?? '').trim();
+  const eventRecords = eventId => (appState.trainingRPEs || []).filter(record => {
+    const rid = record?.eventId ?? record?.trainingId ?? record?.sessionId;
+    return normalizeId(rid) === normalizeId(eventId) && Number.isFinite(Number(record?.rpeVal));
+  });
+  const officialValidated = event => Boolean(event?.attendanceValidatedAt || event?.attendanceOfficial || event?.attendanceValidated === true);
+  const weekDate = value => {
+    const raw = value instanceof Date ? value : new Date(`${value}T12:00:00`);
+    return Number.isNaN(raw.getTime()) ? null : raw;
+  };
+
+  getWeeklyCoachTracking = function getWeeklyCoachTrackingRC203(){
+    const range = getRC17WeekRange();
+    const players = appState.players || [];
+    const trainings = (appState.events || []).filter(event => isTrainingEvent(event) && eventInRC17Week(event,range));
+    const finished = trainings.filter(event => isTrainingFinished(event));
+    const wellnessResponders = new Set((appState.wellnessLogs || []).filter(log => {
+      const raw = log.dateKey || log.date || getLocalDateKey(new Date(log.createdAt || Date.now()));
+      const date = weekDate(raw);
+      return date && date >= range.start && date <= range.end;
+    }).map(log => log.playerId));
+    const confirmationExpected = trainings.length * players.length;
+    const confirmationDone = trainings.reduce((sum,event) => sum + new Set((appState.trainingConfirmations || []).filter(c=>normalizeId(c.eventId)===normalizeId(event.id)).map(c=>c.playerId)).size,0);
+    const validated = trainings.filter(officialValidated);
+    const dueForValidation = trainings.filter(event => {
+      const d = weekDate(event.date);
+      return d && d <= new Date() && !officialValidated(event);
+    });
+    const rpeSessions = trainings.map(event => {
+      const records = eventRecords(event.id).filter(r => r.playerId);
+      const responders = new Set(records.map(r=>r.playerId));
+      const avg = records.length ? records.reduce((s,r)=>s+Number(r.rpeVal),0)/records.length : null;
+      return {event,done:responders.size,total:players.length,pct:players.length?Math.round(responders.size*100/players.length):0,average:avg,coachRpe:Number.isFinite(Number(event.coachRpe))?Number(event.coachRpe):null};
+    });
+    return {
+      range, players:players.length, trainings, finished, validated,
+      wellnessDone:wellnessResponders.size, wellnessPending:Math.max(0,players.length-wellnessResponders.size),
+      confirmationDone, confirmationExpected, confirmationPending:Math.max(0,confirmationExpected-confirmationDone),
+      validationDone:validated.length, validationTotal:trainings.length, validationPending:dueForValidation.length, rpeSessions
+    };
+  };
+  window.getWeeklyCoachTracking = getWeeklyCoachTracking;
+
+  renderWeeklyCoachTrackingCard = function renderWeeklyCoachTrackingCardRC203(){
+    const tracking = getWeeklyCoachTracking();
+    const dateLabel = `${tracking.range.start.toLocaleDateString('es-ES',{day:'numeric',month:'short'})} – ${tracking.range.end.toLocaleDateString('es-ES',{day:'numeric',month:'short'})}`;
+    const rpeRows = tracking.rpeSessions.length ? tracking.rpeSessions.map(item => {
+      const team = item.average === null ? '—' : item.average.toFixed(1);
+      const coach = item.coachRpe === null ? '—' : item.coachRpe.toFixed(1);
+      return `<div class="weekly-rpe-row weekly-rpe-row-detailed"><span>${escapeDashboardText(item.event.title || 'Entrenamiento')}<small>${formatEventDate(item.event.date)}</small></span><div class="weekly-rpe-values"><em>Equipo <b>${team}</b></em><em>Mi RPE <b>${coach}</b></em></div><strong>${item.pct}%</strong><div class="weekly-rpe-mini"><span style="width:${item.pct}%"></span></div><b>${item.done}/${item.total}</b></div>`;
+    }).join('') : '<p class="weekly-empty">No hay entrenamientos programados esta semana.</p>';
+    return `<article class="dashboard-card dashboard-card-wide weekly-tracking-card"><div class="dashboard-card-topline"><span class="dashboard-eyebrow"><i data-lucide="calendar-range"></i> Seguimiento semanal</span><span class="weekly-range">${dateLabel}</span></div><div class="weekly-tracking-grid">
+      ${renderRC17Progress('Bienestar',tracking.wellnessDone,tracking.players,'heart-pulse')}
+      ${renderRC17Progress('Confirmaciones',tracking.confirmationDone,tracking.confirmationExpected,'calendar-check')}
+      ${renderRC17Progress('Listas validadas',tracking.validationDone,tracking.validationTotal,'badge-check')}
+    </div><div class="weekly-rpe-section"><div class="weekly-rpe-title"><span><i data-lucide="activity"></i> Respuesta de Carga/RPE</span><small>Media semanal y detalle por entrenamiento</small></div>${rpeRows}</div><div class="weekly-pending-summary"><span><b>${tracking.wellnessPending}</b> bienestar pendientes</span><span><b>${tracking.confirmationPending}</b> confirmaciones pendientes</span><span><b>${tracking.validationPending}</b> listas por validar</span></div></article>`;
+  };
+  window.renderWeeklyCoachTrackingCard = renderWeeklyCoachTrackingCard;
+
+  renderCoachAttendanceList = function renderCoachAttendanceListRC203(){
+    const container = document.getElementById('coach-attendance-list');
+    if (!container) return;
+    const range = getRC17WeekRange();
+    const trainings = (appState.events || []).filter(event => isTrainingEvent(event) && eventInRC17Week(event,range)).sort((a,b)=>parseEventStart(a)-parseEventStart(b));
+    if (!trainings.length){
+      container.innerHTML='<div class="training-empty coach-control-empty"><i data-lucide="calendar-range"></i><h3>Sin entrenamientos esta semana</h3><p>Cuando programes una sesión aparecerá aquí con su preparación, asistencia y percepción del esfuerzo.</p></div>';
+      if(window.lucide) lucide.createIcons(); return;
+    }
+    const cards=trainings.map(event=>{
+      const finished=isTrainingFinished(event);
+      const records=eventRecords(event.id).filter(r=>r.playerId);
+      const avg=records.length?records.reduce((s,r)=>s+Number(r.rpeVal),0)/records.length:null;
+      const coach=Number.isFinite(Number(event.coachRpe))?Number(event.coachRpe):null;
+      const validated=officialValidated(event);
+      const attendance=(appState.attendanceData||[]).filter(r=>normalizeId(r.eventId)===normalizeId(event.id));
+      const present=attendance.filter(r=>['present','attended'].includes(r.status)).length;
+      const planned=Boolean(event.plan||event.description||event.attachmentId||event.sessionImage);
+      return `<button type="button" class="attendance-card coach-training-control-card" onclick="${finished?`openCoachAttendanceDetail('${event.id}')`:`openSeasonEvent('${event.id}')`}"><div class="att-card-left"><span class="coach-control-date">${formatEventDate(event.date)} · ${event.time||'Hora pendiente'}</span><strong>${escapeSessionText(event.title||'Entrenamiento')}</strong><small>${finished?'Finalizado':'Próximo'}</small></div><div class="coach-control-statuses"><span class="${planned?'is-complete':'is-pending'}"><i data-lucide="notebook-pen"></i>${planned?'Preparado':'Sin preparar'}</span><span class="${validated?'is-complete':'is-pending'}"><i data-lucide="clipboard-check"></i>${validated?`${present} asistencias validadas`:'Lista pendiente'}</span><span class="is-neutral"><i data-lucide="users"></i>Equipo: ${avg===null?'—':avg.toFixed(1)}</span><span class="is-neutral"><i data-lucide="user-round"></i>Mi RPE: ${coach===null?'—':coach.toFixed(1)}</span><span class="is-neutral"><i data-lucide="gauge"></i>${records.length}/${(appState.players||[]).length} respuestas</span></div><i data-lucide="chevron-right" class="coach-control-arrow"></i></button>`;
+    }).join('');
+    container.innerHTML=`<section class="coach-control-section"><div class="coach-control-section-title"><span>Entrenamientos de la semana</span><b>${trainings.length}</b></div>${cards}</section>`;
+    if(window.lucide) lucide.createIcons();
+  };
+  window.renderCoachAttendanceList=renderCoachAttendanceList;
+
+  renderTeamRpeSummary = function renderTeamRpeSummaryRC203(){
+    const section=document.getElementById('rpe-team-summary-section');
+    const grid=document.getElementById('rpe-team-summary-grid');
+    if(!section||!grid) return;
+    if(!isCoachUser()){section.style.display='none';return;}
+    section.style.display='block';
+    const trainings=(appState.events||[]).filter(isTrainingEvent).sort((a,b)=>getTrainingDateTime(b)-getTrainingDateTime(a)).slice(0,18);
+    if(!trainings.length){grid.innerHTML='<p class="training-no-rpe">Todavía no hay entrenamientos registrados.</p>';return;}
+    grid.innerHTML=trainings.map(training=>{
+      const records=eventRecords(training.id).filter(r=>r.playerId);
+      const avg=records.length?records.reduce((s,r)=>s+Number(r.rpeVal),0)/records.length:null;
+      const date=weekDate(training.date);
+      const label=date?date.toLocaleDateString('es-ES',{day:'2-digit',month:'short'}):String(training.date||'');
+      return `<button type="button" class="rpe-average-tile ${records.length?'has-data':'is-empty'}" onclick="openRpeResponsesModal('${training.id}')"><span>${label}</span><strong>${avg===null?'—':avg.toFixed(1)}</strong><small>${records.length} respuesta${records.length===1?'':'s'}</small></button>`;
+    }).join('');
+  };
+  window.renderTeamRpeSummary=renderTeamRpeSummary;
+
+  renderBorgMatrix = function renderBorgMatrixRC203(){
+    const thead=document.getElementById('borg-matrix-thead-tr');
+    const tbody=document.getElementById('borg-matrix-tbody');
+    if(!thead||!tbody) return;
+    thead.innerHTML='<th>Semana / día</th><th>Respuestas</th><th>Bienestar medio</th><th>Sueño medio</th><th>Detalle</th>';
+    let logs=(appState.wellnessLogs||[]).filter(Boolean);
+    if(!isCoachUser()){
+      const user=getCurrentUser(); if(user?.playerId) logs=logs.filter(l=>l.playerId===user.playerId);
+    }
+    const groups=new Map();
+    logs.forEach(log=>{
+      const dateKey=log.dateKey||log.date||(log.createdAt?getLocalDateKey(new Date(log.createdAt)):null);
+      if(!dateKey) return;
+      const info=getWeekInfoForDate(new Date(`${dateKey}T12:00:00`));
+      if(!groups.has(info.weekKey)) groups.set(info.weekKey,{monday:info.mondayDate,days:new Map()});
+      const week=groups.get(info.weekKey);
+      if(!week.days.has(dateKey)) week.days.set(dateKey,[]);
+      week.days.get(dateKey).push(log);
+    });
+    const entries=[...groups.entries()].sort((a,b)=>b[1].monday-a[1].monday);
+    if(!entries.length){tbody.innerHTML='<tr><td colspan="5" class="weekly-empty">Todavía no hay cuestionarios contestados.</td></tr>';return;}
+    tbody.innerHTML=entries.map(([weekKey,week])=>{
+      const all=[...week.days.values()].flat();
+      const f=all.map(l=>Number(l.fatigue)).filter(Number.isFinite);
+      const s=all.map(l=>Number(l.sleepQuality)).filter(v=>Number.isFinite(v)&&v>0);
+      const favg=f.length?(f.reduce((a,b)=>a+b,0)/f.length).toFixed(1):'—';
+      const savg=s.length?(s.reduce((a,b)=>a+b,0)/s.length).toFixed(1):'—';
+      const sunday=new Date(week.monday); sunday.setDate(sunday.getDate()+6);
+      const header=`<tr class="wellness-week-summary"><td><strong>${week.monday.toLocaleDateString('es-ES',{day:'2-digit',month:'short'})} – ${sunday.toLocaleDateString('es-ES',{day:'2-digit',month:'short'})}</strong></td><td>${all.length}</td><td><b>${favg}</b>/5</td><td><b>${savg}</b>/5</td><td>Media semanal</td></tr>`;
+      const days=[...week.days.entries()].sort((a,b)=>new Date(b[0])-new Date(a[0])).map(([dateKey,dayLogs])=>{
+        const df=dayLogs.map(l=>Number(l.fatigue)).filter(Number.isFinite);
+        const ds=dayLogs.map(l=>Number(l.sleepQuality)).filter(v=>Number.isFinite(v)&&v>0);
+        const names=dayLogs.map(l=>(appState.players||[]).find(p=>p.id===l.playerId)?.name||l.playerName||'Jugadora').join(', ');
+        return `<tr class="wellness-day-detail"><td>${new Date(`${dateKey}T12:00:00`).toLocaleDateString('es-ES',{weekday:'short',day:'2-digit',month:'2-digit'})}</td><td>${dayLogs.length}</td><td>${df.length?(df.reduce((a,b)=>a+b,0)/df.length).toFixed(1):'—'}</td><td>${ds.length?(ds.reduce((a,b)=>a+b,0)/ds.length).toFixed(1):'—'}</td><td>${escapeDashboardText(names)}</td></tr>`;
+      }).join('');
+      return header+days;
+    }).join('');
+  };
+  window.renderBorgMatrix=renderBorgMatrix;
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    const form=document.getElementById('form-wellness');
+    const submit=document.getElementById('btn-submit-wellness');
+    const hidden=document.getElementById('wellness-sleep-quality');
+    const sync=()=>{if(submit) submit.disabled=!(hidden&&hidden.value);};
+    if(hidden&&!hidden.value) sync();
+    document.querySelectorAll('[data-sleep]').forEach(btn=>btn.addEventListener('click',()=>{if(hidden) hidden.value=btn.dataset.sleep;sync();}));
+    form?.addEventListener('submit',event=>{
+      if(!hidden?.value){event.preventDefault();event.stopImmediatePropagation();showToast('Selecciona cómo estás durmiendo antes de enviar la valoración.','error');sync();}
+    },true);
+  });
+
+  const originalOpenWellness=openAddWellnessModal;
+  openAddWellnessModal=function openAddWellnessModalRC203(targetPlayerId,targetWeekNum){
+    originalOpenWellness(targetPlayerId,targetWeekNum);
+    const select=document.getElementById('wellness-player-select');
+    const pid=select?.value;
+    const status=pid?getPlayerDailyStatus(pid):null;
+    const hidden=document.getElementById('wellness-sleep-quality');
+    const submit=document.getElementById('btn-submit-wellness');
+    if(!status?.log){
+      if(hidden) hidden.value='';
+      document.querySelectorAll('[data-sleep]').forEach(button=>button.classList.remove('selected'));
+      if(submit) submit.disabled=true;
+    }
+  };
+  window.openAddWellnessModal=openAddWellnessModal;
+
+  const originalSetSleep=setWellnessSleepChoice;
+  setWellnessSleepChoice=function setWellnessSleepChoiceRC203(value){
+    if(value===null||value===undefined||value===''){
+      const hidden=document.getElementById('wellness-sleep-quality'); if(hidden) hidden.value='';
+      document.querySelectorAll('[data-sleep]').forEach(button=>button.classList.remove('selected'));
+      const submit=document.getElementById('btn-submit-wellness'); if(submit) submit.disabled=true;
+      return;
+    }
+    originalSetSleep(value);
+    const submit=document.getElementById('btn-submit-wellness'); if(submit) submit.disabled=false;
+  };
+  window.setWellnessSleepChoice=setWellnessSleepChoice;
+})();

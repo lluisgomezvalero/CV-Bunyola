@@ -4199,3 +4199,67 @@ body.profile-modal-open #module-header-nav{visibility:hidden!important;pointer-e
 #module-header-nav:not(.is-hidden) #desktop-quick-nav .desktop-nav-item[data-target="home"] {
   display: none !important;
 }
+
+
+/* RC2.0.3 */
+.weekly-rpe-row-detailed{grid-template-columns:minmax(150px,1.4fr) minmax(150px,1fr) auto minmax(90px,.8fr) auto}
+.weekly-rpe-values{display:flex;gap:.55rem;flex-wrap:wrap}.weekly-rpe-values em{font-style:normal;font-size:.78rem;color:var(--text-muted);background:rgba(148,163,184,.12);padding:.25rem .45rem;border-radius:7px}.weekly-rpe-values b{color:var(--text-main)}
+.wellness-week-summary{background:rgba(217,119,6,.09);font-weight:700}.wellness-week-summary td{border-top:2px solid rgba(217,119,6,.25)}.wellness-day-detail td:first-child{padding-left:1.5rem}.wellness-day-detail{background:rgba(248,250,252,.75)}
+#btn-submit-wellness:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:700px){.weekly-rpe-row-detailed{grid-template-columns:1fr auto}.weekly-rpe-values{grid-column:1/-1}.weekly-rpe-mini{grid-column:1/-1}}
+
+/* Supabase · indicador de conexión de la fase 1 */
+.supabase-connection-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  margin-top: .9rem;
+  padding: .55rem .75rem;
+  border: 1px solid rgba(148, 163, 184, .35);
+  border-radius: .75rem;
+  background: rgba(15, 23, 42, .05);
+  color: #64748b;
+  font-size: .78rem;
+  font-weight: 650;
+  text-align: center;
+}
+.supabase-status-dot {
+  width: .55rem;
+  height: .55rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #94a3b8;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, .15);
+}
+.supabase-connection-status[data-state="ready"] {
+  color: #047857;
+  border-color: rgba(16, 185, 129, .3);
+  background: rgba(16, 185, 129, .08);
+}
+.supabase-connection-status[data-state="ready"] .supabase-status-dot {
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, .16);
+}
+.supabase-connection-status[data-state="schema-missing"] {
+  color: #b45309;
+  border-color: rgba(245, 158, 11, .3);
+  background: rgba(245, 158, 11, .08);
+}
+.supabase-connection-status[data-state="schema-missing"] .supabase-status-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, .16);
+}
+.supabase-connection-status[data-state="database-error"],
+.supabase-connection-status[data-state="network-error"],
+.supabase-connection-status[data-state="client-error"] {
+  color: #b91c1c;
+  border-color: rgba(239, 68, 68, .3);
+  background: rgba(239, 68, 68, .08);
+}
+.supabase-connection-status[data-state="database-error"] .supabase-status-dot,
+.supabase-connection-status[data-state="network-error"] .supabase-status-dot,
+.supabase-connection-status[data-state="client-error"] .supabase-status-dot {
+  background: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, .16);
+}

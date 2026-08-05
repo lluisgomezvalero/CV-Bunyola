@@ -41,6 +41,11 @@
           </div>
           
           <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Iniciar Sesión</button>
+
+          <div id="supabase-connection-status" class="supabase-connection-status" data-state="checking" role="status" aria-live="polite">
+            <span class="supabase-status-dot" aria-hidden="true"></span>
+            <span>Comprobando conexión segura…</span>
+          </div>
         </form>
       </div>
     </div>
@@ -326,8 +331,8 @@
         <div id="rpe-team-summary-section" class="coach-only-view" style="margin-top:2rem;">
           <h3 style="font-family:var(--font-heading);font-size:1.1rem;color:#475569;margin-bottom:.5rem;">Percepción del esfuerzo media del equipo</h3>
           <p style="margin:0 0 1rem;color:#64748b;font-size:.85rem;">Cada cuadro representa un entrenamiento. Pulsa sobre la media para ver qué jugadoras han respondido y su puntuación.</p>
-          <div class="rpe-legend-bottom" aria-label="Leyenda RPE"><span><b>0–2</b> Muy suave</span><span><b>3–4</b> Suave</span><span><b>5–6</b> Moderado</span><span><b>7–8</b> Intenso</span><span><b>9–10</b> Máximo</span></div>
           <div id="rpe-team-summary-grid" class="rpe-team-summary-grid"></div>
+          <div class="rpe-legend-bottom" aria-label="Leyenda RPE"><span><b>0–2</b> Muy suave</span><span><b>3–4</b> Suave</span><span><b>5–6</b> Moderado</span><span><b>7–8</b> Intenso</span><span><b>9–10</b> Máximo</span></div>
         </div>
       </div>
     </div>
@@ -1272,11 +1277,11 @@
             <div class="wellness-choice-row" id="wellness-sleep-options" role="radiogroup" aria-label="Calidad del sueño">
               <button type="button" class="wellness-choice" data-sleep="1">1<span>Muy bien</span></button>
               <button type="button" class="wellness-choice" data-sleep="2">2<span>Bien</span></button>
-              <button type="button" class="wellness-choice selected" data-sleep="3">3<span>Regular</span></button>
+              <button type="button" class="wellness-choice" data-sleep="3">3<span>Regular</span></button>
               <button type="button" class="wellness-choice" data-sleep="4">4<span>Mal</span></button>
               <button type="button" class="wellness-choice" data-sleep="5">5<span>Muy mal</span></button>
             </div>
-            <input type="hidden" id="wellness-sleep-quality" value="3">
+            <input type="hidden" id="wellness-sleep-quality" value="">
           </div>
 
           <div class="form-group">
@@ -1617,6 +1622,9 @@
     <div id="toast-container"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js?v=1"></script>
+    <script src="supabase-client.js?v=1"></script>
     <script src="data.js?v=319"></script>
     <script src="app.js?v=rc201"></script>
   
