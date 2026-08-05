@@ -73,16 +73,66 @@
     await supabaseClient.auth.signOut();
   }
 
+  async function getSession() {
+    const supabaseClient = getClient();
+    if (!supabaseClient) return { data: { session: null }, error: new Error('Supabase no inicializado') };
+    return supabaseClient.auth.getSession();
+  }
+
   async function getProfile() {
     const supabaseClient = getClient();
     if (!supabaseClient) return { data: null, error: new Error('Supabase no inicializado') };
     const { data: authData, error: authError } = await supabaseClient.auth.getUser();
-    if (authError || !authData?.user) return { data: null, error: authError };
+    if (authError || !authData?.user) return { data: null, error: authError || new Error('No hay una sesión activa') };
     return supabaseClient
       .from('profiles')
-      .select('*')
+      .select('id, club_id, username, full_name, role, avatar_path, active, last_login_at')
       .eq('id', authData.user.id)
       .single();
+  }
+
+  async function getIdentity() {
+    const supabaseClient = getClient();
+    if (!supabaseClient) return { data: null, error: new Error('Supabase no inicializado') };
+    const { data: authData, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !authData?.user) return { data: null, error: authError || new Error('No hay una sesión activa') };
+
+    const { data: profile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('id, club_id, username, full_name, role, avatar_path, active, last_login_at')
+      .eq('id', authData.user.id)
+      .single();
+    if (profileError) return { data: null, error: profileError };
+
+    let player = null;
+    if (profile.role === 'player') {
+      const playerResult = await supabaseClient
+        .from('players')
+        .select('id, legacy_id, team_id, dorsal, birth_date, position, status')
+        .eq('profile_id', authData.user.id)
+        .maybeSingle();
+      if (playerResult.error) return { data: null, error: playerResult.error };
+      player = playerResult.data || null;
+    }
+
+    return { data: { authUser: authData.user, profile, player }, error: null };
+  }
+
+  async function touchLastLogin() {
+    const supabaseClient = getClient();
+    if (!supabaseClient) return;
+    const { data } = await supabaseClient.auth.getUser();
+    if (!data?.user) return;
+    await supabaseClient
+      .from('profiles')
+      .update({ last_login_at: new Date().toISOString() })
+      .eq('id', data.user.id);
+  }
+
+  async function updatePassword(newPassword) {
+    const supabaseClient = getClient();
+    if (!supabaseClient) return { data: null, error: new Error('Supabase no inicializado') };
+    return supabaseClient.auth.updateUser({ password: newPassword });
   }
 
   function paintConnectionStatus(result) {
@@ -119,7 +169,11 @@
     usernameToEmail,
     signInWithUsername,
     signOut,
-    getProfile
+    getSession,
+    getProfile,
+    getIdentity,
+    touchLastLogin,
+    updatePassword
   });
 
   document.addEventListener('DOMContentLoaded', initializeStatus, { once: true });

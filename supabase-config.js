@@ -7,9 +7,9 @@ window.VOLLEY_SUPABASE_CONFIG = Object.freeze({
   url: 'https://zpvlkdjdfnvamfcjihyt.supabase.co',
   publishableKey: 'sb_publishable_seL2H6gAGBrUDR0O1vhJDA_Y9d7Ky-u',
   enabled: true,
-  // Fase 1: solo conexión y diagnóstico. El login y los datos siguen locales
-  // hasta crear los usuarios Auth y validar las políticas RLS.
-  authMode: 'local',
+  // RC3.0 Bloque A: autenticación real mediante Supabase Auth.
+  // Los datos deportivos siguen locales hasta las siguientes fases.
+  authMode: 'supabase',
   syncMode: 'off',
   usernameDomain: 'cvbunyola.app'
 });

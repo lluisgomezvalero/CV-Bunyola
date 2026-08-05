@@ -194,7 +194,7 @@ const MONTH_NAMES = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
 ];
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const safeInit = (name, fn) => {
     try {
       if (typeof fn === "function") fn();
@@ -219,16 +219,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   safeInit("cabecera", updateTeamHeaderInfo);
 
-  const storedSession = sessionStorage.getItem("volley_authenticated") === "true";
-  const currentUser = getCurrentUser();
-  const isAuthenticated = storedSession && currentUser && currentUser.username;
   const loginView = document.getElementById("view-login");
   const portalWrapper = document.querySelector(".app-portal-wrapper");
+  const currentUser = await restoreSupabaseSession();
+  const isAuthenticated = Boolean(currentUser && currentUser.username);
 
-  // Repara sesiones incompletas que pueden quedar tras editar archivos o recargar.
   if (!isAuthenticated) {
-    sessionStorage.removeItem("volley_authenticated");
-    sessionStorage.removeItem("volley_current_user");
+    clearLocalAuthCache();
     if (loginView) loginView.classList.add("active");
     if (portalWrapper) portalWrapper.style.display = "none";
   } else {
@@ -366,25 +363,85 @@ function getCurrentUser() {
   return null;
 }
 
+function clearLocalAuthCache() {
+  sessionStorage.removeItem("volley_authenticated");
+  sessionStorage.removeItem("volley_current_user");
+}
+
+function mapSupabaseIdentityToLegacy(identity) {
+  if (!identity?.profile) return null;
+  const { profile, player, authUser } = identity;
+  const roleMap = { administrator: "admin", coach: "coach", player: "player" };
+  const localPlayer = player
+    ? (appState.players || []).find(p =>
+        String(p.id) === String(player.legacy_id || player.id) ||
+        String(p.username || "").toLowerCase() === String(profile.username || "").toLowerCase()
+      )
+    : null;
+
+  return {
+    authId: authUser?.id || profile.id,
+    username: profile.username,
+    name: profile.full_name,
+    role: roleMap[profile.role] || "player",
+    supabaseRole: profile.role,
+    clubId: profile.club_id || null,
+    playerId: localPlayer?.id || player?.legacy_id || player?.id || null,
+    avatar: profile.avatar_path || localPlayer?.avatar || null,
+    active: profile.active !== false,
+    lastLogin: profile.last_login_at || null
+  };
+}
+
+async function restoreSupabaseSession() {
+  try {
+    if (!window.VolleySupabase || window.VolleySupabase.config?.authMode !== "supabase") {
+      return getCurrentUser();
+    }
+    const { data: sessionData, error: sessionError } = await window.VolleySupabase.getSession();
+    if (sessionError || !sessionData?.session) return null;
+
+    const { data: identity, error: identityError } = await window.VolleySupabase.getIdentity();
+    if (identityError || !identity?.profile || identity.profile.active === false) {
+      await window.VolleySupabase.signOut();
+      return null;
+    }
+
+    const user = mapSupabaseIdentityToLegacy(identity);
+    if (!user) return null;
+    sessionStorage.setItem("volley_authenticated", "true");
+    sessionStorage.setItem("volley_current_user", JSON.stringify(user));
+    return user;
+  } catch (error) {
+    console.error("[Supabase Auth] No se pudo restaurar la sesión:", error);
+    return null;
+  }
+}
+
 function isCoachUser() {
   const user = getCurrentUser();
-  return user && user.role === "admin";
+  return user && ["admin", "coach"].includes(user.role);
 }
 
 let volleyLogoutInProgress = false;
-function handleLogout(event) {
+async function handleLogout(event) {
   if (event) { event.preventDefault(); event.stopPropagation(); }
   if (volleyLogoutInProgress) return;
   volleyLogoutInProgress = true;
 
-  // Respuesta inmediata: desactiva el botón y evita avisos de cambios pendientes.
   document.querySelectorAll('.dashboard-logout-btn').forEach(button => {
     button.disabled = true;
     button.classList.add('is-leaving');
   });
   try { if (window.flushAppDataSave) window.flushAppDataSave(); } catch (_) {}
-  sessionStorage.removeItem("volley_authenticated");
-  sessionStorage.removeItem("volley_current_user");
+  try {
+    if (window.VolleySupabase?.config?.authMode === "supabase") {
+      await window.VolleySupabase.signOut();
+    }
+  } catch (error) {
+    console.warn("[Supabase Auth] Error al cerrar sesión:", error);
+  }
+  clearLocalAuthCache();
   localStorage.removeItem('volleycoach_unsaved_draft');
   localStorage.removeItem('volleycoach_unsaved_draft_meta');
   window.location.replace(window.location.pathname + window.location.search);
@@ -431,53 +488,62 @@ function initLoginListener() {
 
   if (formLogin && formLogin.dataset.listenerReady !== "true") {
     formLogin.dataset.listenerReady = "true";
-    formLogin.addEventListener("submit", (e) => {
+    formLogin.addEventListener("submit", async (e) => {
       e.preventDefault();
       if (loginErrorMsg) loginErrorMsg.style.display = "none";
 
       const usernameInput = document.getElementById("login-username");
       const passwordInput = document.getElementById("login-password");
+      const submitButton = formLogin.querySelector('button[type="submit"]');
       const userVal = (usernameInput?.value || "").trim().toLowerCase();
       const passVal = passwordInput?.value || "";
-      const users = Array.isArray(appState?.users) ? appState.users : [];
 
-      const userMatch = users.find(u =>
-        String(u?.username || "").trim().toLowerCase() === userVal &&
-        String(u?.password ?? "") === passVal
-      );
+      if (!userVal || !passVal) return;
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.dataset.originalText = submitButton.textContent;
+        submitButton.textContent = "Entrando…";
+      }
 
-      if (userMatch) {
-        // Update last login (Día y hora exactos)
-        const now = new Date();
-        const formattedDate = `${now.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })} - ${now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
-        userMatch.lastLogin = formattedDate;
-        saveAppData(appState);
-        
-        const tbody = document.getElementById("users-table-body");
-        if (tbody && tbody.children.length > 0) {
-          renderUsers();
+      try {
+        const { error: signInError } = await window.VolleySupabase.signInWithUsername(userVal, passVal);
+        if (signInError) throw signInError;
+
+        const { data: identity, error: identityError } = await window.VolleySupabase.getIdentity();
+        if (identityError || !identity?.profile) throw identityError || new Error("La cuenta no tiene un perfil asociado.");
+        if (identity.profile.active === false) {
+          await window.VolleySupabase.signOut();
+          throw new Error("Esta cuenta está desactivada.");
         }
 
+        const authenticatedUser = mapSupabaseIdentityToLegacy(identity);
         sessionStorage.setItem("volley_authenticated", "true");
-        sessionStorage.setItem("volley_current_user", JSON.stringify({
-          username: userMatch.username,
-          name: userMatch.name,
-          role: userMatch.role,
-          playerId: userMatch.playerId,
-          lastLogin: formattedDate
-        }));
+        sessionStorage.setItem("volley_current_user", JSON.stringify(authenticatedUser));
+        window.VolleySupabase.touchLastLogin().catch(() => {});
 
         const loginScreen = document.getElementById("view-login");
         const appPortal = document.querySelector(".app-portal-wrapper");
         if (loginScreen) loginScreen.classList.remove("active");
         if (appPortal) appPortal.style.display = "block";
-        
+
         applyRolePermissions();
         try { renderNavUserProfile(); } catch(e){}
         openModule("home-portal");
         maybeOpenWeeklyWellnessPrompt();
-      } else {
-        if (loginErrorMsg) loginErrorMsg.style.display = "flex";
+      } catch (error) {
+        console.error("[Supabase Auth] Inicio de sesión rechazado:", error);
+        if (loginErrorMsg) {
+          const text = loginErrorMsg.querySelector('span') || loginErrorMsg;
+          text.textContent = error?.message === "Invalid login credentials"
+            ? "Usuario o contraseña incorrectos."
+            : (error?.message || "No se ha podido iniciar sesión.");
+          loginErrorMsg.style.display = "flex";
+        }
+      } finally {
+        if (submitButton) {
+          submitButton.disabled = false;
+          submitButton.textContent = submitButton.dataset.originalText || "Entrar";
+        }
       }
     });
   }
@@ -642,19 +708,26 @@ function initLoginListener() {
     document.getElementById("form-change-password")?.reset();
     passwordModal?.classList.add("active");
   });
-  document.getElementById("form-change-password")?.addEventListener("submit", (e) => {
+  document.getElementById("form-change-password")?.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const currentPassword = document.getElementById("profile-current-password")?.value || "";
     const pass1 = document.getElementById("profile-new-password")?.value || "";
     const pass2 = document.getElementById("profile-confirm-password")?.value || "";
-    const currentUser = getCurrentUser();
-    const userMatch = currentUser && Array.isArray(appState.users) ? appState.users.find(u => String(u.username).toLowerCase() === String(currentUser.username).toLowerCase()) : null;
-    if (!userMatch) return showToast("No se ha podido localizar tu cuenta.", "error");
-    if (currentPassword !== String(userMatch.password || "")) return showToast("La contraseña actual no es correcta.", "error");
     if (pass1 !== pass2) return showToast("Las contraseñas nuevas no coinciden.", "error");
     if (pass1.length < 6) return showToast("La contraseña debe tener mínimo 6 caracteres.", "error");
-    if (pass1 === currentPassword) return showToast("La nueva contraseña debe ser distinta de la actual.", "error");
-    userMatch.password = pass1; saveAppData(appState); e.currentTarget.reset(); passwordModal?.classList.remove("active"); showToast("Contraseña actualizada correctamente.");
+
+    const submitButton = e.currentTarget.querySelector('button[type="submit"]');
+    if (submitButton) submitButton.disabled = true;
+    try {
+      const { error } = await window.VolleySupabase.updatePassword(pass1);
+      if (error) throw error;
+      e.currentTarget.reset();
+      passwordModal?.classList.remove("active");
+      showToast("Contraseña actualizada correctamente.");
+    } catch (error) {
+      showToast(error?.message || "No se ha podido cambiar la contraseña.", "error");
+    } finally {
+      if (submitButton) submitButton.disabled = false;
+    }
   });
 
   // Listener para cambiar foto de perfil (CUALQUIER ROL)
