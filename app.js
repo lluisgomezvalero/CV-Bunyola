@@ -5009,11 +5009,39 @@ function calculatePlayerAttendanceAndAchievements(playerId) {
 
 window.calculatePlayerAttendanceAndAchievements = calculatePlayerAttendanceAndAchievements;
 
+function isSameEventId(idA, idB) {
+  if (!idA || !idB) return false;
+  if (String(idA) === String(idB)) return true;
+
+  const evA = (appState.events || []).find(e => e.id === idA || e.legacyId === idA);
+  const evB = (appState.events || []).find(e => e.id === idB || e.legacyId === idB);
+
+  if (evA && evB && evA === evB) return true;
+  if (evA && (evA.id === idB || evA.legacyId === idB)) return true;
+  if (evB && (evB.id === idA || evB.legacyId === idA)) return true;
+
+  return false;
+}
+
+function isSamePlayerId(idA, idB) {
+  if (!idA || !idB) return false;
+  if (String(idA) === String(idB)) return true;
+
+  const pA = (appState.players || []).find(p => p.id === idA || p.legacy_id === idA || p.profile_id === idA);
+  const pB = (appState.players || []).find(p => p.id === idB || p.legacy_id === idB || p.profile_id === idB);
+
+  if (pA && pB && pA === pB) return true;
+  if (pA && (pA.id === idB || pA.legacy_id === idB || pA.profile_id === idB)) return true;
+  if (pB && (pB.id === idA || pB.legacy_id === idA || pB.profile_id === idA)) return true;
+
+  return false;
+}
+
 // SISTEMA DE CONFIRMACIÓN DE ASISTENCIA A ENTRENAMIENTOS ("¿ACUDIRÉ AL ENTRENAMIENTO?")
 async function confirmTrainingAttendance(eventId, status, note = "") {
   const currentUser = getCurrentUser();
   if (!currentUser || !currentUser.playerId) {
-    showToast("Solo las jugadoras con perfil asignado pueden confirmar asistencia.", "error");
+    showToast("Solo las jugadoras con perfil asignado pueden enviar confirmación de asistencia.", "error");
     return;
   }
 
@@ -5021,11 +5049,12 @@ async function confirmTrainingAttendance(eventId, status, note = "") {
     appState.trainingConfirmations = [];
   }
 
+  const userPId = currentUser.playerId || currentUser.authId;
   const existingConfirmation = appState.trainingConfirmations.find(
-    c => c.eventId === eventId && c.playerId === currentUser.playerId
+    c => isSameEventId(c.eventId, eventId) && isSamePlayerId(c.playerId, userPId)
   );
   if (existingConfirmation) {
-    showToast("La asistencia ya está confirmada y no puede modificarse.", "info");
+    showToast("Tu respuesta ya fue enviada y no se puede modificar.", "info");
     return;
   }
 
@@ -5096,13 +5125,14 @@ function renderHomePortalRSVP() {
   };
 
   const confirmations = appState.trainingConfirmations || [];
-  const eventConfirmations = confirmations.filter(c => c.eventId === upcomingTraining.id);
+  const eventConfirmations = confirmations.filter(c => isSameEventId(c.eventId, upcomingTraining.id));
   const yesCount = eventConfirmations.filter(c => c.status === "yes").length;
   const noCount = eventConfirmations.filter(c => c.status === "no").length;
 
   let playerConfirm = null;
-  if (currentUser && currentUser.playerId) {
-    playerConfirm = eventConfirmations.find(c => c.playerId === currentUser.playerId);
+  if (currentUser) {
+    const pId = currentUser.playerId || currentUser.authId || currentUser.id;
+    playerConfirm = eventConfirmations.find(c => isSamePlayerId(c.playerId, pId));
   }
 
   let actionHTML = "";
@@ -5111,15 +5141,13 @@ function renderHomePortalRSVP() {
       if (playerConfirm.status === "yes") {
         actionHTML = `
           <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-            <span class="rsvp-badge-yes">✓ Asistencia Confirmada</span>
-            <button type="button" class="btn btn-outline btn-sm" style="font-size: 0.75rem; color: #ef4444;" onclick="confirmTrainingAttendance('${upcomingTraining.id}', 'no')">Cambiar a No acudiré</button>
+            <span class="rsvp-badge-yes">🟢 Asistencia comunicada (Sí)</span>
           </div>
         `;
       } else {
         actionHTML = `
           <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-            <span class="rsvp-badge-no">✗ Ausencia Registrada</span>
-            <button type="button" class="btn btn-outline btn-sm" style="font-size: 0.75rem; color: #10b981;" onclick="confirmTrainingAttendance('${upcomingTraining.id}', 'yes')">Cambiar a Sí acudiré</button>
+            <span class="rsvp-badge-no">🔴 Ausencia comunicada (No)</span>
           </div>
         `;
       }
@@ -5790,12 +5818,12 @@ function renderHomeDashboard() {
   const coach = isCoachUser();
   const nextTraining = getUpcomingTrainingEvent();
   const nextMatch = getUpcomingMatchEvent();
-  const confirmations = (appState.trainingConfirmations || []).filter(c => nextTraining && c.eventId === nextTraining.id);
+  const confirmations = (appState.trainingConfirmations || []).filter(c => nextTraining && isSameEventId(c.eventId, nextTraining.id));
   const yes = confirmations.filter(c => c.status === "yes").length;
   const no = confirmations.filter(c => c.status === "no").length;
   const pending = Math.max(0, (appState.players || []).length - yes - no);
   const matchLogos = nextMatch ? getMatchLogosData(nextMatch) : null;
-  const playerId = user.playerId;
+  const playerId = user.playerId || user.authId;
   const game = playerId ? calculatePlayerAttendanceAndAchievements(playerId) : null;
   const weekGoals = playerId ? getGoalsForPlayer(playerId) : [];
   const done = playerId ? weekGoals.filter(g => isGoalCompleted(g, playerId)).length : 0;
@@ -5803,7 +5831,7 @@ function renderHomeDashboard() {
   const lastMatch = getLatestPlayedMatch();
   const allStats = (appState.players || []).map(p => calculatePlayerAttendanceAndAchievements(p.id));
   const teamAttendance = allStats.length ? Math.round(allStats.reduce((a,b) => a + b.ratio, 0) / allStats.length) : 0;
-  const playerConfirm = playerId && nextTraining ? confirmations.find(c => c.playerId === playerId) : null;
+  const playerConfirm = playerId && nextTraining ? confirmations.find(c => isSamePlayerId(c.playerId, playerId)) : null;
   const teamGoals = (appState.weeklyGoals || []).filter(g => g.weekKey === getWeekKeyFromDate());
   const requiredPending = teamGoals.filter(g => g.required).reduce((sum,g) => sum + (appState.players || []).filter(p => (g.isTeamGoal || g.playerId === p.id) && !isGoalCompleted(g,p.id)).length, 0);
   const nextMatchScoutingRecord = nextMatch ? appState.matchScouting?.[nextMatch.id] : null;
