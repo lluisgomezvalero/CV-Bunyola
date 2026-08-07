@@ -492,6 +492,63 @@
   // ASISTENCIA (BLOQUE D)
   // ==========================================
 
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  async function resolvePlayerUUID(supabaseClient, playerId) {
+    if (!playerId) return null;
+    if (uuidRegex.test(playerId)) return playerId;
+
+    try {
+      const { data: legacyData } = await supabaseClient
+        .from('players')
+        .select('id')
+        .eq('legacy_id', String(playerId))
+        .maybeSingle();
+
+      if (legacyData?.id) return legacyData.id;
+
+      const { data: profileData } = await supabaseClient
+        .from('players')
+        .select('id')
+        .eq('profile_id', String(playerId))
+        .maybeSingle();
+
+      if (profileData?.id) return profileData.id;
+
+      const { data: authUser } = await supabaseClient.auth.getUser();
+      if (authUser?.user?.id) {
+        const { data: ownPlayer } = await supabaseClient
+          .from('players')
+          .select('id')
+          .eq('profile_id', authUser.user.id)
+          .maybeSingle();
+
+        if (ownPlayer?.id) return ownPlayer.id;
+      }
+    } catch (e) {
+      console.warn('[Supabase Attendance] Excepción resolviendo UUID de jugadora:', e);
+    }
+    return null;
+  }
+
+  async function resolveEventUUID(supabaseClient, eventId) {
+    if (!eventId) return null;
+    if (uuidRegex.test(eventId)) return eventId;
+
+    try {
+      const { data } = await supabaseClient
+        .from('events')
+        .select('id')
+        .eq('legacy_id', String(eventId))
+        .maybeSingle();
+
+      if (data?.id) return data.id;
+    } catch (e) {
+      console.warn('[Supabase Events] Excepción resolviendo UUID de evento:', e);
+    }
+    return null;
+  }
+
   async function fetchAttendance(clubId) {
     const supabaseClient = getClient();
     if (!supabaseClient) return { data: [], error: new Error('Supabase no inicializado') };
@@ -508,9 +565,19 @@
     const supabaseClient = getClient();
     if (!supabaseClient) return { data: null, error: new Error('Supabase no inicializado') };
 
+    const realEventId = await resolveEventUUID(supabaseClient, eventId);
+    const realPlayerId = await resolvePlayerUUID(supabaseClient, playerId);
+
+    if (!realEventId) {
+      return { data: null, error: new Error(`El entrenamiento ("${eventId}") no existe en Supabase como UUID. Guarde o sincronice el evento primero.`) };
+    }
+    if (!realPlayerId) {
+      return { data: null, error: new Error(`La jugadora ("${playerId}") no tiene un UUID asignado en Supabase.`) };
+    }
+
     const payload = {
-      event_id: eventId,
-      player_id: playerId,
+      event_id: realEventId,
+      player_id: realPlayerId,
       player_response: response
     };
 
@@ -528,16 +595,30 @@
     const supabaseClient = getClient();
     if (!supabaseClient) return { data: null, error: new Error('Supabase no inicializado') };
 
-    const nowISO = new Date().toISOString();
-    const rows = (playerStatusList || []).map(item => ({
-      event_id: eventId,
-      player_id: item.playerId,
-      official_status: item.officialStatus,
-      validated_by: coachProfileId || null,
-      validated_at: nowISO
-    }));
+    const realEventId = await resolveEventUUID(supabaseClient, eventId);
+    if (!realEventId) {
+      return { data: null, error: new Error(`El entrenamiento ("${eventId}") no está registrado en Supabase como UUID.`) };
+    }
 
-    if (!rows.length) return { data: [], error: null };
+    const nowISO = new Date().toISOString();
+    const rows = [];
+
+    for (const item of (playerStatusList || [])) {
+      const realPlayerId = await resolvePlayerUUID(supabaseClient, item.playerId);
+      if (realPlayerId) {
+        rows.push({
+          event_id: realEventId,
+          player_id: realPlayerId,
+          official_status: item.officialStatus,
+          validated_by: (coachProfileId && uuidRegex.test(coachProfileId)) ? coachProfileId : null,
+          validated_at: nowISO
+        });
+      }
+    }
+
+    if (!rows.length) {
+      return { data: [], error: new Error('No hay jugadoras vinculadas con UUID en Supabase para este equipo.') };
+    }
 
     const { data, error } = await supabaseClient
       .from('attendance')
