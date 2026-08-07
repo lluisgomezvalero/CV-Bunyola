@@ -61,10 +61,67 @@
   async function signInWithUsername(username, password) {
     const supabaseClient = getClient();
     if (!supabaseClient) throw new Error('Supabase no está inicializado.');
-    return supabaseClient.auth.signInWithPassword({
-      email: usernameToEmail(username),
-      password
+
+    const cleanUsername = String(username || '').trim();
+    if (!cleanUsername) {
+      return { data: null, error: new Error('Por favor, introduce tu usuario.') };
+    }
+
+    let emailToUse = null;
+
+    // 1. Buscar en la tabla profiles el registro cuyo username coincida
+    try {
+      const { data: profileData } = await supabaseClient
+        .from('profiles')
+        .select('auth_email, username')
+        .ilike('username', cleanUsername)
+        .maybeSingle();
+
+      if (profileData && profileData.auth_email) {
+        emailToUse = profileData.auth_email;
+      }
+    } catch (e) {
+      console.warn('[Supabase] Error consultando profiles:', e);
+    }
+
+    // 2. Fallback via RPC por si RLS limita la consulta anon a la tabla profiles
+    if (!emailToUse) {
+      try {
+        const { data: rpcData } = await supabaseClient.rpc('get_auth_email_by_username', { p_username: cleanUsername });
+        if (rpcData) {
+          emailToUse = rpcData;
+        }
+      } catch (e) {
+        // ignora fallback rpc
+      }
+    }
+
+    // 3. Fallback si el usuario introdujo un correo completo directamente (ej. admin@club.es)
+    if (!emailToUse && cleanUsername.includes('@')) {
+      emailToUse = cleanUsername;
+    }
+
+    if (!emailToUse) {
+      return {
+        data: null,
+        error: new Error('Usuario o contraseña incorrectos.')
+      };
+    }
+
+    // 4. Realizar signInWithPassword utilizando el correo real obtenido y la contraseña introducida
+    const authResult = await supabaseClient.auth.signInWithPassword({
+      email: emailToUse,
+      password: password
     });
+
+    if (authResult.error) {
+      return {
+        data: null,
+        error: new Error('Usuario o contraseña incorrectos.')
+      };
+    }
+
+    return authResult;
   }
 
   async function signOut() {

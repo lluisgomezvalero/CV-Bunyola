@@ -88,6 +88,7 @@ create table if not exists public.profiles (
   username text not null unique,
   full_name text not null,
   role public.app_role not null default 'player',
+  auth_email text,
   avatar_path text,
   preferred_language text not null default 'es' check (preferred_language in ('es','ca')),
   active boolean not null default true,
