@@ -732,14 +732,47 @@
       notes: dataObj.notes || ''
     };
 
-    const { data, error } = await supabaseClient
+    const { data: upsertData, error: upsertError } = await supabaseClient
       .from('wellness_entries')
       .upsert(payload, { onConflict: 'player_id,entry_date' })
       .select('*')
-      .single();
+      .maybeSingle();
 
-    if (error) return { data: null, error };
-    return { data, error: null };
+    if (!upsertError) return { data: upsertData, error: null };
+
+    console.warn('[Supabase Wellness] Upsert directo falló, intentando actualización por ID:', upsertError);
+
+    const { data: existing } = await supabaseClient
+      .from('wellness_entries')
+      .select('id')
+      .eq('player_id', realPlayerId)
+      .eq('entry_date', dateStr)
+      .maybeSingle();
+
+    if (existing && existing.id) {
+      const { data: updated, error: updateError } = await supabaseClient
+        .from('wellness_entries')
+        .update({
+          general_state: payload.general_state,
+          fatigue: payload.fatigue,
+          soreness: payload.soreness,
+          stress: payload.stress,
+          sleep: payload.sleep,
+          notes: payload.notes,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existing.id)
+        .select('*')
+        .single();
+      return { data: updated, error: updateError };
+    } else {
+      const { data: inserted, error: insertError } = await supabaseClient
+        .from('wellness_entries')
+        .insert(payload)
+        .select('*')
+        .single();
+      return { data: inserted, error: insertError };
+    }
   }
 
   let wellnessChannel = null;
@@ -813,14 +846,39 @@
       source: 'player'
     };
 
-    const { data, error } = await supabaseClient
+    const { data: upsertData, error: upsertError } = await supabaseClient
       .from('rpe_entries')
       .upsert(payload, { onConflict: 'event_id,player_id' })
       .select('*')
-      .single();
+      .maybeSingle();
 
-    if (error) return { data: null, error };
-    return { data, error: null };
+    if (!upsertError) return { data: upsertData, error: null };
+
+    console.warn('[Supabase RPE Player] Upsert directo falló, intentando actualización por ID:', upsertError);
+
+    const { data: existing } = await supabaseClient
+      .from('rpe_entries')
+      .select('id')
+      .eq('event_id', realEventId)
+      .eq('player_id', realPlayerId)
+      .maybeSingle();
+
+    if (existing && existing.id) {
+      const { data: updated, error: updateError } = await supabaseClient
+        .from('rpe_entries')
+        .update({ score: Number(score), updated_at: new Date().toISOString() })
+        .eq('id', existing.id)
+        .select('*')
+        .single();
+      return { data: updated, error: updateError };
+    } else {
+      const { data: inserted, error: insertError } = await supabaseClient
+        .from('rpe_entries')
+        .insert(payload)
+        .select('*')
+        .single();
+      return { data: inserted, error: insertError };
+    }
   }
 
   async function saveCoachRPE(eventId, coachProfileId, score) {
@@ -832,21 +890,47 @@
       return { data: null, error: new Error(`El entrenamiento ("${eventId}") no existe en Supabase como UUID.`) };
     }
 
+    const cId = (coachProfileId && uuidRegex.test(coachProfileId)) ? coachProfileId : null;
+
     const payload = {
       event_id: realEventId,
-      coach_profile_id: (coachProfileId && uuidRegex.test(coachProfileId)) ? coachProfileId : null,
+      coach_profile_id: cId,
       score: Number(score),
       source: 'coach'
     };
 
-    const { data, error } = await supabaseClient
-      .from('rpe_entries')
-      .upsert(payload, { onConflict: 'event_id,coach_profile_id' })
-      .select('*')
-      .single();
+    if (cId) {
+      const { data: upsertData, error: upsertError } = await supabaseClient
+        .from('rpe_entries')
+        .upsert(payload, { onConflict: 'event_id,coach_profile_id' })
+        .select('*')
+        .maybeSingle();
 
-    if (error) return { data: null, error };
-    return { data, error: null };
+      if (!upsertError) return { data: upsertData, error: null };
+      console.warn('[Supabase RPE Coach] Upsert directo falló, usando fallback:', upsertError);
+    }
+
+    let query = supabaseClient.from('rpe_entries').select('id').eq('event_id', realEventId).eq('source', 'coach');
+    if (cId) query = query.eq('coach_profile_id', cId);
+
+    const { data: existing } = await query.maybeSingle();
+
+    if (existing && existing.id) {
+      const { data: updated, error: updateError } = await supabaseClient
+        .from('rpe_entries')
+        .update({ score: Number(score), updated_at: new Date().toISOString() })
+        .eq('id', existing.id)
+        .select('*')
+        .single();
+      return { data: updated, error: updateError };
+    } else {
+      const { data: inserted, error: insertError } = await supabaseClient
+        .from('rpe_entries')
+        .insert(payload)
+        .select('*')
+        .single();
+      return { data: inserted, error: insertError };
+    }
   }
 
   let rpeChannel = null;
