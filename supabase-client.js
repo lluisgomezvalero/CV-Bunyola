@@ -693,6 +693,197 @@
     return attendanceChannel;
   }
 
+  // ==========================================
+  // BIENESTAR Y CARGA/RPE (BLOQUE E)
+  // ==========================================
+
+  async function fetchWellness(clubId) {
+    const supabaseClient = getClient();
+    if (!supabaseClient) return { data: [], error: new Error('Supabase no inicializado') };
+
+    const { data, error } = await supabaseClient
+      .from('wellness_entries')
+      .select('*, players(id, legacy_id, profile_id)');
+
+    if (error) {
+      const fallback = await supabaseClient.from('wellness_entries').select('*');
+      return { data: fallback.data || [], error: fallback.error };
+    }
+    return { data: data || [], error: null };
+  }
+
+  async function saveWellnessEntry(playerId, dateStr, dataObj) {
+    const supabaseClient = getClient();
+    if (!supabaseClient) return { data: null, error: new Error('Supabase no inicializado') };
+
+    const realPlayerId = await resolvePlayerUUID(supabaseClient, playerId);
+    if (!realPlayerId) {
+      return { data: null, error: new Error(`La jugadora ("${playerId}") no tiene un UUID asignado en Supabase.`) };
+    }
+
+    const payload = {
+      player_id: realPlayerId,
+      entry_date: dateStr,
+      general_state: Number(dataObj.generalState || dataObj.general_state || 3),
+      fatigue: Number(dataObj.fatigue || 3),
+      soreness: Number(dataObj.soreness || 3),
+      stress: Number(dataObj.stress || 3),
+      sleep: Number(dataObj.sleep || 3),
+      notes: dataObj.notes || ''
+    };
+
+    const { data, error } = await supabaseClient
+      .from('wellness_entries')
+      .upsert(payload, { onConflict: 'player_id,entry_date' })
+      .select('*')
+      .single();
+
+    if (error) return { data: null, error };
+    return { data, error: null };
+  }
+
+  let wellnessChannel = null;
+
+  function subscribeWellnessRealtime(clubId, onDataChange) {
+    const supabaseClient = getClient();
+    if (!supabaseClient || !clubId) return null;
+
+    if (wellnessChannel) {
+      try { supabaseClient.removeChannel(wellnessChannel); } catch(e){}
+      wellnessChannel = null;
+    }
+
+    wellnessChannel = supabaseClient
+      .channel('public:wellness:' + clubId)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'wellness_entries'
+        },
+        (payload) => {
+          if (typeof onDataChange === 'function') {
+            onDataChange(payload);
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Supabase Realtime] Bienestar suscrito correctamente.');
+        }
+      });
+
+    return wellnessChannel;
+  }
+
+  async function fetchRPE(clubId) {
+    const supabaseClient = getClient();
+    if (!supabaseClient) return { data: [], error: new Error('Supabase no inicializado') };
+
+    const { data, error } = await supabaseClient
+      .from('rpe_entries')
+      .select('*, events(id, legacy_id), players(id, legacy_id, profile_id)');
+
+    if (error) {
+      const fallback = await supabaseClient.from('rpe_entries').select('*');
+      return { data: fallback.data || [], error: fallback.error };
+    }
+    return { data: data || [], error: null };
+  }
+
+  async function savePlayerRPE(eventId, playerId, score) {
+    const supabaseClient = getClient();
+    if (!supabaseClient) return { data: null, error: new Error('Supabase no inicializado') };
+
+    const realEventId = await resolveEventUUID(supabaseClient, eventId);
+    const realPlayerId = await resolvePlayerUUID(supabaseClient, playerId);
+
+    if (!realEventId) {
+      return { data: null, error: new Error(`El entrenamiento ("${eventId}") no existe en Supabase como UUID.`) };
+    }
+    if (!realPlayerId) {
+      return { data: null, error: new Error(`La jugadora ("${playerId}") no tiene un UUID asignado en Supabase.`) };
+    }
+
+    const payload = {
+      event_id: realEventId,
+      player_id: realPlayerId,
+      score: Number(score),
+      source: 'player'
+    };
+
+    const { data, error } = await supabaseClient
+      .from('rpe_entries')
+      .upsert(payload, { onConflict: 'event_id,player_id' })
+      .select('*')
+      .single();
+
+    if (error) return { data: null, error };
+    return { data, error: null };
+  }
+
+  async function saveCoachRPE(eventId, coachProfileId, score) {
+    const supabaseClient = getClient();
+    if (!supabaseClient) return { data: null, error: new Error('Supabase no inicializado') };
+
+    const realEventId = await resolveEventUUID(supabaseClient, eventId);
+    if (!realEventId) {
+      return { data: null, error: new Error(`El entrenamiento ("${eventId}") no existe en Supabase como UUID.`) };
+    }
+
+    const payload = {
+      event_id: realEventId,
+      coach_profile_id: (coachProfileId && uuidRegex.test(coachProfileId)) ? coachProfileId : null,
+      score: Number(score),
+      source: 'coach'
+    };
+
+    const { data, error } = await supabaseClient
+      .from('rpe_entries')
+      .upsert(payload, { onConflict: 'event_id,coach_profile_id' })
+      .select('*')
+      .single();
+
+    if (error) return { data: null, error };
+    return { data, error: null };
+  }
+
+  let rpeChannel = null;
+
+  function subscribeRPERealtime(clubId, onDataChange) {
+    const supabaseClient = getClient();
+    if (!supabaseClient || !clubId) return null;
+
+    if (rpeChannel) {
+      try { supabaseClient.removeChannel(rpeChannel); } catch(e){}
+      rpeChannel = null;
+    }
+
+    rpeChannel = supabaseClient
+      .channel('public:rpe:' + clubId)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'rpe_entries'
+        },
+        (payload) => {
+          if (typeof onDataChange === 'function') {
+            onDataChange(payload);
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Supabase Realtime] RPE suscrito correctamente.');
+        }
+      });
+
+    return rpeChannel;
+  }
+
   window.VolleySupabase = Object.freeze({
     config,
     getClient,
@@ -717,7 +908,14 @@
     fetchAttendance,
     savePlayerAttendanceResponse,
     validateOfficialAttendance,
-    subscribeAttendanceRealtime
+    subscribeAttendanceRealtime,
+    fetchWellness,
+    saveWellnessEntry,
+    subscribeWellnessRealtime,
+    fetchRPE,
+    savePlayerRPE,
+    saveCoachRPE,
+    subscribeRPERealtime
   });
 
   document.addEventListener('DOMContentLoaded', initializeStatus, { once: true });

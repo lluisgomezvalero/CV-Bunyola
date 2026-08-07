@@ -4308,7 +4308,7 @@ function initFormListeners() {
     saveCalendarEventFromForm();
   });
 
-  document.getElementById("form-wellness")?.addEventListener("submit", (e) => {
+  document.getElementById("form-wellness")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const playerId = document.getElementById("wellness-player-select").value;
     const player = appState.players.find(p => p.id === playerId);
@@ -4321,31 +4321,56 @@ function initFormListeners() {
     const sleepHours = sleepHoursInp && sleepHoursInp.value ? parseFloat(sleepHoursInp.value) : 8;
 
     const sleepQualInp = document.getElementById("wellness-sleep-quality") || document.getElementById("wellness-sleep-qual");
-    const sleepQuality = sleepQualInp ? parseInt(sleepQualInp.value) : 4;
-
-    const rpeInp = document.getElementById("wellness-rpe");
-    const rpe = rpeInp ? parseInt(rpeInp.value) : 6;
+    if (!sleepQualInp || !sleepQualInp.value) {
+      showToast('Selecciona cómo estás durmiendo antes de enviar la valoración.', 'error');
+      return;
+    }
+    const sleepQuality = parseInt(sleepQualInp.value, 10);
 
     const notesInp = document.getElementById("wellness-notes");
     const notes = notesInp ? notesInp.value : "";
+
+    const dateKey = getLocalDateKey();
+    const submitBtn = document.getElementById('btn-submit-wellness');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Guardando…';
+    }
+
+    if (window.VolleySupabase && window.VolleySupabase.getClient()) {
+      const { data: savedData, error: supabaseError } = await window.VolleySupabase.saveWellnessEntry(playerId, dateKey, {
+        generalState: fatigue,
+        fatigue,
+        soreness: fatigue,
+        stress: fatigue,
+        sleep: sleepQuality,
+        notes
+      });
+
+      if (supabaseError) {
+        console.error('[Supabase Wellness] Error al guardar:', supabaseError);
+        showToast('Error al guardar en Supabase: ' + (supabaseError.message || 'Fallo de conexión'), 'error');
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Guardar Valoración';
+        }
+        return;
+      }
+    }
 
     const userLogs = (appState.wellnessLogs || []).filter(l => l.playerId === playerId);
     const weekNum = Math.min(24, userLogs.length + 1);
     const weekInfo = getCurrentWeekKey();
 
-    const dateKey = getLocalDateKey();
     const existingLogIndex = (appState.wellnessLogs || []).findIndex(l => l.playerId === playerId && getLocalDateKey(new Date(l.dateKey || l.date || l.createdAt)) === dateKey);
 
     if (existingLogIndex !== -1) {
       appState.wellnessLogs[existingLogIndex].fatigue = fatigue;
       appState.wellnessLogs[existingLogIndex].sleepHours = sleepHours;
       appState.wellnessLogs[existingLogIndex].sleepQuality = sleepQuality;
-      appState.wellnessLogs[existingLogIndex].rpe = rpe;
       appState.wellnessLogs[existingLogIndex].weekKey = weekInfo.weekKey;
       appState.wellnessLogs[existingLogIndex].dateKey = dateKey;
       appState.wellnessLogs[existingLogIndex].date = dateKey;
-      const todaySession = (appState.events || []).find(ev => ev.type === 'Entrenamiento' && ev.date === dateKey);
-      appState.wellnessLogs[existingLogIndex].sessionId = todaySession?.id || appState.wellnessLogs[existingLogIndex].sessionId || null;
       if (notes) appState.wellnessLogs[existingLogIndex].notes = notes;
     } else {
       const newLog = {
@@ -4360,22 +4385,21 @@ function initFormListeners() {
         sleepHours,
         sleepQuality,
         fatigue,
-        rpe,
-        notes
+        notes,
+        createdAt: new Date().toISOString()
       };
-      newLog.createdAt = new Date().toISOString();
       appState.wellnessLogs.unshift(newLog);
     }
     syncEngagementLedger();
 
     saveAppData(appState);
-    invalidateViewRenderCache();
+    if (typeof invalidateViewRenderCache === "function") invalidateViewRenderCache();
     homeDashboardCache = { revision: -1, role: '', dayKey: '' };
     renderWellness();
     renderHomePortalRSVP();
     renderHomeDashboard();
     showToast("¡Bienestar guardado correctamente!");
-    document.getElementById("modal-add-wellness").classList.remove("active");
+    document.getElementById("modal-add-wellness")?.classList.remove("active");
   });
 }
 
@@ -5399,7 +5423,7 @@ window.openBorgScaleModal = openBorgScaleModal;
 window.closeBorgScaleModal = closeBorgScaleModal;
 
 
-function setTrainingRPE(eventId, rpeVal, mode = null) {
+async function setTrainingRPE(eventId, rpeVal, mode = null) {
   const currentUser = getCurrentUser();
   const tr = (appState.events || []).find(e => e.id === eventId);
   if (!tr) return;
@@ -5409,6 +5433,16 @@ function setTrainingRPE(eventId, rpeVal, mode = null) {
   const coachMode = mode === 'coach' || (!currentUser?.playerId && isCoachUser());
   if (coachMode) {
     if (Number.isFinite(Number(tr.coachRpe))) { showToast('Tu valoración ya está registrada y no puede modificarse.', 'error'); return; }
+
+    if (window.VolleySupabase && window.VolleySupabase.getClient()) {
+      showToast("Guardando RPE de técnico en Supabase...", "info");
+      const { error } = await window.VolleySupabase.saveCoachRPE(eventId, currentUser?.authId || currentUser?.id, numVal);
+      if (error) {
+        showToast("Error al guardar en Supabase: " + (error.message || "Fallo de conexión"), "error");
+        return;
+      }
+    }
+
     tr.coachRpe = numVal;
     saveAppData(appState); renderTraining(); showToast(`Tu valoración de exigencia: ${numVal}/10`); return;
   }
@@ -5418,6 +5452,16 @@ function setTrainingRPE(eventId, rpeVal, mode = null) {
   if (!appState.trainingRPEs) appState.trainingRPEs = [];
   const existing = appState.trainingRPEs.find(r => r.eventId === eventId && r.playerId === playerId);
   if (existing) { showToast('Tu RPE ya está registrado y no puede modificarse.', 'error'); return; }
+
+  if (window.VolleySupabase && window.VolleySupabase.getClient()) {
+    showToast("Guardando RPE en Supabase...", "info");
+    const { error } = await window.VolleySupabase.savePlayerRPE(eventId, playerId, numVal);
+    if (error) {
+      showToast("Error al guardar en Supabase: " + (error.message || "Fallo de conexión"), "error");
+      return;
+    }
+  }
+
   appState.trainingRPEs.push({ eventId, playerId, rpeVal: numVal, date: getLocalDateKey() });
   awardEngagementXP(playerId,'rpe',eventId,appState.engagementSettings?.rpe||10,'RPE registrado');
   saveAppData(appState); renderTraining(); renderHomePortalRSVP(); renderHomeDashboard(); renderTeamRpeSummary(); if (document.getElementById('view-wellness')?.classList.contains('active')) { renderWellness(); renderWellnessCharts(); } showToast(`Esfuerzo registrado: ${numVal}/10`);
@@ -7727,11 +7771,151 @@ window.renderWellness = renderWellness;
   }
   window.loadAttendanceFromSupabase = loadAttendanceFromSupabase;
 
+  let isSupabaseWellnessLoading = false;
+
+  async function loadWellnessFromSupabase(options = {}) {
+    if (!window.VolleySupabase) return;
+    const client = window.VolleySupabase.getClient();
+    if (!client) return;
+
+    if (isSupabaseWellnessLoading && !options.force) return;
+    isSupabaseWellnessLoading = true;
+
+    try {
+      const user = getCurrentUser();
+      const clubId = user?.clubId || window.VolleySupabase.config?.clubId;
+
+      const { data: rows, error } = await window.VolleySupabase.fetchWellness(clubId);
+      if (error) {
+        console.warn('[Supabase Wellness] Error al consultar bienestar:', error);
+        isSupabaseWellnessLoading = false;
+        return;
+      }
+
+      if (Array.isArray(rows)) {
+        const wellnessLogs = rows.map(r => {
+          const pid = r.players?.legacy_id || r.players?.profile_id || r.player_id;
+          const p = (appState.players || []).find(pl => pl.id === pid || pl.profile_id === pid || pl.legacy_id === pid);
+          return {
+            id: r.id,
+            playerId: pid,
+            playerIdUuid: r.player_id,
+            playerName: p ? p.name : 'Jugadora',
+            dateKey: r.entry_date,
+            date: r.entry_date,
+            fatigue: r.fatigue,
+            sleepQuality: r.sleep,
+            sleepHours: r.sleep,
+            generalState: r.general_state,
+            soreness: r.soreness,
+            stress: r.stress,
+            notes: r.notes || '',
+            createdAt: r.created_at
+          };
+        });
+
+        appState.wellnessLogs = wellnessLogs;
+        saveAppData(appState);
+
+        if (typeof invalidateViewRenderCache === "function") invalidateViewRenderCache();
+
+        requestAnimationFrame(() => {
+          try { renderHomeDashboard(); } catch (e) {}
+          try { renderWellness(); } catch (e) {}
+        });
+      }
+
+      if (clubId && typeof window.VolleySupabase.subscribeWellnessRealtime === 'function') {
+        window.VolleySupabase.subscribeWellnessRealtime(clubId, (payload) => {
+          console.log('[Supabase Realtime] Cambio en bienestar detectado:', payload.eventType);
+          loadWellnessFromSupabase({ silent: true, force: true });
+        });
+      }
+    } catch (err) {
+      console.error('[Supabase Wellness] Excepción al sincronizar:', err);
+    } finally {
+      isSupabaseWellnessLoading = false;
+    }
+  }
+  window.loadWellnessFromSupabase = loadWellnessFromSupabase;
+
+  let isSupabaseRPELoading = false;
+
+  async function loadRPEFromSupabase(options = {}) {
+    if (!window.VolleySupabase) return;
+    const client = window.VolleySupabase.getClient();
+    if (!client) return;
+
+    if (isSupabaseRPELoading && !options.force) return;
+    isSupabaseRPELoading = true;
+
+    try {
+      const user = getCurrentUser();
+      const clubId = user?.clubId || window.VolleySupabase.config?.clubId;
+
+      const { data: rows, error } = await window.VolleySupabase.fetchRPE(clubId);
+      if (error) {
+        console.warn('[Supabase RPE] Error al consultar RPE:', error);
+        isSupabaseRPELoading = false;
+        return;
+      }
+
+      if (Array.isArray(rows)) {
+        const playerRPEs = [];
+        rows.forEach(r => {
+          const eventId = r.events?.legacy_id || r.event_id;
+          if (r.source === 'player' && r.player_id) {
+            const playerId = r.players?.legacy_id || r.players?.profile_id || r.player_id;
+            playerRPEs.push({
+              id: r.id,
+              eventId,
+              eventIdUuid: r.event_id,
+              playerId,
+              playerIdUuid: r.player_id,
+              rpeVal: Number(r.score),
+              date: getLocalDateKey(new Date(r.created_at))
+            });
+          } else if (r.source === 'coach') {
+            const tr = (appState.events || []).find(e => e.id === eventId || e.id === r.event_id);
+            if (tr) {
+              tr.coachRpe = Number(r.score);
+            }
+          }
+        });
+
+        appState.trainingRPEs = playerRPEs;
+        saveAppData(appState);
+
+        if (typeof invalidateViewRenderCache === "function") invalidateViewRenderCache();
+
+        requestAnimationFrame(() => {
+          try { renderHomeDashboard(); } catch (e) {}
+          try { renderTraining(); } catch (e) {}
+          try { renderTeamRpeSummary(); } catch (e) {}
+        });
+      }
+
+      if (clubId && typeof window.VolleySupabase.subscribeRPERealtime === 'function') {
+        window.VolleySupabase.subscribeRPERealtime(clubId, (payload) => {
+          console.log('[Supabase Realtime] Cambio en RPE detectado:', payload.eventType);
+          loadRPEFromSupabase({ silent: true, force: true });
+        });
+      }
+    } catch (err) {
+      console.error('[Supabase RPE] Excepción al sincronizar:', err);
+    } finally {
+      isSupabaseRPELoading = false;
+    }
+  }
+  window.loadRPEFromSupabase = loadRPEFromSupabase;
+
   document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
       if (window.VolleySupabase && window.VolleySupabase.getClient()) {
         loadEventsFromSupabase({ silent: true });
         loadAttendanceFromSupabase({ silent: true });
+        loadWellnessFromSupabase({ silent: true });
+        loadRPEFromSupabase({ silent: true });
       }
     }, 800);
   });
