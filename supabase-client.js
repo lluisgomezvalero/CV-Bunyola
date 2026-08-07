@@ -67,19 +67,19 @@
       return { data: null, error: new Error('Por favor, introduce tu usuario.') };
     }
 
-    let emailToUse = null;
+    let resolvedEmail = null;
 
     // 1. Si el usuario introdujo un correo completo directamente (ej. lluisgomez5@gmail.com), usarlo directamente
     if (cleanUsername.includes('@')) {
-      emailToUse = cleanUsername;
+      resolvedEmail = cleanUsername;
     }
 
     // 2. Intentar buscar mediante la función RPC get_auth_email_by_username
-    if (!emailToUse) {
+    if (!resolvedEmail) {
       try {
         const { data: rpcData } = await supabaseClient.rpc('get_auth_email_by_username', { p_username: cleanUsername });
         if (rpcData) {
-          emailToUse = rpcData;
+          resolvedEmail = rpcData;
         }
       } catch (e) {
         console.warn('[Supabase] RPC get_auth_email_by_username:', e);
@@ -87,7 +87,7 @@
     }
 
     // 3. Intentar buscar en la tabla profiles directamente por el campo username
-    if (!emailToUse) {
+    if (!resolvedEmail) {
       try {
         const { data: profileData } = await supabaseClient
           .from('profiles')
@@ -96,7 +96,7 @@
           .maybeSingle();
 
         if (profileData && profileData.auth_email) {
-          emailToUse = profileData.auth_email;
+          resolvedEmail = profileData.auth_email;
         }
       } catch (e) {
         console.warn('[Supabase] Consulta directa profiles:', e);
@@ -104,22 +104,22 @@
     }
 
     // 4. Fallback para usuarios existentes creados con el dominio por defecto (ej. username@cvbunyola.app)
-    if (!emailToUse) {
+    if (!resolvedEmail) {
       const cleanSimple = cleanUsername.toLowerCase().replace(/[^a-z0-9._-]/g, '');
       const defaultDomain = config.usernameDomain || 'cvbunyola.app';
-      emailToUse = `${cleanSimple}@${defaultDomain}`;
+      resolvedEmail = `${cleanSimple}@${defaultDomain}`;
     }
 
-    if (!emailToUse) {
+    if (!resolvedEmail) {
       return {
         data: null,
         error: new Error('Usuario o contraseña incorrectos.')
       };
     }
 
-    // 4. Realizar signInWithPassword utilizando el correo real obtenido y la contraseña introducida
+    // 5. Realizar signInWithPassword utilizando el correo real obtenido y la contraseña introducida
     const authResult = await supabaseClient.auth.signInWithPassword({
-      email: emailToUse,
+      email: resolvedEmail,
       password: password
     });
 
