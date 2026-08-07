@@ -488,6 +488,101 @@
     return eventsChannel;
   }
 
+  // ==========================================
+  // ASISTENCIA (BLOQUE D)
+  // ==========================================
+
+  async function fetchAttendance(clubId) {
+    const supabaseClient = getClient();
+    if (!supabaseClient) return { data: [], error: new Error('Supabase no inicializado') };
+
+    const { data, error } = await supabaseClient
+      .from('attendance')
+      .select('*');
+
+    if (error) return { data: [], error };
+    return { data: data || [], error: null };
+  }
+
+  async function savePlayerAttendanceResponse(eventId, playerId, response) {
+    const supabaseClient = getClient();
+    if (!supabaseClient) return { data: null, error: new Error('Supabase no inicializado') };
+
+    const payload = {
+      event_id: eventId,
+      player_id: playerId,
+      player_response: response
+    };
+
+    const { data, error } = await supabaseClient
+      .from('attendance')
+      .upsert(payload, { onConflict: 'event_id,player_id' })
+      .select('*')
+      .single();
+
+    if (error) return { data: null, error };
+    return { data, error: null };
+  }
+
+  async function validateOfficialAttendance(eventId, playerStatusList, coachProfileId) {
+    const supabaseClient = getClient();
+    if (!supabaseClient) return { data: null, error: new Error('Supabase no inicializado') };
+
+    const nowISO = new Date().toISOString();
+    const rows = (playerStatusList || []).map(item => ({
+      event_id: eventId,
+      player_id: item.playerId,
+      official_status: item.officialStatus,
+      validated_by: coachProfileId || null,
+      validated_at: nowISO
+    }));
+
+    if (!rows.length) return { data: [], error: null };
+
+    const { data, error } = await supabaseClient
+      .from('attendance')
+      .upsert(rows, { onConflict: 'event_id,player_id' })
+      .select('*');
+
+    if (error) return { data: null, error };
+    return { data: data || [], error: null };
+  }
+
+  let attendanceChannel = null;
+
+  function subscribeAttendanceRealtime(clubId, onDataChange) {
+    const supabaseClient = getClient();
+    if (!supabaseClient || !clubId) return null;
+
+    if (attendanceChannel) {
+      try { supabaseClient.removeChannel(attendanceChannel); } catch(e){}
+      attendanceChannel = null;
+    }
+
+    attendanceChannel = supabaseClient
+      .channel('public:attendance:' + clubId)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'attendance'
+        },
+        (payload) => {
+          if (typeof onDataChange === 'function') {
+            onDataChange(payload);
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Supabase Realtime] Asistencia suscrita correctamente.');
+        }
+      });
+
+    return attendanceChannel;
+  }
+
   window.VolleySupabase = Object.freeze({
     config,
     getClient,
@@ -508,7 +603,11 @@
     fetchEvents,
     saveEvent,
     deleteEvent,
-    subscribeEventsRealtime
+    subscribeEventsRealtime,
+    fetchAttendance,
+    savePlayerAttendanceResponse,
+    validateOfficialAttendance,
+    subscribeAttendanceRealtime
   });
 
   document.addEventListener('DOMContentLoaded', initializeStatus, { once: true });

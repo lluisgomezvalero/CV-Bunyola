@@ -5010,7 +5010,7 @@ function calculatePlayerAttendanceAndAchievements(playerId) {
 window.calculatePlayerAttendanceAndAchievements = calculatePlayerAttendanceAndAchievements;
 
 // SISTEMA DE CONFIRMACIÓN DE ASISTENCIA A ENTRENAMIENTOS ("¿ACUDIRÉ AL ENTRENAMIENTO?")
-function confirmTrainingAttendance(eventId, status, note = "") {
+async function confirmTrainingAttendance(eventId, status, note = "") {
   const currentUser = getCurrentUser();
   if (!currentUser || !currentUser.playerId) {
     showToast("Solo las jugadoras con perfil asignado pueden confirmar asistencia.", "error");
@@ -5029,6 +5029,21 @@ function confirmTrainingAttendance(eventId, status, note = "") {
     return;
   }
 
+  if (window.VolleySupabase && window.VolleySupabase.getClient()) {
+    showToast("Guardando confirmación...", "info");
+    const { data: savedRow, error: supabaseError } = await window.VolleySupabase.savePlayerAttendanceResponse(
+      eventId,
+      currentUser.playerId,
+      status
+    );
+
+    if (supabaseError) {
+      console.error("[Supabase Attendance] Error al guardar respuesta:", supabaseError);
+      showToast("Error al guardar en Supabase: " + (supabaseError.message || "Fallo de conexión"), "error");
+      return;
+    }
+  }
+
   appState.trainingConfirmations = appState.trainingConfirmations.filter(
     c => !(c.eventId === eventId && c.playerId === currentUser.playerId)
   );
@@ -5041,16 +5056,22 @@ function confirmTrainingAttendance(eventId, status, note = "") {
     timestamp: new Date().toISOString()
   });
 
-  if(status==='yes') awardEngagementXP(currentUser.playerId,'attendance-confirm',eventId,appState.engagementSettings?.attendanceConfirm||5,'Asistencia confirmada'); else removeEngagementXP(currentUser.playerId,'attendance-confirm',eventId);
+  if (status === 'yes') {
+    awardEngagementXP(currentUser.playerId, 'attendance-confirm', eventId, appState.engagementSettings?.attendanceConfirm || 5, 'Asistencia comunicada');
+  } else {
+    removeEngagementXP(currentUser.playerId, 'attendance-confirm', eventId);
+  }
+
   saveAppData(appState);
-  // Actualiza primero el dashboard para que la confirmación se perciba instantánea.
   renderHomeDashboard();
+
   const isYes = status === 'yes';
   showToast(
     isYes
-      ? `🟢 ¡Asistencia confirmada para el entrenamiento!`
-      : `🔴 Registrada tu ausencia al entrenamiento.`
+      ? `Confirmación enviada: 🟢 ¡Asistencia comunicada!`
+      : `Confirmación enviada: 🔴 Ausencia comunicada.`
   );
+
   window.setTimeout(() => {
     renderHomePortalRSVP();
     renderTraining();
@@ -5219,53 +5240,97 @@ function initVerifyAttendanceFormListener() {
   const form = document.getElementById("form-verify-attendance");
   if (!form) return;
 
-  form.addEventListener("submit", (e) => {
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const eventId = document.getElementById("verify-attendance-event-id").value;
     const event = appState.events.find(x => x.id === eventId);
     const dateStr = event ? event.date : new Date().toLocaleDateString('es-ES');
 
-    if (!appState.attendanceData) appState.attendanceData = [];
+    const submitBtn = form.querySelector("button[type='submit']");
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Guardando en Supabase…";
+    }
 
-    // Limpiar asistencias previas de esta sesión
-    appState.attendanceData = appState.attendanceData.filter(a => a.eventId !== eventId);
+    try {
+      const playerStatusList = [];
+      let presentCount = 0;
 
-    let presentCount = 0;
-    appState.players.forEach(p => {
-      const checkbox = document.getElementById(`verify-p-${p.id}`);
-      const isPresent = checkbox ? checkbox.checked : false;
+      appState.players.forEach(p => {
+        const checkbox = document.getElementById(`verify-p-${p.id}`);
+        const isPresent = checkbox ? checkbox.checked : false;
+        if (isPresent) presentCount++;
 
-      if (isPresent) presentCount++;
-
-      const playerRSVP = (appState.trainingConfirmations || []).find(c => c.eventId === eventId && c.playerId === p.id);
-      const achievementEligible = true;
-      appState.attendanceData.push({
-        id: `att-${Date.now()}-${p.id}`,
-        eventId,
-        playerId: p.id,
-        playerName: p.name,
-        date: dateStr,
-        status: isPresent ? 'present' : 'absent',
-        source: 'coach_roll_call',
-        achievementEligible
+        playerStatusList.push({
+          playerId: p.id,
+          officialStatus: isPresent ? 'present' : 'unjustified'
+        });
       });
-    });
 
-    appState.players.forEach(p=>{
-      const rec=appState.attendanceData.find(a=>a.eventId===eventId&&a.playerId===p.id);
-      const isPresent=rec&&(rec.status==='present'||rec.status==='attended');
-      if(isPresent) awardEngagementXP(p.id,'training-attendance',eventId,appState.engagementSettings?.trainingAttendance||20,'Asistencia validada por el entrenador',dateStr);
-      else removeEngagementXP(p.id,'training-attendance',eventId);
-    });
-    syncEngagementLedger();
-    saveAppData(appState);
-    invalidateViewRenderCache();
-    homeDashboardCache = { revision: -1, role: '', dayKey: '' };
-    showToast(`✅ Lista validada oficialmente: ${presentCount} jugadoras con asistencia y objetivo computados.`);
-    
-    document.getElementById("modal-verify-attendance").classList.remove("active");
-    renderTraining();
-    renderHomePortalRSVP();
+      if (window.VolleySupabase && window.VolleySupabase.getClient()) {
+        const user = getCurrentUser();
+        const coachProfileId = user?.authId || user?.id || null;
+
+        const { data: validatedRows, error: supabaseError } = await window.VolleySupabase.validateOfficialAttendance(
+          eventId,
+          playerStatusList,
+          coachProfileId
+        );
+
+        if (supabaseError) {
+          console.error("[Supabase Attendance] Error al validar lista:", supabaseError);
+          showToast("Error al validar la lista en Supabase: " + (supabaseError.message || "Fallo de conexión"), "error");
+          return;
+        }
+      }
+
+      if (!appState.attendanceData) appState.attendanceData = [];
+      appState.attendanceData = appState.attendanceData.filter(a => a.eventId !== eventId);
+
+      const nowISO = new Date().toISOString();
+      if (event) event.attendanceValidatedAt = nowISO;
+
+      playerStatusList.forEach(item => {
+        const p = appState.players.find(p => p.id === item.playerId);
+        const isPresent = item.officialStatus === 'present' || item.officialStatus === 'late';
+        appState.attendanceData.push({
+          id: `att-${Date.now()}-${item.playerId}`,
+          eventId,
+          playerId: item.playerId,
+          playerName: p ? p.name : 'Jugadora',
+          date: dateStr,
+          status: item.officialStatus,
+          source: 'coach_roll_call',
+          validatedAt: nowISO
+        });
+
+        if (isPresent) {
+          awardEngagementXP(item.playerId, 'training-attendance', eventId, appState.engagementSettings?.trainingAttendance || 20, 'Asistencia validada por el entrenador', dateStr);
+        } else {
+          removeEngagementXP(item.playerId, 'training-attendance', eventId);
+        }
+      });
+
+      syncEngagementLedger();
+      saveAppData(appState);
+      if (typeof invalidateViewRenderCache === "function") invalidateViewRenderCache();
+      homeDashboardCache = { revision: -1, role: '', dayKey: '' };
+
+      showToast(`Lista validada: ${presentCount} asistencias oficiales computadas.`);
+
+      document.getElementById("modal-verify-attendance")?.classList.remove("active");
+      renderTraining();
+      renderHomePortalRSVP();
+      renderHomeDashboard();
+    } catch (err) {
+      console.error("[Attendance Validation] Excepción:", err);
+      showToast("No se pudo confirmar la lista.", "error");
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Confirmar Lista";
+      }
+    }
   });
 }
 
@@ -7541,10 +7606,87 @@ window.renderWellness = renderWellness;
   }
   window.loadEventsFromSupabase = loadEventsFromSupabase;
 
+  let isSupabaseAttendanceLoading = false;
+
+  async function loadAttendanceFromSupabase(options = {}) {
+    if (!window.VolleySupabase) return;
+    const client = window.VolleySupabase.getClient();
+    if (!client) return;
+
+    if (isSupabaseAttendanceLoading && !options.force) return;
+    isSupabaseAttendanceLoading = true;
+
+    try {
+      const user = getCurrentUser();
+      const clubId = user?.clubId || window.VolleySupabase.config?.clubId;
+
+      const { data: rows, error } = await window.VolleySupabase.fetchAttendance(clubId);
+      if (error) {
+        console.warn('[Supabase Attendance] Error al consultar asistencia:', error);
+        isSupabaseAttendanceLoading = false;
+        return;
+      }
+
+      if (Array.isArray(rows)) {
+        const confirmations = [];
+        const officialLogs = [];
+
+        rows.forEach(r => {
+          if (r.player_response) {
+            confirmations.push({
+              eventId: r.event_id,
+              playerId: r.player_id,
+              status: r.player_response,
+              timestamp: r.updated_at || r.created_at
+            });
+          }
+
+          if (r.official_status && r.validated_at) {
+            officialLogs.push({
+              id: r.id,
+              eventId: r.event_id,
+              playerId: r.player_id,
+              status: r.official_status,
+              source: 'coach_roll_call',
+              validatedAt: r.validated_at,
+              validatedBy: r.validated_by
+            });
+          }
+        });
+
+        appState.trainingConfirmations = confirmations;
+        appState.attendanceData = officialLogs;
+        saveAppData(appState);
+
+        if (typeof invalidateViewRenderCache === "function") invalidateViewRenderCache();
+
+        requestAnimationFrame(() => {
+          try { renderHomeDashboard(); } catch (e) {}
+          try { renderTraining(); } catch (e) {}
+          try { renderHomePortalRSVP(); } catch (e) {}
+          try { renderCoachAttendanceList(); } catch (e) {}
+        });
+      }
+
+      if (clubId && typeof window.VolleySupabase.subscribeAttendanceRealtime === 'function') {
+        window.VolleySupabase.subscribeAttendanceRealtime(clubId, (payload) => {
+          console.log('[Supabase Realtime] Cambio en asistencia detectado:', payload.eventType);
+          loadAttendanceFromSupabase({ silent: true, force: true });
+        });
+      }
+    } catch (err) {
+      console.error('[Supabase Attendance] Excepción al sincronizar:', err);
+    } finally {
+      isSupabaseAttendanceLoading = false;
+    }
+  }
+  window.loadAttendanceFromSupabase = loadAttendanceFromSupabase;
+
   document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
       if (window.VolleySupabase && window.VolleySupabase.getClient()) {
         loadEventsFromSupabase({ silent: true });
+        loadAttendanceFromSupabase({ silent: true });
       }
     }, 800);
   });
