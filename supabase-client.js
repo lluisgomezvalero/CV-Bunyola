@@ -101,6 +101,13 @@
       emailToUse = cleanUsername;
     }
 
+    // 4. Fallback para usuarios existentes creados con el dominio por defecto (ej. username@cvbunyola.app)
+    if (!emailToUse) {
+      const cleanSimple = cleanUsername.toLowerCase().replace(/[^a-z0-9._-]/g, '');
+      const defaultDomain = config.usernameDomain || 'cvbunyola.app';
+      emailToUse = `${cleanSimple}@${defaultDomain}`;
+    }
+
     if (!emailToUse) {
       return {
         data: null,
