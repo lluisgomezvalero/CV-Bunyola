@@ -67,19 +67,24 @@
       return { data: null, error: new Error('Por favor, introduce tu usuario.') };
     }
 
-    let emailToUse = null;
-
-    // 1. Intentar buscar mediante la función RPCget_auth_email_by_username (Security Definer omite RLS anon)
-    try {
-      const { data: rpcData } = await supabaseClient.rpc('get_auth_email_by_username', { p_username: cleanUsername });
-      if (rpcData) {
-        emailToUse = rpcData;
-      }
-    } catch (e) {
-      console.warn('[Supabase] RPC get_auth_email_by_username:', e);
+    // 1. Si el usuario introdujo un correo completo directamente (ej. lluisgomez5@gmail.com), usarlo directamente
+    if (cleanUsername.includes('@')) {
+      emailToUse = cleanUsername;
     }
 
-    // 2. Intentar buscar en la tabla profiles directamente por el campo username
+    // 2. Intentar buscar mediante la función RPC get_auth_email_by_username
+    if (!emailToUse) {
+      try {
+        const { data: rpcData } = await supabaseClient.rpc('get_auth_email_by_username', { p_username: cleanUsername });
+        if (rpcData) {
+          emailToUse = rpcData;
+        }
+      } catch (e) {
+        console.warn('[Supabase] RPC get_auth_email_by_username:', e);
+      }
+    }
+
+    // 3. Intentar buscar en la tabla profiles directamente por el campo username
     if (!emailToUse) {
       try {
         const { data: profileData } = await supabaseClient
@@ -94,11 +99,6 @@
       } catch (e) {
         console.warn('[Supabase] Consulta directa profiles:', e);
       }
-    }
-
-    // 3. Fallback si el usuario introdujo un correo completo directamente (ej. admin@club.es)
-    if (!emailToUse && cleanUsername.includes('@')) {
-      emailToUse = cleanUsername;
     }
 
     // 4. Fallback para usuarios existentes creados con el dominio por defecto (ej. username@cvbunyola.app)
