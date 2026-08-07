@@ -5176,6 +5176,7 @@ function renderHomePortalRSVP() {
           <button type="button" class="btn-rsvp-no" onclick="confirmTrainingAttendance('${upcomingTraining.id}', 'no', this)">
             <i data-lucide="x-circle" style="width: 18px; height: 18px;"></i> No podré
           </button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="openSeasonEvent('${upcomingTraining.id}')">Abrir sesión</button>
         </div>
       `;
     }
