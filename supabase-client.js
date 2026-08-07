@@ -69,30 +69,30 @@
 
     let emailToUse = null;
 
-    // 1. Buscar en la tabla profiles el registro cuyo username coincida
+    // 1. Intentar buscar mediante la función RPCget_auth_email_by_username (Security Definer omite RLS anon)
     try {
-      const { data: profileData } = await supabaseClient
-        .from('profiles')
-        .select('auth_email, username')
-        .ilike('username', cleanUsername)
-        .maybeSingle();
-
-      if (profileData && profileData.auth_email) {
-        emailToUse = profileData.auth_email;
+      const { data: rpcData } = await supabaseClient.rpc('get_auth_email_by_username', { p_username: cleanUsername });
+      if (rpcData) {
+        emailToUse = rpcData;
       }
     } catch (e) {
-      console.warn('[Supabase] Error consultando profiles:', e);
+      console.warn('[Supabase] RPC get_auth_email_by_username:', e);
     }
 
-    // 2. Fallback via RPC por si RLS limita la consulta anon a la tabla profiles
+    // 2. Intentar buscar en la tabla profiles directamente por el campo username
     if (!emailToUse) {
       try {
-        const { data: rpcData } = await supabaseClient.rpc('get_auth_email_by_username', { p_username: cleanUsername });
-        if (rpcData) {
-          emailToUse = rpcData;
+        const { data: profileData } = await supabaseClient
+          .from('profiles')
+          .select('auth_email, username')
+          .ilike('username', cleanUsername)
+          .maybeSingle();
+
+        if (profileData && profileData.auth_email) {
+          emailToUse = profileData.auth_email;
         }
       } catch (e) {
-        // ignora fallback rpc
+        console.warn('[Supabase] Consulta directa profiles:', e);
       }
     }
 
