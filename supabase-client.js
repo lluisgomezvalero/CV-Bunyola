@@ -498,11 +498,12 @@
     if (!playerId) return null;
     if (uuidRegex.test(playerId)) return playerId;
 
+    const pid = String(playerId).trim();
     try {
       const { data: legacyData } = await supabaseClient
         .from('players')
         .select('id')
-        .eq('legacy_id', String(playerId))
+        .eq('legacy_id', pid)
         .maybeSingle();
 
       if (legacyData?.id) return legacyData.id;
@@ -510,7 +511,7 @@
       const { data: profileData } = await supabaseClient
         .from('players')
         .select('id')
-        .eq('profile_id', String(playerId))
+        .eq('profile_id', pid)
         .maybeSingle();
 
       if (profileData?.id) return profileData.id;
@@ -525,8 +526,22 @@
 
         if (ownPlayer?.id) return ownPlayer.id;
       }
+
+      // Auto-creación en public.players si la jugadora aún no tiene UUID en Supabase
+      const defaultClub = config.clubId || 'b0000000-0000-4000-8000-000000000001';
+      const { data: newPlayer } = await supabaseClient
+        .from('players')
+        .insert({
+          legacy_id: pid,
+          club_id: defaultClub,
+          active: true
+        })
+        .select('id')
+        .single();
+
+      if (newPlayer?.id) return newPlayer.id;
     } catch (e) {
-      console.warn('[Supabase Attendance] Excepción resolviendo UUID de jugadora:', e);
+      console.warn('[Supabase Attendance] Error al resolver o crear UUID de jugadora:', e);
     }
     return null;
   }
@@ -535,16 +550,33 @@
     if (!eventId) return null;
     if (uuidRegex.test(eventId)) return eventId;
 
+    const eid = String(eventId).trim();
     try {
       const { data } = await supabaseClient
         .from('events')
         .select('id')
-        .eq('legacy_id', String(eventId))
+        .eq('legacy_id', eid)
         .maybeSingle();
 
       if (data?.id) return data.id;
+
+      // Auto-creación en public.events si el entrenamiento aún no tiene UUID en Supabase
+      const defaultClub = config.clubId || 'b0000000-0000-4000-8000-000000000001';
+      const { data: newEvt } = await supabaseClient
+        .from('events')
+        .insert({
+          legacy_id: eid,
+          club_id: defaultClub,
+          event_type: 'training',
+          title: 'Entrenamiento Sincronizado',
+          starts_at: new Date().toISOString()
+        })
+        .select('id')
+        .single();
+
+      if (newEvt?.id) return newEvt.id;
     } catch (e) {
-      console.warn('[Supabase Events] Excepción resolviendo UUID de evento:', e);
+      console.warn('[Supabase Events] Error al resolver o crear UUID de evento:', e);
     }
     return null;
   }
