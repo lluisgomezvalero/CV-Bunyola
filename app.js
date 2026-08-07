@@ -2607,8 +2607,8 @@ function renderTraining() {
 }
 
 function renderTrainingCard(tr,isCoach,playerId,isNext) {
-  const confirmations = (appState.trainingConfirmations || []).filter(c=>c.eventId===tr.id);
-  const playerConfirm = playerId ? confirmations.find(c=>c.playerId===playerId) : null;
+  const confirmations = (appState.trainingConfirmations || []).filter(c=>isSameEventId(c.eventId, tr.id));
+  const playerConfirm = playerId ? getPlayerConfirmationForEvent(tr.id, playerId) : null;
   const summary = getTrainingRpeSummary(tr.id);
   const ownRpe = playerId ? summary.records.find(r=>r.playerId===playerId)?.rpeVal : null;
   const coachRpe = Number.isFinite(Number(tr.coachRpe)) ? Number(tr.coachRpe) : null;
@@ -2617,7 +2617,7 @@ function renderTrainingCard(tr,isCoach,playerId,isNext) {
 
   let attendance='';
   if (!isCoach) {
-    attendance = playerConfirm ? `<div class="training-confirmed ${playerConfirm.status==='yes'?'yes':'no'}"><span>${playerConfirm.status==='yes'?'✓ Asistiré':'✕ No asistiré'}</span></div>` : `<div class="training-rsvp"><span>¿Asistirás?</span><button class="yes" onclick="event.stopPropagation(); confirmTrainingAttendance('${tr.id}','yes')">Sí</button><button class="no" onclick="event.stopPropagation(); confirmTrainingAttendance('${tr.id}','no')">No</button></div>`;
+    attendance = playerConfirm ? `<div class="training-confirmed ${playerConfirm.status==='yes'?'yes':'no'}"><span>${playerConfirm.status==='yes'?'✓ Asistencia confirmada':'Ausencia comunicada'}</span><button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); openSeasonEvent('${tr.id}')">Abrir sesión</button></div>` : `<div class="training-rsvp"><span>¿Asistirás?</span><button class="yes" onclick="event.stopPropagation(); confirmTrainingAttendance('${tr.id}','yes')">Sí, asistiré</button><button class="no" onclick="event.stopPropagation(); confirmTrainingAttendance('${tr.id}','no')">No podré</button></div>`;
   } else {
     const yes=confirmations.filter(c=>c.status==='yes').length, no=confirmations.filter(c=>c.status==='no').length;
     attendance=`<div class="training-coach-actions"><span><strong>${yes}</strong> sí · <strong>${no}</strong> bajas</span><button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); openVerifyAttendanceModal('${tr.id}')"><i data-lucide="clipboard-check"></i> Pasar lista</button></div>`;
@@ -5143,7 +5143,7 @@ function renderHomePortalRSVP() {
   let playerConfirm = null;
   if (currentUser) {
     const pId = currentUser.playerId || currentUser.authId || currentUser.id;
-    playerConfirm = eventConfirmations.find(c => isSamePlayerId(c.playerId, pId));
+    playerConfirm = upcomingTraining && pId ? getPlayerConfirmationForEvent(upcomingTraining.id, pId) : null;
   }
 
   let actionHTML = "";
@@ -5152,13 +5152,15 @@ function renderHomePortalRSVP() {
       if (playerConfirm.status === "yes") {
         actionHTML = `
           <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-            <span class="rsvp-badge-yes">🟢 Asistencia comunicada (Sí)</span>
+            <span class="rsvp-badge-yes">✓ Asistencia confirmada</span>
+            <button type="button" class="btn btn-outline btn-sm" onclick="openSeasonEvent('${upcomingTraining.id}')">Abrir sesión</button>
           </div>
         `;
       } else {
         actionHTML = `
           <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-            <span class="rsvp-badge-no">🔴 Ausencia comunicada (No)</span>
+            <span class="rsvp-badge-no">Ausencia comunicada</span>
+            <button type="button" class="btn btn-outline btn-sm" onclick="openSeasonEvent('${upcomingTraining.id}')">Abrir sesión</button>
           </div>
         `;
       }
@@ -5169,7 +5171,7 @@ function renderHomePortalRSVP() {
             <i data-lucide="check-circle-2" style="width: 18px; height: 18px;"></i> Sí, asistiré
           </button>
           <button type="button" class="btn-rsvp-no" onclick="confirmTrainingAttendance('${upcomingTraining.id}', 'no')">
-            <i data-lucide="x-circle" style="width: 18px; height: 18px;"></i> No podré acudir
+            <i data-lucide="x-circle" style="width: 18px; height: 18px;"></i> No podré
           </button>
         </div>
       `;
