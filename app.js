@@ -610,6 +610,7 @@ function initLoginListener() {
         try { renderNavUserProfile(); } catch(e){}
         openModule("home-portal");
         maybeOpenWeeklyWellnessPrompt();
+        try { loadEventsFromSupabase({ silent: true }); } catch(e){}
       } catch (error) {
         console.error("[Supabase Auth] Inicio de sesión rechazado:", error);
         if (loginErrorMsg) {
@@ -1783,15 +1784,28 @@ function openEventDetailModal(eventId) {
   if (window.lucide) lucide.createIcons();
 }
 
-function deleteEvent(eventId) {
+async function deleteEvent(eventId) {
   if (!isCoachUser()) return;
   if (confirm("¿Estás seguro de que deseas eliminar este evento del calendario?")) {
-    appState.events = appState.events.filter(e => e.id !== eventId);
+    if (window.VolleySupabase && window.VolleySupabase.getClient()) {
+      showToast("Eliminando evento de Supabase...", "info");
+      const { error: supabaseError } = await window.VolleySupabase.deleteEvent(eventId);
+      if (supabaseError) {
+        console.error("[Supabase Events] Error al eliminar:", supabaseError);
+        showToast("Error al eliminar el evento en Supabase: " + (supabaseError.message || "Error de conexión"), "error");
+        return;
+      }
+    }
+
+    appState.events = (appState.events || []).filter(e => e.id !== eventId && e.legacyId !== eventId);
     saveAppData(appState);
+    if (typeof invalidateViewRenderCache === "function") invalidateViewRenderCache();
+    homeDashboardCache = { revision: -1, role: "", dayKey: "" };
+
     renderGoogleCalendar();
     renderTraining();
     renderStats();
-    document.getElementById("modal-event-detail").classList.remove("active");
+    document.getElementById("modal-event-detail")?.classList.remove("active");
     showToast("Evento eliminado correctamente");
   }
 }
@@ -4195,6 +4209,7 @@ function initFormListeners() {
       }
 
       const eventData = {
+        id: existingEvt?.id || null,
         type,
         title,
         date,
@@ -4204,29 +4219,54 @@ function initFormListeners() {
         tournamentMatches: type === "Torneo" ? tournamentMatches : [],
         attachmentId: type === "Entrenamiento" ? attachmentId : null,
         attachmentName: type === "Entrenamiento" ? attachmentName : null,
-        attachmentType: type === "Entrenamiento" ? attachmentType : null
+        attachmentType: type === "Entrenamiento" ? attachmentType : null,
+        round: type === "Partido" ? (existingEvt?.round || nextRound) : null,
+        status: existingEvt?.status || "Próximo"
       };
 
+      if (window.VolleySupabase && window.VolleySupabase.getClient()) {
+        if (eventSubmitButton) {
+          eventSubmitButton.disabled = true;
+          eventSubmitButton.textContent = "Guardando en Supabase…";
+        }
+
+        const user = getCurrentUser();
+        const clubId = user?.clubId || window.VolleySupabase.config?.clubId;
+        const teamId = user?.teamId || null;
+        const userId = user?.id || null;
+
+        const { data: savedEvt, error: supabaseError } = await window.VolleySupabase.saveEvent(
+          eventData,
+          clubId,
+          teamId,
+          userId
+        );
+
+        if (supabaseError) {
+          console.error("[Supabase Events] Error al guardar:", supabaseError);
+          showToast("Error al guardar evento en Supabase: " + (supabaseError.message || "Fallo de conexión"), "error");
+          return;
+        }
+
+        if (savedEvt) {
+          Object.assign(eventData, savedEvt);
+        }
+      }
+
       if (existingEvt) {
-        Object.assign(existingEvt, eventData, {
-          round: type === "Partido" ? (existingEvt.round || nextRound) : null
-        });
+        Object.assign(existingEvt, eventData);
       } else {
         if (!Array.isArray(appState.events)) appState.events = [];
-        appState.events.push({
-          id: `e_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-          ...eventData,
-          round: type === "Partido" ? nextRound : null,
-          status: "Próximo"
-        });
+        if (!eventData.id) {
+          eventData.id = `e_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        }
+        appState.events.push(eventData);
       }
 
       const saved = saveAppData(appState, { immediate: true });
       if (!saved) throw new Error("No se pudo preparar el guardado local");
       if (typeof flushAppDataSave === "function") flushAppDataSave();
-      // Invalida inmediatamente todas las vistas dependientes del calendario.
-      // Así Inicio, Entrenos y Calendario leen el evento recién creado sin esperar
-      // a la siguiente recarga ni a la revisión diferida del almacenamiento.
+
       if (typeof invalidateViewRenderCache === "function") invalidateViewRenderCache();
       homeDashboardCache = { revision: -1, role: "", dayKey: "" };
 
@@ -4237,7 +4277,7 @@ function initFormListeners() {
 
       document.getElementById("modal-add-event")?.classList.remove("active");
       document.body.classList.remove("modal-open");
-      showToast(wasEditing ? "Evento actualizado correctamente" : "Evento guardado en el calendario");
+      showToast(wasEditing ? "Evento actualizado correctamente en Supabase" : "Evento guardado en Supabase");
 
       requestAnimationFrame(() => {
         try { renderGoogleCalendar(); } catch (error) { console.error("Error al refrescar calendario:", error); }
@@ -7407,4 +7447,105 @@ window.renderWellness = renderWellness;
     const submit=document.getElementById('btn-submit-wellness'); if(submit) submit.disabled=false;
   };
   window.setWellnessSleepChoice=setWellnessSleepChoice;
+
+  /* ========================================================================== 
+     BLOQUE C · SINCRO DE EVENTOS & CALENDARIO EN SUPABASE CON REALTIME
+     ========================================================================== */
+
+  function generateDynamicBirthdayEvents() {
+    const players = appState.players || [];
+    const currentYear = new Date().getFullYear();
+    const bdays = [];
+    players.forEach(p => {
+      const rawDate = p.birthDate || p.birth_date;
+      if (!rawDate || !/^\d{4}-\d{2}-\d{2}$/.test(String(rawDate))) return;
+      const parts = String(rawDate).split('-');
+      const bdayDate = `${currentYear}-${parts[1]}-${parts[2]}`;
+      const pName = p.name || p.full_name || 'Jugadora';
+      bdays.push({
+        id: `bday_${p.id || p.legacy_id || pName}_${currentYear}`,
+        type: 'Cumpleaños',
+        title: `🎂 Cumpleaños de ${pName}`,
+        date: bdayDate,
+        time: '00:00',
+        location: 'CV Bunyola',
+        status: 'Próximo',
+        description: `¡Felicidades a ${pName}! 🎉`
+      });
+    });
+    return bdays;
+  }
+  window.generateDynamicBirthdayEvents = generateDynamicBirthdayEvents;
+
+  let isSupabaseEventsLoading = false;
+
+  async function loadEventsFromSupabase(options = {}) {
+    if (!window.VolleySupabase) return;
+    const client = window.VolleySupabase.getClient();
+    if (!client) return;
+
+    if (isSupabaseEventsLoading && !options.force) return;
+    isSupabaseEventsLoading = true;
+
+    try {
+      const user = getCurrentUser();
+      const clubId = user?.clubId || window.VolleySupabase.config?.clubId;
+      const teamId = user?.teamId || null;
+
+      if (options.showToast) {
+        showToast("Cargando calendario desde Supabase...", "info");
+      }
+
+      const { data: remoteEvents, error } = await window.VolleySupabase.fetchEvents(clubId, teamId);
+      if (error) {
+        console.warn('[Supabase Events] Error al consultar eventos:', error);
+        if (options.showToast) {
+          showToast("Error al cargar eventos de Supabase: " + (error.message || "Fallo de red"), "error");
+        }
+        isSupabaseEventsLoading = false;
+        return;
+      }
+
+      if (Array.isArray(remoteEvents)) {
+        const dynamicBdays = generateDynamicBirthdayEvents();
+        const remoteIds = new Set(remoteEvents.map(e => e.id));
+        const nonDuplicateBdays = dynamicBdays.filter(b => !remoteIds.has(b.id));
+
+        appState.events = [...remoteEvents, ...nonDuplicateBdays];
+        saveAppData(appState);
+
+        if (typeof invalidateViewRenderCache === "function") invalidateViewRenderCache();
+        homeDashboardCache = { revision: -1, role: "", dayKey: "" };
+
+        requestAnimationFrame(() => {
+          try { renderGoogleCalendar(); } catch (e) {}
+          try { renderTraining(); } catch (e) {}
+          try { renderHomeDashboard(); } catch (e) {}
+          try { renderStats(); } catch (e) {}
+          try { renderCompetition(); } catch (e) {}
+        });
+      }
+
+      // Suscribirse a cambios Realtime si no hay suscripción activa
+      if (clubId && typeof window.VolleySupabase.subscribeEventsRealtime === 'function') {
+        window.VolleySupabase.subscribeEventsRealtime(clubId, (payload) => {
+          console.log('[Supabase Realtime] Evento actualizado en remoto:', payload.eventType);
+          loadEventsFromSupabase({ silent: true, force: true });
+        });
+      }
+    } catch (err) {
+      console.error('[Supabase Events] Excepción al sincronizar:', err);
+    } finally {
+      isSupabaseEventsLoading = false;
+    }
+  }
+  window.loadEventsFromSupabase = loadEventsFromSupabase;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+      if (window.VolleySupabase && window.VolleySupabase.getClient()) {
+        loadEventsFromSupabase({ silent: true });
+      }
+    }, 800);
+  });
 })();

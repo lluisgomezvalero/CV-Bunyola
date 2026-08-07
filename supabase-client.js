@@ -284,6 +284,210 @@
     return result;
   }
 
+  // ==========================================
+  // EVENTOS / CALENDARIO / ENTRENAMIENTOS (BLOQUE C)
+  // ==========================================
+
+  function supabaseToFrontendEvent(row) {
+    if (!row) return null;
+    const payload = row.payload || {};
+    const typeMap = {
+      training: 'Entrenamiento',
+      match: 'Partido',
+      friendly: 'Amistoso',
+      tournament: 'Torneo',
+      birthday: 'Cumpleaños',
+      other: 'Otro'
+    };
+    
+    let dateStr = '';
+    let timeStr = payload.time || '';
+    if (row.starts_at) {
+      const dt = new Date(row.starts_at);
+      if (!isNaN(dt.getTime())) {
+        const year = dt.getFullYear();
+        const month = String(dt.getMonth() + 1).padStart(2, '0');
+        const day = String(dt.getDate()).padStart(2, '0');
+        dateStr = `${year}-${month}-${day}`;
+        if (!timeStr) {
+          const hh = String(dt.getHours()).padStart(2, '0');
+          const mm = String(dt.getMinutes()).padStart(2, '0');
+          timeStr = `${hh}:${mm}`;
+        }
+      }
+    }
+
+    return {
+      id: row.id,
+      legacyId: row.legacy_id || null,
+      clubId: row.club_id,
+      teamId: row.team_id || null,
+      type: payload.type || typeMap[row.event_type] || 'Entrenamiento',
+      title: row.title || '',
+      date: dateStr || payload.date || '',
+      time: timeStr || '18:00',
+      location: row.location || payload.location || '',
+      status: row.status || payload.status || 'Próximo',
+      description: payload.description || '',
+      plan: payload.plan || '',
+      opponent: payload.opponent || '',
+      coachRPE: payload.coachRPE !== undefined ? payload.coachRPE : null,
+      sessionImage: payload.sessionImage || null,
+      round: payload.round || null,
+      result: payload.result || null,
+      stats: payload.stats || null,
+      rawPayload: payload
+    };
+  }
+
+  function frontendToSupabaseEvent(evt, clubId, teamId, userId) {
+    const reverseTypeMap = {
+      'Entrenamiento': 'training',
+      'Partido': 'match',
+      'Amistoso': 'friendly',
+      'Torneo': 'tournament',
+      'Cumpleaños': 'birthday'
+    };
+
+    const eventType = reverseTypeMap[evt.type] || 'other';
+    let startsAtISO = null;
+    if (evt.date) {
+      const timePart = (evt.time && evt.time.includes(':')) ? evt.time.split(' ')[0] : '18:00';
+      startsAtISO = new Date(`${evt.date}T${timePart}:00`).toISOString();
+    }
+
+    const payload = {
+      type: evt.type,
+      time: evt.time || '18:00',
+      description: evt.description || '',
+      plan: evt.plan || '',
+      opponent: evt.opponent || '',
+      coachRPE: evt.coachRPE !== undefined ? evt.coachRPE : null,
+      sessionImage: evt.sessionImage || null,
+      round: evt.round || null,
+      result: evt.result || null,
+      stats: evt.stats || null,
+      status: evt.status || 'Próximo'
+    };
+
+    const record = {
+      club_id: clubId,
+      team_id: evt.teamId || teamId || null,
+      event_type: eventType,
+      title: evt.title,
+      starts_at: startsAtISO || new Date().toISOString(),
+      location: evt.location || '',
+      status: evt.status || 'Próximo',
+      payload: payload
+    };
+
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (evt.id && uuidRegex.test(evt.id)) {
+      record.id = evt.id;
+    } else if (evt.id) {
+      record.legacy_id = String(evt.id);
+    }
+
+    if (userId) record.created_by = userId;
+    return record;
+  }
+
+  async function fetchEvents(clubId, teamId) {
+    const supabaseClient = getClient();
+    if (!supabaseClient) return { data: [], error: new Error('Supabase no inicializado') };
+
+    let query = supabaseClient
+      .from('events')
+      .select('*')
+      .order('starts_at', { ascending: true });
+
+    if (clubId) query = query.eq('club_id', clubId);
+
+    const { data, error } = await query;
+    if (error) return { data: [], error };
+
+    const mapped = (data || []).map(supabaseToFrontendEvent).filter(Boolean);
+    return { data: mapped, error: null };
+  }
+
+  async function saveEvent(evt, clubId, teamId, userId) {
+    const supabaseClient = getClient();
+    if (!supabaseClient) return { data: null, error: new Error('Supabase no inicializado') };
+
+    const record = frontendToSupabaseEvent(evt, clubId, teamId, userId);
+    
+    let result;
+    if (record.id) {
+      result = await supabaseClient
+        .from('events')
+        .update(record)
+        .eq('id', record.id)
+        .select('*')
+        .single();
+    } else {
+      result = await supabaseClient
+        .from('events')
+        .insert(record)
+        .select('*')
+        .single();
+    }
+
+    if (result.error) return { data: null, error: result.error };
+    return { data: supabaseToFrontendEvent(result.data), error: null };
+  }
+
+  async function deleteEvent(eventId) {
+    const supabaseClient = getClient();
+    if (!supabaseClient) return { error: new Error('Supabase no inicializado') };
+
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let query = supabaseClient.from('events').delete();
+    if (uuidRegex.test(eventId)) {
+      query = query.eq('id', eventId);
+    } else {
+      query = query.eq('legacy_id', eventId);
+    }
+
+    const { error } = await query;
+    return { error };
+  }
+
+  let eventsChannel = null;
+
+  function subscribeEventsRealtime(clubId, onDataChange) {
+    const supabaseClient = getClient();
+    if (!supabaseClient || !clubId) return null;
+
+    if (eventsChannel) {
+      try { supabaseClient.removeChannel(eventsChannel); } catch(e){}
+      eventsChannel = null;
+    }
+
+    eventsChannel = supabaseClient
+      .channel('public:events:' + clubId)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'events',
+          filter: `club_id=eq.${clubId}`
+        },
+        (payload) => {
+          if (typeof onDataChange === 'function') {
+            onDataChange(payload);
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Supabase Realtime] Eventos suscritos correctamente.');
+        }
+      });
+
+    return eventsChannel;
+  }
+
   window.VolleySupabase = Object.freeze({
     config,
     getClient,
@@ -298,7 +502,13 @@
     updateOwnProfile,
     updateOwnPlayer,
     touchLastLogin,
-    updatePassword
+    updatePassword,
+    supabaseToFrontendEvent,
+    frontendToSupabaseEvent,
+    fetchEvents,
+    saveEvent,
+    deleteEvent,
+    subscribeEventsRealtime
   });
 
   document.addEventListener('DOMContentLoaded', initializeStatus, { once: true });
