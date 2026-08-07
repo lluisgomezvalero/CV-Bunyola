@@ -816,7 +816,7 @@
 
     const { data, error } = await supabaseClient
       .from('rpe_entries')
-      .select('*, events(id, legacy_id), players(id, legacy_id, profile_id)');
+      .select('*, events(id, legacy_id), players(id, legacy_id, profile_id), profiles(id, full_name, username)');
 
     if (error) {
       const fallback = await supabaseClient.from('rpe_entries').select('*');
@@ -839,46 +839,41 @@
       return { data: null, error: new Error(`La jugadora ("${playerId}") no tiene un UUID asignado en Supabase.`) };
     }
 
-    const payload = {
-      event_id: realEventId,
-      player_id: realPlayerId,
-      score: Number(score),
-      source: 'player'
-    };
-
-    const { data: upsertData, error: upsertError } = await supabaseClient
+    const { data: existing, error: findError } = await supabaseClient
       .from('rpe_entries')
-      .upsert(payload, { onConflict: 'event_id,player_id' })
-      .select('*')
-      .maybeSingle();
-
-    if (!upsertError) return { data: upsertData, error: null };
-
-    console.warn('[Supabase RPE Player] Upsert directo falló, intentando actualización por ID:', upsertError);
-
-    const { data: existing } = await supabaseClient
-      .from('rpe_entries')
-      .select('id')
+      .select('id, score, source')
       .eq('event_id', realEventId)
       .eq('player_id', realPlayerId)
       .maybeSingle();
 
-    if (existing && existing.id) {
-      const { data: updated, error: updateError } = await supabaseClient
-        .from('rpe_entries')
-        .update({ score: Number(score), updated_at: new Date().toISOString() })
-        .eq('id', existing.id)
-        .select('*')
-        .single();
-      return { data: updated, error: updateError };
-    } else {
-      const { data: inserted, error: insertError } = await supabaseClient
-        .from('rpe_entries')
-        .insert(payload)
-        .select('*')
-        .single();
-      return { data: inserted, error: insertError };
+    if (findError) return { data: null, error: findError };
+
+    if (existing) {
+      if (existing.source === 'player') {
+        return { data: existing, error: new Error('Ya has registrado tu RPE para este entrenamiento.') };
+      } else {
+        const { data: updated, error: updateError } = await supabaseClient
+          .from('rpe_entries')
+          .update({ score: Number(score), source: 'player', updated_at: new Date().toISOString() })
+          .eq('id', existing.id)
+          .select('*')
+          .single();
+        return { data: updated, error: updateError };
+      }
     }
+
+    const { data: inserted, error: insertError } = await supabaseClient
+      .from('rpe_entries')
+      .insert({
+        event_id: realEventId,
+        player_id: realPlayerId,
+        score: Number(score),
+        source: 'player'
+      })
+      .select('*')
+      .single();
+
+    return { data: inserted, error: insertError };
   }
 
   async function saveCoachRPE(eventId, coachProfileId, score) {
@@ -892,28 +887,11 @@
 
     const cId = (coachProfileId && uuidRegex.test(coachProfileId)) ? coachProfileId : null;
 
-    const payload = {
-      event_id: realEventId,
-      coach_profile_id: cId,
-      score: Number(score),
-      source: 'coach'
-    };
-
-    if (cId) {
-      const { data: upsertData, error: upsertError } = await supabaseClient
-        .from('rpe_entries')
-        .upsert(payload, { onConflict: 'event_id,coach_profile_id' })
-        .select('*')
-        .maybeSingle();
-
-      if (!upsertError) return { data: upsertData, error: null };
-      console.warn('[Supabase RPE Coach] Upsert directo falló, usando fallback:', upsertError);
-    }
-
     let query = supabaseClient.from('rpe_entries').select('id').eq('event_id', realEventId).eq('source', 'coach');
     if (cId) query = query.eq('coach_profile_id', cId);
 
-    const { data: existing } = await query.maybeSingle();
+    const { data: existing, error: findError } = await query.maybeSingle();
+    if (findError) return { data: null, error: findError };
 
     if (existing && existing.id) {
       const { data: updated, error: updateError } = await supabaseClient
@@ -926,7 +904,60 @@
     } else {
       const { data: inserted, error: insertError } = await supabaseClient
         .from('rpe_entries')
-        .insert(payload)
+        .insert({
+          event_id: realEventId,
+          player_id: null,
+          coach_profile_id: cId,
+          score: Number(score),
+          source: 'coach'
+        })
+        .select('*')
+        .single();
+      return { data: inserted, error: insertError };
+    }
+  }
+
+  async function saveCoachForPlayerRPE(eventId, playerId, coachProfileId, score) {
+    const supabaseClient = getClient();
+    if (!supabaseClient) return { data: null, error: new Error('Supabase no inicializado') };
+
+    const realEventId = await resolveEventUUID(supabaseClient, eventId);
+    const realPlayerId = await resolvePlayerUUID(supabaseClient, playerId);
+
+    if (!realEventId || !realPlayerId) {
+      return { data: null, error: new Error('Error al vincular entrenamiento o jugadora.') };
+    }
+
+    const { data: existing, error: findError } = await supabaseClient
+      .from('rpe_entries')
+      .select('id, source')
+      .eq('event_id', realEventId)
+      .eq('player_id', realPlayerId)
+      .maybeSingle();
+
+    if (findError) return { data: null, error: findError };
+
+    if (existing) {
+      if (existing.source === 'player') {
+        return { data: null, error: new Error('La jugadora ya registró personalmente su RPE. No se debe sobrescribir.') };
+      }
+      const { data: updated, error: updateError } = await supabaseClient
+        .from('rpe_entries')
+        .update({ score: Number(score), coach_profile_id: coachProfileId, updated_at: new Date().toISOString() })
+        .eq('id', existing.id)
+        .select('*')
+        .single();
+      return { data: updated, error: updateError };
+    } else {
+      const { data: inserted, error: insertError } = await supabaseClient
+        .from('rpe_entries')
+        .insert({
+          event_id: realEventId,
+          player_id: realPlayerId,
+          coach_profile_id: coachProfileId,
+          score: Number(score),
+          source: 'coach_for_player'
+        })
         .select('*')
         .single();
       return { data: inserted, error: insertError };
@@ -999,6 +1030,7 @@
     fetchRPE,
     savePlayerRPE,
     saveCoachRPE,
+    saveCoachForPlayerRPE,
     subscribeRPERealtime
   });
 
