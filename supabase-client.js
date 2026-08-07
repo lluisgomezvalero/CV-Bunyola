@@ -67,6 +67,8 @@
       return { data: null, error: new Error('Por favor, introduce tu usuario.') };
     }
 
+    let emailToUse = null;
+
     // 1. Si el usuario introdujo un correo completo directamente (ej. lluisgomez5@gmail.com), usarlo directamente
     if (cleanUsername.includes('@')) {
       emailToUse = cleanUsername;
