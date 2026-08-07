@@ -66,10 +66,63 @@
     const supabaseClient = getClient();
     if (!supabaseClient) throw new Error('Supabase no está inicializado.');
 
-    return supabaseClient.auth.signInWithPassword({
-      email: usernameToEmail(username),
-      password
+    const cleanUsername = String(username || '').trim();
+    if (!cleanUsername || !password) {
+      return { data: null, error: new Error('Usuario o contraseña incorrectos.') };
+    }
+
+    // 1. Intentar autenticar mediante la Edge Function login-by-username si está desplegada
+    try {
+      const { data: edgeData, error: edgeError } = await supabaseClient.functions.invoke('login-by-username', {
+        body: { username: cleanUsername, password }
+      });
+
+      if (!edgeError && edgeData?.session) {
+        const { data: setSessionData, error: setSessionError } = await supabaseClient.auth.setSession(edgeData.session);
+        if (!setSessionError && setSessionData?.session) {
+          return { data: setSessionData, error: null };
+        }
+      }
+    } catch (edgeEx) {
+      console.warn('[Supabase Auth] Edge function login-by-username no disponible, usando RPC de seguridad:', edgeEx);
+    }
+
+    // 2. Método RPC get_auth_email_by_username (SECURITY DEFINER)
+    // Busca exclusivamente en public.profiles WHERE lower(username) = lower(cleanUsername) AND active = true
+    let authEmail = null;
+    try {
+      const { data: rpcEmail, error: rpcError } = await supabaseClient.rpc('get_auth_email_by_username', {
+        p_username: cleanUsername
+      });
+
+      if (!rpcError && rpcEmail) {
+        authEmail = rpcEmail;
+      }
+    } catch (rpcEx) {
+      console.warn('[Supabase Auth] Excepción en RPC get_auth_email_by_username:', rpcEx);
+    }
+
+    if (!authEmail) {
+      return {
+        data: null,
+        error: new Error('Usuario o contraseña incorrectos.')
+      };
+    }
+
+    // 3. Iniciar sesión mediante Supabase Auth con el email real obtenido de profiles.username
+    const authResult = await supabaseClient.auth.signInWithPassword({
+      email: authEmail,
+      password: password
     });
+
+    if (authResult.error) {
+      return {
+        data: null,
+        error: new Error('Usuario o contraseña incorrectos.')
+      };
+    }
+
+    return authResult;
   }
 
   async function signOut() {
