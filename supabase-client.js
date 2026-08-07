@@ -587,9 +587,12 @@
 
     const { data, error } = await supabaseClient
       .from('attendance')
-      .select('*');
+      .select('*, events(id, legacy_id), players(id, legacy_id, profile_id)');
 
-    if (error) return { data: [], error };
+    if (error) {
+      const fallback = await supabaseClient.from('attendance').select('*');
+      return { data: fallback.data || [], error: fallback.error };
+    }
     return { data: data || [], error: null };
   }
 

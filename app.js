@@ -5011,30 +5011,43 @@ window.calculatePlayerAttendanceAndAchievements = calculatePlayerAttendanceAndAc
 
 function isSameEventId(idA, idB) {
   if (!idA || !idB) return false;
-  if (String(idA) === String(idB)) return true;
+  const sA = String(idA).trim();
+  const sB = String(idB).trim();
+  if (sA === sB) return true;
 
-  const evA = (appState.events || []).find(e => e.id === idA || e.legacyId === idA);
-  const evB = (appState.events || []).find(e => e.id === idB || e.legacyId === idB);
+  const evA = (appState.events || []).find(e => String(e.id) === sA || String(e.legacyId) === sA || String(e.legacy_id) === sA);
+  const evB = (appState.events || []).find(e => String(e.id) === sB || String(e.legacyId) === sB || String(e.legacy_id) === sB);
 
   if (evA && evB && evA === evB) return true;
-  if (evA && (evA.id === idB || evA.legacyId === idB)) return true;
-  if (evB && (evB.id === idA || evB.legacyId === idA)) return true;
+  if (evA && (String(evA.id) === sB || String(evA.legacyId) === sB || String(evA.legacy_id) === sB)) return true;
+  if (evB && (String(evB.id) === sA || String(evB.legacyId) === sA || String(evB.legacy_id) === sA)) return true;
 
   return false;
 }
 
 function isSamePlayerId(idA, idB) {
   if (!idA || !idB) return false;
-  if (String(idA) === String(idB)) return true;
+  const sA = String(idA).trim();
+  const sB = String(idB).trim();
+  if (sA === sB) return true;
 
-  const pA = (appState.players || []).find(p => p.id === idA || p.legacy_id === idA || p.profile_id === idA);
-  const pB = (appState.players || []).find(p => p.id === idB || p.legacy_id === idB || p.profile_id === idB);
+  const pA = (appState.players || []).find(p => String(p.id) === sA || String(p.legacy_id) === sA || String(p.profile_id) === sA);
+  const pB = (appState.players || []).find(p => String(p.id) === sB || String(p.legacy_id) === sB || String(p.profile_id) === sB);
 
   if (pA && pB && pA === pB) return true;
-  if (pA && (pA.id === idB || pA.legacy_id === idB || pA.profile_id === idB)) return true;
-  if (pB && (pB.id === idA || pB.legacy_id === idA || pB.profile_id === idA)) return true;
+  if (pA && (String(pA.id) === sB || String(pA.legacy_id) === sB || String(pA.profile_id) === sB)) return true;
+  if (pB && (String(pB.id) === sA || String(pB.legacy_id) === sA || String(pB.profile_id) === sA)) return true;
 
   return false;
+}
+
+function getPlayerConfirmationForEvent(eventId, playerId) {
+  if (!eventId || !playerId) return null;
+  const confirmations = appState.trainingConfirmations || [];
+  return confirmations.find(c =>
+    (isSameEventId(c.eventId, eventId) || isSameEventId(c.eventIdLegacy, eventId)) &&
+    (isSamePlayerId(c.playerId, playerId) || isSamePlayerId(c.playerIdLegacy, playerId))
+  ) || null;
 }
 
 // SISTEMA DE CONFIRMACIÓN DE ASISTENCIA A ENTRENAMIENTOS ("¿ACUDIRÉ AL ENTRENAMIENTO?")
@@ -5049,10 +5062,8 @@ async function confirmTrainingAttendance(eventId, status, note = "") {
     appState.trainingConfirmations = [];
   }
 
-  const userPId = currentUser.playerId || currentUser.authId;
-  const existingConfirmation = appState.trainingConfirmations.find(
-    c => isSameEventId(c.eventId, eventId) && isSamePlayerId(c.playerId, userPId)
-  );
+  const userPId = currentUser.playerId || currentUser.authId || currentUser.id;
+  const existingConfirmation = getPlayerConfirmationForEvent(eventId, userPId);
   if (existingConfirmation) {
     showToast("Tu respuesta ya fue enviada y no se puede modificar.", "info");
     return;
@@ -5831,7 +5842,7 @@ function renderHomeDashboard() {
   const lastMatch = getLatestPlayedMatch();
   const allStats = (appState.players || []).map(p => calculatePlayerAttendanceAndAchievements(p.id));
   const teamAttendance = allStats.length ? Math.round(allStats.reduce((a,b) => a + b.ratio, 0) / allStats.length) : 0;
-  const playerConfirm = playerId && nextTraining ? confirmations.find(c => isSamePlayerId(c.playerId, playerId)) : null;
+  const playerConfirm = playerId && nextTraining ? getPlayerConfirmationForEvent(nextTraining.id, playerId) : null;
   const teamGoals = (appState.weeklyGoals || []).filter(g => g.weekKey === getWeekKeyFromDate());
   const requiredPending = teamGoals.filter(g => g.required).reduce((sum,g) => sum + (appState.players || []).filter(p => (g.isTeamGoal || g.playerId === p.id) && !isGoalCompleted(g,p.id)).length, 0);
   const nextMatchScoutingRecord = nextMatch ? appState.matchScouting?.[nextMatch.id] : null;
@@ -5841,8 +5852,8 @@ function renderHomeDashboard() {
   const trainingActions = !nextTraining ? "" : coach
     ? `<div class="dashboard-actions"><button class="btn btn-primary btn-sm" onclick="openSeasonEvent('${nextTraining.id}')"><i data-lucide="dumbbell"></i>Abrir sesión</button><button class="btn btn-outline btn-sm" onclick="openVerifyAttendanceModal('${nextTraining.id}')"><i data-lucide="clipboard-check"></i>Pasar lista</button></div>`
     : (playerConfirm
-      ? `<div class="dashboard-actions"><span class="dashboard-status ${playerConfirm.status === 'yes' ? 'ok' : 'danger'}">${playerConfirm.status === 'yes' ? 'Asistencia confirmada' : 'Ausencia comunicada'}</span><button class="btn btn-outline btn-sm" onclick="openSeasonEvent('${nextTraining.id}')">Abrir sesión</button></div>`
-      : `<div class="dashboard-actions dashboard-rsvp-actions"><button class="btn-rsvp-yes" onclick="confirmTrainingAttendance('${nextTraining.id}','yes')">Sí, asistiré</button><button class="btn-rsvp-no" onclick="confirmTrainingAttendance('${nextTraining.id}','no')">No podré</button></div>`);
+      ? `<div class="dashboard-actions"><span class="dashboard-status ${playerConfirm.status === 'yes' ? 'ok' : 'danger'}">${playerConfirm.status === 'yes' ? '✓ Asistencia confirmada' : 'Ausencia comunicada'}</span><button class="btn btn-outline btn-sm" onclick="openSeasonEvent('${nextTraining.id}')">Abrir sesión</button></div>`
+      : `<div class="dashboard-actions dashboard-rsvp-actions"><button class="btn-rsvp-yes" onclick="confirmTrainingAttendance('${nextTraining.id}','yes')">Sí, asistiré</button><button class="btn-rsvp-no" onclick="confirmTrainingAttendance('${nextTraining.id}','no')">No podré</button><button class="btn btn-outline btn-sm" onclick="openSeasonEvent('${nextTraining.id}')">Abrir sesión</button></div>`);
 
   const playerPendingCard = !coach && playerId ? renderPlayerPendingOverview(playerId, nextTraining, playerConfirm) : '';
 
