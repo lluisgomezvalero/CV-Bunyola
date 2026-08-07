@@ -54,7 +54,11 @@
   }
 
   function usernameToEmail(username) {
-    const clean = String(username || '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
+    const clean = String(username || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]/g, '');
+
     return `${clean}@${config.usernameDomain || 'cvbunyola.app'}`;
   }
 
@@ -62,75 +66,10 @@
     const supabaseClient = getClient();
     if (!supabaseClient) throw new Error('Supabase no está inicializado.');
 
-    const cleanUsername = String(username || '').trim();
-    if (!cleanUsername) {
-      return { data: null, error: new Error('Por favor, introduce tu usuario.') };
-    }
-
-    let resolvedEmail = null;
-
-    // 1. Si el usuario introdujo un correo completo directamente (ej. lluisgomez5@gmail.com), usarlo directamente
-    if (cleanUsername.includes('@')) {
-      resolvedEmail = cleanUsername;
-    }
-
-    // 2. Intentar buscar mediante la función RPC get_auth_email_by_username
-    if (!resolvedEmail) {
-      try {
-        const { data: rpcData } = await supabaseClient.rpc('get_auth_email_by_username', { p_username: cleanUsername });
-        if (rpcData) {
-          resolvedEmail = rpcData;
-        }
-      } catch (e) {
-        console.warn('[Supabase] RPC get_auth_email_by_username:', e);
-      }
-    }
-
-    // 3. Intentar buscar en la tabla profiles directamente por el campo username
-    if (!resolvedEmail) {
-      try {
-        const { data: profileData } = await supabaseClient
-          .from('profiles')
-          .select('auth_email, username')
-          .ilike('username', cleanUsername)
-          .maybeSingle();
-
-        if (profileData && profileData.auth_email) {
-          resolvedEmail = profileData.auth_email;
-        }
-      } catch (e) {
-        console.warn('[Supabase] Consulta directa profiles:', e);
-      }
-    }
-
-    // 4. Fallback para usuarios existentes creados con el dominio por defecto (ej. username@cvbunyola.app)
-    if (!resolvedEmail) {
-      const cleanSimple = cleanUsername.toLowerCase().replace(/[^a-z0-9._-]/g, '');
-      const defaultDomain = config.usernameDomain || 'cvbunyola.app';
-      resolvedEmail = `${cleanSimple}@${defaultDomain}`;
-    }
-
-    if (!resolvedEmail) {
-      return {
-        data: null,
-        error: new Error('Usuario o contraseña incorrectos.')
-      };
-    }
-
-    // 5. Realizar signInWithPassword utilizando el correo real obtenido y la contraseña introducida
-    const authResult = await supabaseClient.auth.signInWithPassword({
-      email: resolvedEmail,
-      password: password
+    return supabaseClient.auth.signInWithPassword({
+      email: usernameToEmail(username),
+      password
     });
-
-    if (authResult.error) {
-      return {
-        data: null,
-        error: new Error('Usuario o contraseña incorrectos.')
-      };
-    }
-
-    return authResult;
   }
 
   async function signOut() {

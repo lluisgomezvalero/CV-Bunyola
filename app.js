@@ -5051,7 +5051,7 @@ function getPlayerConfirmationForEvent(eventId, playerId) {
 }
 
 // SISTEMA DE CONFIRMACIÓN DE ASISTENCIA A ENTRENAMIENTOS ("¿ACUDIRÉ AL ENTRENAMIENTO?")
-async function confirmTrainingAttendance(eventId, status, note = "") {
+async function confirmTrainingAttendance(eventId, status, btnElement = null) {
   const currentUser = getCurrentUser();
   if (!currentUser || !currentUser.playerId) {
     showToast("Solo las jugadoras con perfil asignado pueden enviar confirmación de asistencia.", "error");
@@ -5069,8 +5069,13 @@ async function confirmTrainingAttendance(eventId, status, note = "") {
     return;
   }
 
+  // Deshabilitar botones temporalmente durante el guardado
+  const parentContainer = btnElement ? btnElement.closest('.dashboard-actions, .training-rsvp, .dashboard-rsvp-actions') : null;
+  const buttonsToDisable = parentContainer ? parentContainer.querySelectorAll('button') : document.querySelectorAll('.btn-rsvp-yes, .btn-rsvp-no');
+  buttonsToDisable.forEach(b => { b.disabled = true; });
+
   if (window.VolleySupabase && window.VolleySupabase.getClient()) {
-    showToast("Guardando confirmación...", "info");
+    showToast("Guardando en Supabase…", "info");
     const { data: savedRow, error: supabaseError } = await window.VolleySupabase.savePlayerAttendanceResponse(
       eventId,
       currentUser.playerId,
@@ -5080,19 +5085,19 @@ async function confirmTrainingAttendance(eventId, status, note = "") {
     if (supabaseError) {
       console.error("[Supabase Attendance] Error al guardar respuesta:", supabaseError);
       showToast("Error al guardar en Supabase: " + (supabaseError.message || "Fallo de conexión"), "error");
+      buttonsToDisable.forEach(b => { b.disabled = false; });
       return;
     }
   }
 
   appState.trainingConfirmations = appState.trainingConfirmations.filter(
-    c => !(c.eventId === eventId && c.playerId === currentUser.playerId)
+    c => !(isSameEventId(c.eventId, eventId) && isSamePlayerId(c.playerId, userPId))
   );
 
   appState.trainingConfirmations.push({
     eventId,
     playerId: currentUser.playerId,
     status,
-    note,
     timestamp: new Date().toISOString()
   });
 
@@ -5103,20 +5108,18 @@ async function confirmTrainingAttendance(eventId, status, note = "") {
   }
 
   saveAppData(appState);
-  renderHomeDashboard();
 
   const isYes = status === 'yes';
   showToast(
     isYes
-      ? `Confirmación enviada: 🟢 ¡Asistencia comunicada!`
-      : `Confirmación enviada: 🔴 Ausencia comunicada.`
+      ? `🟢 ¡Asistencia comunicada correctamente!`
+      : `🔴 Ausencia comunicada correctamente.`
   );
 
-  window.setTimeout(() => {
-    renderHomePortalRSVP();
-    renderTraining();
-    if (activeSessionId === eventId) renderSessionCenterDetail();
-  }, 0);
+  renderHomeDashboard();
+  renderHomePortalRSVP();
+  renderTraining();
+  if (typeof activeSessionId !== 'undefined' && activeSessionId === eventId) renderSessionCenterDetail();
 }
 
 function renderHomePortalRSVP() {
@@ -5167,10 +5170,10 @@ function renderHomePortalRSVP() {
     } else {
       actionHTML = `
         <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
-          <button type="button" class="btn-rsvp-yes" onclick="confirmTrainingAttendance('${upcomingTraining.id}', 'yes')">
+          <button type="button" class="btn-rsvp-yes" onclick="confirmTrainingAttendance('${upcomingTraining.id}', 'yes', this)">
             <i data-lucide="check-circle-2" style="width: 18px; height: 18px;"></i> Sí, asistiré
           </button>
-          <button type="button" class="btn-rsvp-no" onclick="confirmTrainingAttendance('${upcomingTraining.id}', 'no')">
+          <button type="button" class="btn-rsvp-no" onclick="confirmTrainingAttendance('${upcomingTraining.id}', 'no', this)">
             <i data-lucide="x-circle" style="width: 18px; height: 18px;"></i> No podré
           </button>
         </div>
@@ -5855,7 +5858,7 @@ function renderHomeDashboard() {
     ? `<div class="dashboard-actions"><button class="btn btn-primary btn-sm" onclick="openSeasonEvent('${nextTraining.id}')"><i data-lucide="dumbbell"></i>Abrir sesión</button><button class="btn btn-outline btn-sm" onclick="openVerifyAttendanceModal('${nextTraining.id}')"><i data-lucide="clipboard-check"></i>Pasar lista</button></div>`
     : (playerConfirm
       ? `<div class="dashboard-actions"><span class="dashboard-status ${playerConfirm.status === 'yes' ? 'ok' : 'danger'}">${playerConfirm.status === 'yes' ? '✓ Asistencia confirmada' : 'Ausencia comunicada'}</span><button class="btn btn-outline btn-sm" onclick="openSeasonEvent('${nextTraining.id}')">Abrir sesión</button></div>`
-      : `<div class="dashboard-actions dashboard-rsvp-actions"><button class="btn-rsvp-yes" onclick="confirmTrainingAttendance('${nextTraining.id}','yes')">Sí, asistiré</button><button class="btn-rsvp-no" onclick="confirmTrainingAttendance('${nextTraining.id}','no')">No podré</button><button class="btn btn-outline btn-sm" onclick="openSeasonEvent('${nextTraining.id}')">Abrir sesión</button></div>`);
+      : `<div class="dashboard-actions dashboard-rsvp-actions"><button class="btn-rsvp-yes" onclick="confirmTrainingAttendance('${nextTraining.id}','yes',this)">Sí, asistiré</button><button class="btn-rsvp-no" onclick="confirmTrainingAttendance('${nextTraining.id}','no',this)">No podré</button></div>`);
 
   const playerPendingCard = !coach && playerId ? renderPlayerPendingOverview(playerId, nextTraining, playerConfirm) : '';
 
