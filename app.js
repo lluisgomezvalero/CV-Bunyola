@@ -6307,23 +6307,54 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const draft = localStorage.getItem('volleycoach_unsaved_draft');
   const draftMeta = JSON.parse(localStorage.getItem('volleycoach_unsaved_draft_meta') || '{}');
-  const savedAt = Date.parse(localStorage.getItem('volleycoach_last_saved_at') || 0);
-  if (draft && Number(draftMeta.savedAt || 0) > savedAt) {
-    setTimeout(() => {
-      if (confirm('Se ha encontrado una edición que no llegó a guardarse. ¿Deseas recuperarla?')) {
-        try {
-          const recovered = JSON.parse(draft);
-          localStorage.setItem('volleycoach_data', JSON.stringify(recovered));
-          localStorage.setItem('volleycoach_last_saved_at', new Date().toISOString());
-          localStorage.removeItem('volleycoach_unsaved_draft');
-          localStorage.removeItem('volleycoach_unsaved_draft_meta');
-          location.reload();
-        } catch (_) { showToast('No se pudo recuperar la edición.', 'error'); }
-      } else {
+  const savedAtStr = localStorage.getItem('volleycoach_last_saved_at');
+  const savedAt = savedAtStr ? Date.parse(savedAtStr) : 0;
+  const currentDataStr = localStorage.getItem('volleycoach_data') || '';
+
+  if (draft) {
+    const isDifferent = (draft.trim() !== currentDataStr.trim());
+    const isNewer = Number(draftMeta.savedAt || 0) > savedAt;
+
+    if (isDifferent && isNewer) {
+      setTimeout(() => {
+        if (confirm('Se ha encontrado una edición que no llegó a guardarse. ¿Deseas recuperarla?')) {
+          try {
+            const recovered = JSON.parse(draft);
+            localStorage.setItem('volleycoach_data', JSON.stringify(recovered));
+            localStorage.setItem('volleycoach_last_saved_at', new Date().toISOString());
+            if (typeof window.clearUnsavedDraft === 'function') window.clearUnsavedDraft();
+            else {
+              localStorage.removeItem('volleycoach_unsaved_draft');
+              localStorage.removeItem('volleycoach_unsaved_draft_meta');
+              updateSaveStatus('saved');
+            }
+            location.reload();
+          } catch (_) {
+            showToast('No se pudo recuperar la edición.', 'error');
+            if (typeof window.clearUnsavedDraft === 'function') window.clearUnsavedDraft();
+            else {
+              localStorage.removeItem('volleycoach_unsaved_draft');
+              localStorage.removeItem('volleycoach_unsaved_draft_meta');
+              updateSaveStatus('saved');
+            }
+          }
+        } else {
+          if (typeof window.clearUnsavedDraft === 'function') window.clearUnsavedDraft();
+          else {
+            localStorage.removeItem('volleycoach_unsaved_draft');
+            localStorage.removeItem('volleycoach_unsaved_draft_meta');
+            updateSaveStatus('saved');
+          }
+        }
+      }, 400);
+    } else {
+      if (typeof window.clearUnsavedDraft === 'function') window.clearUnsavedDraft();
+      else {
         localStorage.removeItem('volleycoach_unsaved_draft');
         localStorage.removeItem('volleycoach_unsaved_draft_meta');
+        updateSaveStatus('saved');
       }
-    }, 400);
+    }
   }
 });
 

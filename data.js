@@ -705,11 +705,22 @@ function getAppData() {
   }
 }
 
+function clearUnsavedDraft() {
+  try {
+    localStorage.removeItem("volleycoach_unsaved_draft");
+    localStorage.removeItem("volleycoach_unsaved_draft_meta");
+    if (typeof window.updateSaveStatus === "function") window.updateSaveStatus("saved");
+  } catch (e) {}
+}
+window.clearUnsavedDraft = clearUnsavedDraft;
+
 function saveAppData(data, options = {}) {
   try {
     const serialized = JSON.stringify(data);
     const previous = localStorage.getItem("volleycoach_data");
     if (previous === serialized) {
+      localStorage.removeItem("volleycoach_unsaved_draft");
+      localStorage.removeItem("volleycoach_unsaved_draft_meta");
       if (typeof window.updateSaveStatus === "function") window.updateSaveStatus("saved");
       return true;
     }
