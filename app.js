@@ -5230,6 +5230,10 @@ function openVerifyAttendanceModal(eventId) {
 
   if (!modal || !container) return;
 
+  if (window.VolleySupabase && window.VolleySupabase.getClient()) {
+    loadAttendanceFromSupabase({ silent: true, force: true });
+  }
+
   const event = appState.events.find(e => e.id === eventId);
   const title = document.getElementById("verify-attendance-title");
   if (title && event) {
@@ -5240,12 +5244,12 @@ function openVerifyAttendanceModal(eventId) {
   container.innerHTML = "";
 
   const confirmations = appState.trainingConfirmations || [];
-  const eventConfirmations = confirmations.filter(c => c.eventId === eventId);
+  const eventConfirmations = confirmations.filter(c => (isSameEventId(c.eventId, eventId) || isSameEventId(c.eventIdLegacy, eventId)));
   const verifiedLogs = appState.attendanceData || [];
 
   appState.players.forEach(p => {
-    const playerRSVP = eventConfirmations.find(c => c.playerId === p.id);
-    const existingLog = verifiedLogs.find(a => a.eventId === eventId && a.playerId === p.id);
+    const playerRSVP = eventConfirmations.find(c => (isSamePlayerId(c.playerId, p.id) || isSamePlayerId(c.playerIdLegacy, p.id)));
+    const existingLog = verifiedLogs.find(a => (isSameEventId(a.eventId, eventId) || isSameEventId(a.eventIdLegacy, eventId)) && (isSamePlayerId(a.playerId, p.id) || isSamePlayerId(a.playerIdLegacy, p.id)));
 
     let isChecked = false;
     if (existingLog) {
@@ -7711,7 +7715,9 @@ window.renderWellness = renderWellness;
           if (r.player_response) {
             confirmations.push({
               eventId: r.event_id,
+              eventIdLegacy: r.events?.legacy_id || null,
               playerId: r.player_id,
+              playerIdLegacy: r.players?.legacy_id || null,
               status: r.player_response,
               timestamp: r.updated_at || r.created_at
             });
@@ -7721,7 +7727,9 @@ window.renderWellness = renderWellness;
             officialLogs.push({
               id: r.id,
               eventId: r.event_id,
+              eventIdLegacy: r.events?.legacy_id || null,
               playerId: r.player_id,
+              playerIdLegacy: r.players?.legacy_id || null,
               status: r.official_status,
               source: 'coach_roll_call',
               validatedAt: r.validated_at,
@@ -7741,6 +7749,13 @@ window.renderWellness = renderWellness;
           try { renderTraining(); } catch (e) {}
           try { renderHomePortalRSVP(); } catch (e) {}
           try { renderCoachAttendanceList(); } catch (e) {}
+          try {
+            const modal = document.getElementById('modal-verify-attendance');
+            const openEvtId = document.getElementById('verify-attendance-event-id')?.value;
+            if (modal && modal.classList.contains('active') && openEvtId) {
+              openVerifyAttendanceModal(openEvtId);
+            }
+          } catch(e) {}
         });
       }
 
