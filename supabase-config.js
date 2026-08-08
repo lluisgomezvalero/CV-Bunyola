@@ -13,3 +13,19 @@ window.VOLLEY_SUPABASE_CONFIG = Object.freeze({
   usernameDomain: 'cvbunyola.app',
   clubId: 'b0000000-0000-4000-8000-000000000001'
 });
+
+// Parches aislados de sincronización. Se cargan aquí para no reescribir
+// index.html ni app.js y reducir el riesgo de regresiones.
+(function loadVolleySyncPatches() {
+  const scripts = [
+    'attendance-fix.js?v=20260809a',
+    'game-plan-sync.js?v=20260809a'
+  ];
+  scripts.forEach(src => {
+    if (document.querySelector(`script[src^="${src.split('?')[0]}"]`)) return;
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = true;
+    document.head.appendChild(script);
+  });
+})();
