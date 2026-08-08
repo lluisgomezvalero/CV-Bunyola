@@ -18,9 +18,10 @@ window.VOLLEY_SUPABASE_CONFIG = Object.freeze({
 // index.html ni app.js y reducir el riesgo de regresiones.
 (function loadVolleySyncPatches() {
   const scripts = [
-    'attendance-fix.js?v=20260809b',
-    'game-plan-sync.js?v=20260809b',
-    'app-corrections-20260809.js?v=20260809b'
+    'attendance-fix.js?v=20260809c',
+    'game-plan-sync.js?v=20260809c',
+    'app-corrections-20260809.js?v=20260809c',
+    'app-corrections-live.js?v=20260809c'
   ];
   scripts.forEach(src => {
     if (document.querySelector(`script[src^="${src.split('?')[0]}"]`)) return;
