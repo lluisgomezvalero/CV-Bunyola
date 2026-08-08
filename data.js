@@ -718,6 +718,7 @@ function saveAppData(data, options = {}) {
   try {
     const serialized = JSON.stringify(data);
     const previous = localStorage.getItem("volleycoach_data");
+
     if (previous === serialized) {
       localStorage.removeItem("volleycoach_unsaved_draft");
       localStorage.removeItem("volleycoach_unsaved_draft_meta");
@@ -725,41 +726,27 @@ function saveAppData(data, options = {}) {
       return true;
     }
 
-    const now = Date.now();
-    localStorage.setItem("volleycoach_unsaved_draft", serialized);
-    localStorage.setItem("volleycoach_unsaved_draft_meta", JSON.stringify({ savedAt: now, version: TEAM_DATA_VERSION }));
-    if (typeof window.markAppChangesPending === "function") window.markAppChangesPending();
+    const lastBackup = Number(sessionStorage.getItem("volleycoach_last_backup") || 0);
+    if (previous && Date.now() - lastBackup > 30000) {
+      localStorage.setItem("volleycoach_data_backup", previous);
+      sessionStorage.setItem("volleycoach_last_backup", String(Date.now()));
+    }
 
-    const commit = () => {
-      try {
-        const current = localStorage.getItem("volleycoach_data");
-        const lastBackup = Number(sessionStorage.getItem("volleycoach_last_backup") || 0);
-        if (current && Date.now() - lastBackup > 30000) {
-          localStorage.setItem("volleycoach_data_backup", current);
-          sessionStorage.setItem("volleycoach_last_backup", String(Date.now()));
-        }
-        if (typeof window.updateSaveStatus === "function") window.updateSaveStatus("saving");
-        localStorage.setItem("volleycoach_data", serialized);
-        localStorage.setItem("volleycoach_last_saved_at", new Date().toISOString());
-        localStorage.removeItem("volleycoach_unsaved_draft");
-        localStorage.removeItem("volleycoach_unsaved_draft_meta");
-        window.__appDataRevision = Number(window.__appDataRevision || 0) + 1;
-        if (typeof window.invalidateViewRenderCache === "function") window.invalidateViewRenderCache();
-        if (typeof window.updateSaveStatus === "function") window.updateSaveStatus("saved");
-      } catch (error) {
-        console.error("No se han podido guardar los datos:", error);
-        if (typeof window.updateSaveStatus === "function") window.updateSaveStatus("error");
-        if (typeof showToast === "function") showToast("No se pudieron guardar los datos.", "error");
-      }
-    };
+    if (typeof window.updateSaveStatus === "function") window.updateSaveStatus("saving");
+    localStorage.setItem("volleycoach_data", serialized);
+    localStorage.setItem("volleycoach_last_saved_at", new Date().toISOString());
+    localStorage.removeItem("volleycoach_unsaved_draft");
+    localStorage.removeItem("volleycoach_unsaved_draft_meta");
 
-    clearTimeout(window.__volleySaveTimer);
-    window.__volleyPendingCommit = commit;
-    window.__volleySaveTimer = setTimeout(commit, options.immediate ? 0 : 700);
+    window.__appDataRevision = Number(window.__appDataRevision || 0) + 1;
+    if (typeof window.invalidateViewRenderCache === "function") window.invalidateViewRenderCache();
+    if (typeof window.updateSaveStatus === "function") window.updateSaveStatus("saved");
+
     return true;
   } catch (error) {
-    console.error("No se han podido preparar los datos para guardar:", error);
+    console.error("No se han podido guardar los datos:", error);
     if (typeof window.updateSaveStatus === "function") window.updateSaveStatus("error");
+    if (typeof showToast === "function") showToast("No se pudieron guardar los datos.", "error");
     return false;
   }
 }
