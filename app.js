@@ -6732,9 +6732,16 @@ function markCurrentPlayerPlanRead(record) {
   const version = getPlanPublicationVersion(record);
   if (!version) return;
   record.readReceipts = record.readReceipts && typeof record.readReceipts === 'object' ? record.readReceipts : {};
-  const current = record.readReceipts[user.playerId];
+
+  const pMatch = (appState.players || []).find(p => isSamePlayerId(p.id, user.playerId));
+  const pKey = pMatch ? pMatch.id : user.playerId;
+
+  const current = record.readReceipts[pKey] || (pMatch?.legacy_id ? record.readReceipts[pMatch.legacy_id] : null);
   if (current?.version === version) return;
-  record.readReceipts[user.playerId] = { version, viewedAt: new Date().toISOString() };
+
+  record.readReceipts[pKey] = { version, viewedAt: new Date().toISOString() };
+  if (pMatch?.legacy_id) record.readReceipts[pMatch.legacy_id] = { version, viewedAt: new Date().toISOString() };
+
   appState.matchScouting[activeScoutingMatchId] = record;
   saveAppData(appState);
 }
@@ -6742,14 +6749,26 @@ function renderPlanReadTracker(record) {
   const version = getPlanPublicationVersion(record);
   const receipts = record?.readReceipts || {};
   const players = Array.isArray(appState.players) ? appState.players : [];
-  const seen = players.filter(player => receipts[player.id]?.version === version);
+
+  const isPlayerSeen = (player) => {
+    const r1 = receipts[player.id];
+    const r2 = player.legacy_id ? receipts[player.legacy_id] : null;
+    const r3 = player.profile_id ? receipts[player.profile_id] : null;
+    return (r1?.version === version) || (r2?.version === version) || (r3?.version === version);
+  };
+
+  const getPlayerReceipt = (player) => {
+    return receipts[player.id] || (player.legacy_id ? receipts[player.legacy_id] : null) || (player.profile_id ? receipts[player.profile_id] : null);
+  };
+
+  const seen = players.filter(player => isPlayerSeen(player));
   const formatReadTime = iso => {
     if (!iso) return 'Sin abrir';
     const date = new Date(iso);
     return date.toLocaleString('es-ES', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
   };
   return `<section class="plan-read-tracker"><div class="plan-read-tracker-head"><strong>Lectura del plan de juego</strong><span class="plan-read-progress">${seen.length}/${players.length} jugadoras</span></div><div class="plan-read-list">${players.map(player => {
-    const receipt = receipts[player.id];
+    const receipt = getPlayerReceipt(player);
     const hasSeen = receipt?.version === version;
     return `<div class="plan-read-item ${hasSeen?'seen':'pending'}"><i data-lucide="${hasSeen?'circle-check':'clock-3'}"></i><span><b>${escapeSessionText(player.name)}</b><small>${hasSeen?formatReadTime(receipt.viewedAt):'Todavía no lo ha abierto'}</small></span></div>`;
   }).join('')}</div></section>`;
@@ -7930,12 +7949,12 @@ window.renderWellness = renderWellness;
   window.loadRPEFromSupabase = loadRPEFromSupabase;
 
   document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => {
+    setTimeout(async () => {
       if (window.VolleySupabase && window.VolleySupabase.getClient()) {
-        loadEventsFromSupabase({ silent: true });
-        loadAttendanceFromSupabase({ silent: true });
-        loadWellnessFromSupabase({ silent: true });
-        loadRPEFromSupabase({ silent: true });
+        try { await loadEventsFromSupabase({ silent: true }); } catch(e) { console.warn('[Init] Events load error:', e); }
+        try { await loadAttendanceFromSupabase({ silent: true }); } catch(e) { console.warn('[Init] Attendance load error:', e); }
+        try { await loadWellnessFromSupabase({ silent: true }); } catch(e) { console.warn('[Init] Wellness load error:', e); }
+        try { await loadRPEFromSupabase({ silent: true }); } catch(e) { console.warn('[Init] RPE load error:', e); }
       }
     }, 800);
   });
