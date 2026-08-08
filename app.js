@@ -7654,9 +7654,20 @@ window.renderWellness = renderWellness;
       if (Array.isArray(remoteEvents)) {
         const dynamicBdays = generateDynamicBirthdayEvents();
         const remoteIds = new Set(remoteEvents.map(e => e.id));
+        const remoteLegacyIds = new Set(remoteEvents.map(e => e.legacy_id || e.legacyId).filter(Boolean));
+
+        // Preservar eventos/entrenamientos locales no migrados aún a remoto
+        const localOnlyEvents = (appState.events || []).filter(e => 
+          !remoteIds.has(e.id) && 
+          !(e.legacy_id && remoteLegacyIds.has(e.legacy_id)) &&
+          !(e.legacyId && remoteLegacyIds.has(e.legacyId)) &&
+          !(e.id && remoteLegacyIds.has(e.id)) &&
+          e.type !== 'Cumpleaños'
+        );
+
         const nonDuplicateBdays = dynamicBdays.filter(b => !remoteIds.has(b.id));
 
-        appState.events = [...remoteEvents, ...nonDuplicateBdays];
+        appState.events = [...remoteEvents, ...localOnlyEvents, ...nonDuplicateBdays];
         saveAppData(appState);
 
         if (typeof invalidateViewRenderCache === "function") invalidateViewRenderCache();

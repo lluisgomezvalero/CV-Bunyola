@@ -522,11 +522,16 @@
       }
 
       // Auto-creación en public.players si la jugadora aún no tiene UUID en Supabase
+      const localPlayer = (typeof window.appState !== 'undefined' && Array.isArray(window.appState.players))
+        ? window.appState.players.find(p => String(p.id) === pid || String(p.legacy_id) === pid)
+        : null;
+
       const defaultClub = config.clubId || 'b0000000-0000-4000-8000-000000000001';
       const { data: newPlayer } = await supabaseClient
         .from('players')
         .insert({
           legacy_id: pid,
+          profile_id: (localPlayer?.profile_id || localPlayer?.authId || (uuidRegex.test(pid) ? pid : null)),
           club_id: defaultClub,
           active: true
         })
@@ -554,16 +559,25 @@
 
       if (data?.id) return data.id;
 
-      // Auto-creación en public.events si el entrenamiento aún no tiene UUID en Supabase
+      // Buscar si el evento existe localmente en appState para copiar sus datos reales
+      const localEvt = (typeof window.appState !== 'undefined' && Array.isArray(window.appState.events))
+        ? window.appState.events.find(e => String(e.id) === eid || String(e.legacy_id) === eid || String(e.legacyId) === eid)
+        : null;
+
       const defaultClub = config.clubId || 'b0000000-0000-4000-8000-000000000001';
+      const eventTitle = localEvt?.title || localEvt?.name || 'Entrenamiento Sincronizado';
+      const startsAt = (localEvt?.date && localEvt?.time)
+        ? new Date(`${localEvt.date}T${localEvt.time}:00`).toISOString()
+        : (localEvt?.date ? new Date(`${localEvt.date}T12:00:00`).toISOString() : new Date().toISOString());
+
       const { data: newEvt } = await supabaseClient
         .from('events')
         .insert({
           legacy_id: eid,
           club_id: defaultClub,
-          event_type: 'training',
-          title: 'Entrenamiento Sincronizado',
-          starts_at: new Date().toISOString()
+          event_type: (localEvt?.type === 'Partido' ? 'match' : 'training'),
+          title: eventTitle,
+          starts_at: startsAt
         })
         .select('id')
         .single();
