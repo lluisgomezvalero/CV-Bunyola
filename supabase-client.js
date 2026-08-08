@@ -712,6 +712,29 @@
     return { data: data || [], error: null };
   }
 
+  async function getTodayWellnessEntry(playerId) {
+    const supabaseClient = getClient();
+    if (!supabaseClient) return null;
+
+    const realPlayerId = await resolvePlayerUUID(supabaseClient, playerId);
+    if (!realPlayerId) return null;
+
+    const today = getLocalDateKey();
+
+    const { data, error } = await supabaseClient
+      .from('wellness_entries')
+      .select('*, players(id, legacy_id, profile_id)')
+      .eq('player_id', realPlayerId)
+      .eq('entry_date', today)
+      .maybeSingle();
+
+    if (error) {
+      console.warn('[Supabase Wellness] Error en getTodayWellnessEntry:', error);
+      return null;
+    }
+    return data;
+  }
+
   async function saveWellnessEntry(playerId, dateStr, dataObj) {
     const supabaseClient = getClient();
     if (!supabaseClient) return { data: null, error: new Error('Supabase no inicializado') };
@@ -721,32 +744,33 @@
       return { data: null, error: new Error(`La jugadora ("${playerId}") no tiene un UUID asignado en Supabase.`) };
     }
 
+    const cleanDateStr = getLocalDateKey(dateStr);
+
     const payload = {
       player_id: realPlayerId,
-      entry_date: dateStr,
+      entry_date: cleanDateStr,
       general_state: Number(dataObj.generalState || dataObj.general_state || 3),
       fatigue: Number(dataObj.fatigue || 3),
       soreness: Number(dataObj.soreness || 3),
       stress: Number(dataObj.stress || 3),
       sleep: Number(dataObj.sleep || 3),
+      sleep_hours: dataObj.sleep_hours || dataObj.sleepHours ? Number(dataObj.sleep_hours || dataObj.sleepHours) : null,
       notes: dataObj.notes || ''
     };
 
     const { data: upsertData, error: upsertError } = await supabaseClient
       .from('wellness_entries')
       .upsert(payload, { onConflict: 'player_id,entry_date' })
-      .select('*')
+      .select('*, players(id, legacy_id, profile_id)')
       .maybeSingle();
 
-    if (!upsertError) return { data: upsertData, error: null };
-
-    console.warn('[Supabase Wellness] Upsert directo falló, intentando actualización por ID:', upsertError);
+    if (!upsertError && upsertData) return { data: upsertData, error: null };
 
     const { data: existing } = await supabaseClient
       .from('wellness_entries')
       .select('id')
       .eq('player_id', realPlayerId)
-      .eq('entry_date', dateStr)
+      .eq('entry_date', cleanDateStr)
       .maybeSingle();
 
     if (existing && existing.id) {
@@ -758,18 +782,19 @@
           soreness: payload.soreness,
           stress: payload.stress,
           sleep: payload.sleep,
+          sleep_hours: payload.sleep_hours,
           notes: payload.notes,
           updated_at: new Date().toISOString()
         })
         .eq('id', existing.id)
-        .select('*')
+        .select('*, players(id, legacy_id, profile_id)')
         .single();
       return { data: updated, error: updateError };
     } else {
       const { data: inserted, error: insertError } = await supabaseClient
         .from('wellness_entries')
         .insert(payload)
-        .select('*')
+        .select('*, players(id, legacy_id, profile_id)')
         .single();
       return { data: inserted, error: insertError };
     }
@@ -1025,6 +1050,7 @@
     validateOfficialAttendance,
     subscribeAttendanceRealtime,
     fetchWellness,
+    getTodayWellnessEntry,
     saveWellnessEntry,
     subscribeWellnessRealtime,
     fetchRPE,

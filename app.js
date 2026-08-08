@@ -2138,6 +2138,14 @@ function getCurrentWeekKey() {
 }
 
 function getLocalDateKey(date = new Date()) {
+  if (!date) date = new Date();
+  if (typeof date === 'string') {
+    const trimmed = date.trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+      return trimmed.slice(0, 10);
+    }
+    date = new Date(date);
+  }
   const y = date.getFullYear();
   const m = String(date.getMonth()+1).padStart(2,'0');
   const d = String(date.getDate()).padStart(2,'0');
@@ -2157,15 +2165,28 @@ function getWeekInfoForDate(date = new Date()) {
 }
 function getPlayerWeeklyStatus(playerId, date = new Date()) {
   const weekInfo = getWeekInfoForDate(date);
-  const existingLog = (appState.wellnessLogs || []).find(l => l.playerId === playerId && (l.weekKey === weekInfo.weekKey || getWeekInfoForDate(new Date(l.dateKey || l.date || l.createdAt)).weekKey === weekInfo.weekKey));
+  const existingLog = (appState.wellnessLogs || []).find(l =>
+    (isSamePlayerId(l.playerId, playerId) || isSamePlayerId(l.playerIdUuid, playerId)) &&
+    (l.weekKey === weekInfo.weekKey || getWeekInfoForDate(l.dateKey || l.date || l.entry_date || l.createdAt).weekKey === weekInfo.weekKey)
+  );
   return { isContestada: !!existingLog, log: existingLog, weekInfo };
 }
 function getPlayerDailyStatus(playerId, date = new Date()) {
+  if (!playerId) return { isContestada: false, log: null, dateKey: getLocalDateKey(date) };
   const dateKey = getLocalDateKey(date);
-  const existingLog = (appState.wellnessLogs || []).find(l =>
-    l.playerId === playerId && getLocalDateKey(new Date(l.dateKey || l.date || l.createdAt)) === dateKey
-  );
-  return { isContestada: !!existingLog, log: existingLog, dateKey };
+  const existingLog = (appState.wellnessLogs || []).find(l => {
+    const pMatch = isSamePlayerId(l.playerId, playerId) ||
+                   isSamePlayerId(l.playerIdUuid, playerId) ||
+                   (l.player_id && isSamePlayerId(l.player_id, playerId));
+    const dKey = getLocalDateKey(l.dateKey || l.date || l.entry_date || l.createdAt);
+    return pMatch && dKey === dateKey;
+  });
+
+  if (window.VOLLEY_DEBUG || location.search.includes('debug=true')) {
+    console.log('[Wellness Debug] playerId:', playerId, 'dateKey:', dateKey, 'found:', !!existingLog);
+  }
+
+  return { isContestada: !!existingLog, log: existingLog || null, dateKey };
 }
 function isWellnessWindowOpen() {
   // Modo de prueba: el cuestionario puede contestarse todos los días.
@@ -4337,6 +4358,7 @@ function initFormListeners() {
       submitBtn.textContent = 'Guardando…';
     }
 
+    let savedRowData = null;
     if (window.VolleySupabase && window.VolleySupabase.getClient()) {
       const { data: savedData, error: supabaseError } = await window.VolleySupabase.saveWellnessEntry(playerId, dateKey, {
         generalState: fatigue,
@@ -4344,6 +4366,7 @@ function initFormListeners() {
         soreness: fatigue,
         stress: fatigue,
         sleep: sleepQuality,
+        sleepHours,
         notes
       });
 
@@ -4356,49 +4379,46 @@ function initFormListeners() {
         }
         return;
       }
+      savedRowData = savedData;
     }
 
-    const userLogs = (appState.wellnessLogs || []).filter(l => l.playerId === playerId);
-    const weekNum = Math.min(24, userLogs.length + 1);
     const weekInfo = getCurrentWeekKey();
+    const pMatch = (appState.players || []).find(p => isSamePlayerId(p.id, playerId));
 
-    const existingLogIndex = (appState.wellnessLogs || []).findIndex(l => l.playerId === playerId && getLocalDateKey(new Date(l.dateKey || l.date || l.createdAt)) === dateKey);
+    const newLogEntry = {
+      id: savedRowData?.id || ("w_" + Date.now()),
+      playerId: pMatch ? pMatch.id : playerId,
+      playerIdUuid: savedRowData?.player_id || null,
+      playerName: pMatch ? pMatch.name : (player ? player.name : "Jugadora"),
+      weekKey: weekInfo.weekKey,
+      dateKey,
+      date: dateKey,
+      entry_date: dateKey,
+      sleepHours,
+      sleepQuality,
+      fatigue,
+      generalState: fatigue,
+      soreness: fatigue,
+      stress: fatigue,
+      notes,
+      createdAt: savedRowData?.created_at || new Date().toISOString()
+    };
 
-    if (existingLogIndex !== -1) {
-      appState.wellnessLogs[existingLogIndex].fatigue = fatigue;
-      appState.wellnessLogs[existingLogIndex].sleepHours = sleepHours;
-      appState.wellnessLogs[existingLogIndex].sleepQuality = sleepQuality;
-      appState.wellnessLogs[existingLogIndex].weekKey = weekInfo.weekKey;
-      appState.wellnessLogs[existingLogIndex].dateKey = dateKey;
-      appState.wellnessLogs[existingLogIndex].date = dateKey;
-      if (notes) appState.wellnessLogs[existingLogIndex].notes = notes;
-    } else {
-      const newLog = {
-        id: "w_" + Date.now(),
-        playerId,
-        playerName: player ? player.name : "Jugadora",
-        weekNum: weekNum,
-        weekKey: weekInfo.weekKey,
-        dateKey,
-        date: dateKey,
-        sessionId: (appState.events || []).find(ev => ev.type === 'Entrenamiento' && ev.date === dateKey)?.id || null,
-        sleepHours,
-        sleepQuality,
-        fatigue,
-        notes,
-        createdAt: new Date().toISOString()
-      };
-      appState.wellnessLogs.unshift(newLog);
-    }
+    appState.wellnessLogs = (appState.wellnessLogs || []).filter(l =>
+      !(isSamePlayerId(l.playerId, playerId) && getLocalDateKey(l.dateKey || l.date || l.entry_date) === dateKey)
+    );
+    appState.wellnessLogs.unshift(newLogEntry);
+
     syncEngagementLedger();
-
     saveAppData(appState);
+
     if (typeof invalidateViewRenderCache === "function") invalidateViewRenderCache();
     homeDashboardCache = { revision: -1, role: '', dayKey: '' };
+
     renderWellness();
     renderHomePortalRSVP();
     renderHomeDashboard();
-    showToast("¡Bienestar guardado correctamente!");
+    showToast("🟢 ¡Bienestar guardado correctamente!");
     document.getElementById("modal-add-wellness")?.classList.remove("active");
   });
 }
