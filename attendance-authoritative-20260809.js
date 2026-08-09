@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 
-const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 let installing=false;
 let loading=false;
 let savingRollCall=false;
@@ -209,7 +209,6 @@ async function saveRollCall(event){
 
 document.addEventListener('submit',saveRollCall,true);
 
-// Cerrar significa cerrar de verdad: bloqueamos cualquier reapertura programática antigua.
 document.addEventListener('click',event=>{
   const modal=document.getElementById('modal-verify-attendance');
   if(!modal)return;
