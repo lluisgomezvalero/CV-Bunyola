@@ -19,15 +19,15 @@ window.VOLLEY_SUPABASE_CONFIG = Object.freeze({
 // finales se aplican después de que hayan cargado los demás parches.
 (function loadVolleySyncPatches() {
   const scripts = [
-    'attendance-authoritative-20260809.js?v=20260809l',
-    'reset-training-state-20260809.js?v=20260809l',
-    'attendance-fix.js?v=20260809l',
-    'game-plan-sync.js?v=20260809l',
-    'app-corrections-20260809.js?v=20260809l',
-    'app-corrections-live.js?v=20260809l',
-    'hotfix-20260809c.js?v=20260809l',
-    'supabase-event-recovery.js?v=20260809l',
-    'supabase-roster-sync.js?v=20260809l'
+    'attendance-authoritative-20260809.js?v=20260809m',
+    'reset-training-state-20260809.js?v=20260809m',
+    'attendance-fix.js?v=20260809m',
+    'game-plan-sync.js?v=20260809m',
+    'app-corrections-20260809.js?v=20260809m',
+    'app-corrections-live.js?v=20260809m',
+    'hotfix-20260809c.js?v=20260809m',
+    'supabase-event-recovery.js?v=20260809m',
+    'supabase-roster-sync.js?v=20260809m'
   ];
   scripts.forEach(src => {
     if (document.querySelector(`script[src^="${src.split('?')[0]}"]`)) return;
