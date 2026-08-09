@@ -1,13 +1,8 @@
 (function () {
   'use strict';
 
-  // Corrección aislada de sincronización de confirmaciones de asistencia.
-  // El problema original era que appState usa IDs locales (p1, p2, ...)
-  // mientras Supabase devuelve UUIDs. Los jugadores locales ya guardan
-  // supabaseId, pero isSamePlayerId no lo tenía en cuenta.
-
   function install() {
-    if (typeof window.isSamePlayerId !== 'function' || typeof window.confirmTrainingAttendance !== 'function' || typeof window.openVerifyAttendanceModal !== 'function') {
+    if (typeof window.isSamePlayerId !== 'function' || typeof window.confirmTrainingAttendance !== 'function' || typeof window.openVerifyAttendanceModal !== 'function' || typeof window.loadAttendanceFromSupabase !== 'function') {
       window.setTimeout(install, 120);
       return;
     }
@@ -41,51 +36,55 @@
       const aa = aliasesFor(a);
       const bb = aliasesFor(b);
       for (const value of aa) if (bb.has(value)) return true;
-
       try { return originalIsSamePlayerId(idA, idB); } catch (_) { return false; }
     };
 
-    const originalConfirm = window.confirmTrainingAttendance;
-    window.confirmTrainingAttendance = async function patchedConfirmTrainingAttendance(eventId, status, btnElement) {
-      const result = await originalConfirm.call(this, eventId, status, btnElement);
-
-      // Después del guardado, recargar desde Supabase y volver a renderizar.
-      // Así el estado visual no depende del registro local temporal.
+    // BLOQUEO DEL BUCLE: la implementación base intenta volver a abrir
+    // "Pasar lista" al terminar cada carga de Supabase. Durante una hidratación
+    // impedimos esa reapertura automática. El modal solo se abre por acción del usuario.
+    const baseLoadAttendance = window.loadAttendanceFromSupabase;
+    window.loadAttendanceFromSupabase = async function stableLoadAttendance() {
+      if (window.__attendanceHydrating) return;
+      window.__attendanceHydrating = true;
       try {
-        if (typeof window.loadAttendanceFromSupabase === 'function') {
-          await window.loadAttendanceFromSupabase({ silent: true, force: true });
-        }
-      } catch (error) {
-        console.warn('[AttendanceFix] No se pudo refrescar asistencia tras responder:', error);
+        return await baseLoadAttendance.apply(this, arguments);
+      } finally {
+        window.__attendanceHydrating = false;
       }
-
-      try { if (typeof renderHomeDashboard === 'function') renderHomeDashboard(); } catch (_) {}
-      try { if (typeof renderHomePortalRSVP === 'function') renderHomePortalRSVP(); } catch (_) {}
-      try { if (typeof renderTraining === 'function') renderTraining(); } catch (_) {}
-      try {
-        if (typeof activeSessionId !== 'undefined' && activeSessionId === eventId && typeof renderSessionCenterDetail === 'function') {
-          renderSessionCenterDetail();
-        }
-      } catch (_) {}
-
-      return result;
     };
 
     const originalOpenVerify = window.openVerifyAttendanceModal;
-    window.openVerifyAttendanceModal = async function patchedOpenVerifyAttendanceModal(eventId) {
-      // El modal anterior disparaba la carga de Supabase pero renderizaba antes de
-      // que terminara. Ahora esperamos a tener las confirmaciones reales.
+    window.openVerifyAttendanceModal = async function stableOpenVerifyAttendanceModal(eventId) {
+      // Esta llamada puede venir del requestAnimationFrame interno de
+      // loadAttendanceFromSupabase. En ese caso NO reabrimos el modal.
+      if (window.__attendanceHydrating) return;
+
       try {
-        if (typeof window.loadAttendanceFromSupabase === 'function') {
-          await window.loadAttendanceFromSupabase({ silent: true, force: true });
-        }
+        await window.loadAttendanceFromSupabase({ silent: true, force: true });
       } catch (error) {
         console.warn('[AttendanceFix] No se pudo refrescar antes de pasar lista:', error);
       }
       return originalOpenVerify.call(this, eventId);
     };
 
-    console.info('[AttendanceFix] Corrección de IDs y sincronización de asistencia activada.');
+    const originalConfirm = window.confirmTrainingAttendance;
+    window.confirmTrainingAttendance = async function patchedConfirmTrainingAttendance(eventId, status, btnElement) {
+      const result = await originalConfirm.call(this, eventId, status, btnElement);
+      try {
+        await window.loadAttendanceFromSupabase({ silent: true, force: true });
+      } catch (error) {
+        console.warn('[AttendanceFix] No se pudo refrescar asistencia tras responder:', error);
+      }
+      try { if (typeof renderHomeDashboard === 'function') renderHomeDashboard(); } catch (_) {}
+      try { if (typeof renderHomePortalRSVP === 'function') renderHomePortalRSVP(); } catch (_) {}
+      try { if (typeof renderTraining === 'function') renderTraining(); } catch (_) {}
+      try {
+        if (typeof activeSessionId !== 'undefined' && activeSessionId === eventId && typeof renderSessionCenterDetail === 'function') renderSessionCenterDetail();
+      } catch (_) {}
+      return result;
+    };
+
+    console.info('[AttendanceFix] IDs sincronizados y bucle de Pasar lista desactivado.');
   }
 
   install();
