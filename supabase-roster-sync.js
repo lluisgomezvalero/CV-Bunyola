@@ -18,41 +18,69 @@ async function syncRosterFromSupabase(){
       .eq('active',true);
     if(error){console.warn('[RosterSync] Error cargando plantilla',error);return;}
 
-    const rows=(data||[]).filter(r=>r.profile_id&&r.profiles?.active!==false&&r.profiles?.role==='player');
+    // IMPORTANTE: una jugadora NO necesita tener cuenta para pertenecer a la plantilla.
+    // Conservamos la plantilla local actual y solo fusionamos la identidad Supabase
+    // de las jugadoras que ya existen en public.players.
     const old=Array.isArray(state.players)?state.players:[];
-    const next=rows.map(r=>{
+    const next=[...old];
+
+    for(const r of (data||[])){
       const uname=String(r.profiles?.username||'').toLowerCase();
-      const previous=old.find(p=>String(p.supabaseId||'')===String(r.id)||String(p.profile_id||'')===String(r.profile_id)||(uname&&String(p.username||'').toLowerCase()===uname));
-      return {
-        ...(previous||{}),
-        id: previous?.id || r.legacy_id || r.id,
+      const idx=next.findIndex(p=>
+        String(p.supabaseId||'')===String(r.id) ||
+        (r.legacy_id && [p.id,p.legacy_id,p.legacyId].filter(Boolean).map(String).includes(String(r.legacy_id))) ||
+        (uname && String(p.username||'').toLowerCase()===uname)
+      );
+
+      const remotePatch={
         supabaseId:r.id,
-        legacy_id:r.legacy_id||previous?.legacy_id||null,
-        profile_id:r.profile_id,
-        username:r.profiles?.username||previous?.username||'',
-        name:r.profiles?.full_name||previous?.name||r.profiles?.username||'Jugadora',
-        full_name:r.profiles?.full_name||previous?.full_name||'',
-        number:r.dorsal??previous?.number??null,
-        dorsal:r.dorsal??previous?.dorsal??null,
-        birthDate:r.birth_date||previous?.birthDate||null,
-        position:r.position||previous?.position||'',
-        status:r.status||previous?.status||'Disponible',
-        teamId:r.team_id||previous?.teamId||null,
-        avatar_path:r.profiles?.avatar_path||previous?.avatar_path||null,
-        active:true
+        legacy_id:r.legacy_id||null,
+        profile_id:r.profile_id||null,
+        username:r.profiles?.username||'',
+        name:r.profiles?.full_name||'',
+        full_name:r.profiles?.full_name||'',
+        number:r.dorsal??null,
+        dorsal:r.dorsal??null,
+        birthDate:r.birth_date||null,
+        position:r.position||'',
+        status:r.status||'Disponible',
+        teamId:r.team_id||null,
+        avatar_path:r.profiles?.avatar_path||null,
+        active:r.active!==false
       };
-    });
+
+      if(idx>=0){
+        const previous=next[idx];
+        next[idx]={
+          ...previous,
+          supabaseId:r.id,
+          legacy_id:r.legacy_id||previous.legacy_id||null,
+          profile_id:r.profile_id||previous.profile_id||null,
+          username:r.profiles?.username||previous.username||'',
+          name:r.profiles?.full_name||previous.name||previous.full_name||r.profiles?.username||'Jugadora',
+          full_name:r.profiles?.full_name||previous.full_name||previous.name||'',
+          number:r.dorsal??previous.number??null,
+          dorsal:r.dorsal??previous.dorsal??null,
+          birthDate:r.birth_date||previous.birthDate||null,
+          position:r.position||previous.position||'',
+          status:r.status||previous.status||'Disponible',
+          teamId:r.team_id||previous.teamId||null,
+          avatar_path:r.profiles?.avatar_path||previous.avatar_path||null,
+          active:r.active!==false
+        };
+      }else if(r.profile_id){
+        // Si existe una cuenta real en Supabase pero todavía no estaba en la
+        // plantilla local (ej. jriera), la añadimos. No añadimos filas anónimas
+        // sin nombre porque esas deben provenir de la gestión de Plantilla.
+        next.push({
+          id:r.legacy_id||r.id,
+          ...remotePatch,
+          name:r.profiles?.full_name||r.profiles?.username||'Jugadora'
+        });
+      }
+    }
 
     state.players=next;
-
-    // Eliminar del estado local cualquier dato de jugadoras fantasma que ya no existe.
-    const validLocal=new Set(next.map(p=>String(p.id)));
-    const validRemote=new Set(next.map(p=>String(p.supabaseId)));
-    const validPlayerRef=v=>validLocal.has(String(v||''))||validRemote.has(String(v||''));
-    if(Array.isArray(state.trainingConfirmations)) state.trainingConfirmations=state.trainingConfirmations.filter(x=>validPlayerRef(x.playerId)||validPlayerRef(x.playerIdLegacy));
-    if(Array.isArray(state.trainingRPEs)) state.trainingRPEs=state.trainingRPEs.filter(x=>validPlayerRef(x.playerId));
-    if(Array.isArray(state.attendanceData)) state.attendanceData=state.attendanceData.filter(x=>validPlayerRef(x.playerId)||validPlayerRef(x.playerIdLegacy));
-    if(Array.isArray(state.wellnessLogs)) state.wellnessLogs=state.wellnessLogs.filter(x=>validPlayerRef(x.playerId));
 
     const u=user();
     if(u?.role==='player'){
@@ -70,35 +98,21 @@ async function syncRosterFromSupabase(){
       try{renderHomePortalRSVP()}catch(_){}
       try{renderStats()}catch(_){}
     });
-    console.info('[RosterSync] Plantilla real cargada desde Supabase:',next.map(p=>p.username));
+    console.info('[RosterSync] Plantilla conservada; identidades Supabase fusionadas.');
   }finally{syncing=false}
 }
 window.syncRosterFromSupabase=syncRosterFromSupabase;
 
 function install(){
   if(window.__supabaseRosterSyncInstalled)return;
-  if(!window.VolleySupabase||typeof window.openVerifyAttendanceModal!=='function'){
-    setTimeout(install,120);return;
-  }
+  if(!window.VolleySupabase){setTimeout(install,120);return;}
   window.__supabaseRosterSyncInstalled=true;
 
-  const baseOpen=window.openVerifyAttendanceModal;
-  window.openVerifyAttendanceModal=async function(eventId){
-    await syncRosterFromSupabase();
-    return baseOpen.call(this,eventId);
-  };
-
-  const baseLoad=window.loadAttendanceFromSupabase;
-  if(typeof baseLoad==='function'){
-    window.loadAttendanceFromSupabase=async function(){
-      await syncRosterFromSupabase();
-      return baseLoad.apply(this,arguments);
-    };
-  }
-
-  setTimeout(()=>void syncRosterFromSupabase(),400);
+  // No envolvemos loadAttendanceFromSupabase ni openVerifyAttendanceModal:
+  // hacerlo generaba ciclos de refresco/reapertura del modal de Pasar lista.
+  setTimeout(()=>void syncRosterFromSupabase(),500);
   window.addEventListener('focus',()=>void syncRosterFromSupabase());
-  console.info('[RosterSync] Supabase fijado como fuente de verdad de jugadoras.');
+  console.info('[RosterSync] Plantilla local + identidades Supabase, sin exigir cuenta a todas.');
 }
 install();
 })();
