@@ -25,20 +25,20 @@ window.VOLLEY_SUPABASE_CONFIG = Object.freeze({
 
 (function loadVolleySyncPatches() {
   const scripts = [
-    'attendance-batch-save-20260809.js?v=20260809u',
-    'game-plan-authoritative-20260809.js?v=20260809u',
-    'attendance-fix.js?v=20260809u',
-    'game-plan-sync.js?v=20260809u',
-    'app-corrections-20260809.js?v=20260809u',
-    'app-corrections-live.js?v=20260809u',
-    'hotfix-20260809c.js?v=20260809u',
-    'supabase-event-recovery.js?v=20260809u',
-    'supabase-roster-sync.js?v=20260809u',
-    'attendance-authoritative-20260809.js?v=20260809u',
-    'training-duration-authoritative-20260809.js?v=20260809u',
-    'training-load-engine-20260809.js?v=20260809u',
-    'training-load-player-dashboard-20260809.js?v=20260809u',
-    'training-load-team-dashboard-20260809.js?v=20260809u'
+    'attendance-batch-save-20260809.js?v=20260809v',
+    'game-plan-authoritative-20260809.js?v=20260809v',
+    'attendance-fix.js?v=20260809v',
+    'game-plan-sync.js?v=20260809v',
+    'app-corrections-20260809.js?v=20260809v',
+    'app-corrections-live.js?v=20260809v',
+    'hotfix-20260809c.js?v=20260809v',
+    'supabase-event-recovery.js?v=20260809v',
+    'supabase-roster-sync.js?v=20260809v',
+    'attendance-authoritative-20260809.js?v=20260809v',
+    'training-duration-authoritative-20260809.js?v=20260809v',
+    'training-load-engine-20260809.js?v=20260809v',
+    'training-load-player-dashboard-20260809.js?v=20260809v',
+    'training-load-team-dashboard-20260809.js?v=20260809v'
   ];
   scripts.forEach(src => {
     if (document.querySelector(`script[src^="${src.split('?')[0]}"]`)) return;
