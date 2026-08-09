@@ -18,12 +18,13 @@ window.VOLLEY_SUPABASE_CONFIG = Object.freeze({
 // hotfix siempre se aplique después de los módulos base.
 (function loadVolleySyncPatches() {
   const scripts = [
-    'attendance-fix.js?v=20260809g',
-    'game-plan-sync.js?v=20260809g',
-    'app-corrections-20260809.js?v=20260809g',
-    'app-corrections-live.js?v=20260809g',
-    'hotfix-20260809c.js?v=20260809g',
-    'supabase-event-recovery.js?v=20260809g'
+    'reset-training-state-20260809.js?v=20260809h',
+    'attendance-fix.js?v=20260809h',
+    'game-plan-sync.js?v=20260809h',
+    'app-corrections-20260809.js?v=20260809h',
+    'app-corrections-live.js?v=20260809h',
+    'hotfix-20260809c.js?v=20260809h',
+    'supabase-event-recovery.js?v=20260809h'
   ];
   scripts.forEach(src => {
     if (document.querySelector(`script[src^="${src.split('?')[0]}"]`)) return;
