@@ -13,37 +13,29 @@ window.VOLLEY_SUPABASE_CONFIG = Object.freeze({
   clubId: 'b0000000-0000-4000-8000-000000000001'
 });
 
-// Evita el parpadeo inicial de "Sí, asistiré / No podré" antes de que
-// Supabase haya confirmado el estado real de asistencia de la jugadora.
-// Se aplica aquí, antes de cargar app.js y los hotfixes, para que no haya
-// ningún frame en el que los botones puedan mostrarse por error.
 (function primeAttendanceLoadingState(){
   document.documentElement.classList.remove('attendance-ready');
   if (!document.getElementById('attendance-preload-css')) {
     const style = document.createElement('style');
     style.id = 'attendance-preload-css';
-    style.textContent = `
-      html:not(.attendance-ready) button[onclick*="confirmTrainingAttendance"] {
-        visibility: hidden !important;
-        pointer-events: none !important;
-      }
-    `;
+    style.textContent = `html:not(.attendance-ready) button[onclick*="confirmTrainingAttendance"]{visibility:hidden!important;pointer-events:none!important}`;
     document.head.appendChild(style);
   }
 })();
 
 (function loadVolleySyncPatches() {
   const scripts = [
-    'attendance-batch-save-20260809.js?v=20260809p',
-    'game-plan-authoritative-20260809.js?v=20260809p',
-    'attendance-fix.js?v=20260809p',
-    'game-plan-sync.js?v=20260809p',
-    'app-corrections-20260809.js?v=20260809p',
-    'app-corrections-live.js?v=20260809p',
-    'hotfix-20260809c.js?v=20260809p',
-    'supabase-event-recovery.js?v=20260809p',
-    'supabase-roster-sync.js?v=20260809p',
-    'attendance-authoritative-20260809.js?v=20260809p'
+    'attendance-batch-save-20260809.js?v=20260809q',
+    'game-plan-authoritative-20260809.js?v=20260809q',
+    'attendance-fix.js?v=20260809q',
+    'game-plan-sync.js?v=20260809q',
+    'app-corrections-20260809.js?v=20260809q',
+    'app-corrections-live.js?v=20260809q',
+    'hotfix-20260809c.js?v=20260809q',
+    'supabase-event-recovery.js?v=20260809q',
+    'supabase-roster-sync.js?v=20260809q',
+    'attendance-authoritative-20260809.js?v=20260809q',
+    'training-duration-authoritative-20260809.js?v=20260809q'
   ];
   scripts.forEach(src => {
     if (document.querySelector(`script[src^="${src.split('?')[0]}"]`)) return;
