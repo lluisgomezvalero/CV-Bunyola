@@ -1,9 +1,6 @@
 (function(){
 'use strict';
-
-// Guardado rápido de Pasar Lista.
-// IMPORTANTE: una casilla desmarcada NO equivale a ausencia no justificada.
-const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 let saving=false;
 const db=()=>window.VolleySupabase?.getClient?.()||null;
 const st=()=>typeof appState!=='undefined'?appState:null;
@@ -17,18 +14,22 @@ async function handleSubmit(event){
   const eid=await eventUuid(document.getElementById('verify-attendance-event-id')?.value);if(!eid)throw new Error('No se encuentra el entrenamiento en Supabase.');
   await ensureMissingPlayerIds(state.players||[]);
   const user=typeof getCurrentUser==='function'?getCurrentUser():null,coachCandidate=user?.authId||user?.id||null,coachId=UUID.test(String(coachCandidate||''))?coachCandidate:null,now=new Date().toISOString();
-  // Solo escribimos PRESENTE para las marcadas. Las desmarcadas conservan su estado previo
-  // (o null). Justificada/no justificada/tarde deben elegirse explícitamente en la UI correspondiente.
-  const presentRows=[];let present=0;
-  for(const player of state.players||[]){const cb=document.getElementById(`verify-p-${player.id}`);if(!cb||!cb.checked)continue;const playerId=player.supabaseId;if(!UUID.test(String(playerId||'')))continue;present++;presentRows.push({event_id:eid,player_id:playerId,official_status:'present',validated_by:coachId,validated_at:now,updated_at:now});}
-  if(presentRows.length){const{error}=await c.from('attendance').upsert(presentRows,{onConflict:'event_id,player_id'});if(error)throw error;}
-  if(typeof window.forceCloseRollCallAuthoritative==='function')window.forceCloseRollCallAuthoritative();else document.getElementById('modal-verify-attendance')?.classList.remove('active');
-  if(typeof showToast==='function')showToast(`Lista guardada: ${present} presentes. Las no marcadas no se clasifican automáticamente.`);
-  try{if(typeof renderTraining==='function')renderTraining()}catch(_){}try{if(typeof renderHomeDashboard==='function')renderHomeDashboard()}catch(_){}
-  setTimeout(async()=>{try{if(typeof window.loadAttendanceFromSupabase==='function')await window.loadAttendanceFromSupabase({silent:true,force:true});if(typeof renderCoachAttendanceList==='function')renderCoachAttendanceList();if(typeof renderHomeDashboard==='function')renderHomeDashboard();}catch(error){console.warn('[AttendanceBatchSave] post-refresh',error);}},0);
+  const rows=[],clearIds=[];const counts={present:0,late:0,justified:0,unjustified:0};
+  for(const player of state.players||[]){
+   const select=document.getElementById(`verify-status-${player.id}`);if(!select)continue;
+   const playerId=player.supabaseId;if(!UUID.test(String(playerId||'')))continue;
+   const status=String(select.value||'');
+   if(['present','late','justified','unjustified'].includes(status)){counts[status]++;rows.push({event_id:eid,player_id:playerId,official_status:status,validated_by:coachId,validated_at:now,updated_at:now});}
+   else clearIds.push(playerId);
+  }
+  if(rows.length){const{error}=await c.from('attendance').upsert(rows,{onConflict:'event_id,player_id'});if(error)throw error;}
+  if(clearIds.length){const{error}=await c.from('attendance').update({official_status:null,validated_by:null,validated_at:null,updated_at:now}).eq('event_id',eid).in('player_id',clearIds);if(error)throw error;}
+  document.getElementById('modal-verify-attendance')?.classList.remove('active');
+  if(typeof showToast==='function')showToast(`Lista guardada · ${counts.present} presentes · ${counts.late} tarde · ${counts.justified} justificadas · ${counts.unjustified} no justificadas.`);
+  setTimeout(async()=>{try{if(typeof window.loadAttendanceFromSupabase==='function')await window.loadAttendanceFromSupabase({silent:true,force:true});if(typeof renderTraining==='function')renderTraining();if(typeof renderCoachAttendanceList==='function')renderCoachAttendanceList();if(typeof renderHomeDashboard==='function')renderHomeDashboard();}catch(error){console.warn('[AttendanceBatchSave] post-refresh',error);}},0);
  }catch(error){console.error('[AttendanceBatchSave]',error);if(typeof showToast==='function')showToast(error.message||'No se pudo guardar la lista.','error');}
  finally{saving=false;if(btn){btn.disabled=false;btn.innerHTML=original||'Confirmar Lista';}}
 }
 document.addEventListener('submit',handleSubmit,true);
-console.info('[AttendanceBatchSave] Lista segura: desmarcado != ausencia.');
+console.info('[AttendanceBatchSave] Estados explícitos de asistencia activados.');
 })();
