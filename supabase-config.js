@@ -12,39 +12,6 @@ window.VOLLEY_SUPABASE_CONFIG = Object.freeze({
   usernameDomain: 'cvbunyola.app',
   clubId: 'b0000000-0000-4000-8000-000000000001'
 });
-
-(function primeAttendanceLoadingState(){
-  document.documentElement.classList.remove('attendance-ready');
-  if (!document.getElementById('attendance-preload-css')) {
-    const style = document.createElement('style');
-    style.id = 'attendance-preload-css';
-    style.textContent = `html:not(.attendance-ready) button[onclick*="confirmTrainingAttendance"]{visibility:hidden!important;pointer-events:none!important}`;
-    document.head.appendChild(style);
-  }
-})();
-
-(function loadVolleySyncPatches() {
-  const scripts = [
-    'attendance-batch-save-20260809.js?v=20260809v',
-    'game-plan-authoritative-20260809.js?v=20260809v',
-    'attendance-fix.js?v=20260809v',
-    'game-plan-sync.js?v=20260809v',
-    'app-corrections-20260809.js?v=20260809v',
-    'app-corrections-live.js?v=20260809v',
-    'hotfix-20260809c.js?v=20260809v',
-    'supabase-event-recovery.js?v=20260809v',
-    'supabase-roster-sync.js?v=20260809v',
-    'attendance-authoritative-20260809.js?v=20260809v',
-    'training-duration-authoritative-20260809.js?v=20260809v',
-    'training-load-engine-20260809.js?v=20260809v',
-    'training-load-player-dashboard-20260809.js?v=20260809v',
-    'training-load-team-dashboard-20260809.js?v=20260809v'
-  ];
-  scripts.forEach(src => {
-    if (document.querySelector(`script[src^="${src.split('?')[0]}"]`)) return;
-    const script = document.createElement('script');
-    script.src = src;
-    script.async = false;
-    document.head.appendChild(script);
-  });
-})();
+(function primeAttendanceLoadingState(){document.documentElement.classList.remove('attendance-ready');if(!document.getElementById('attendance-preload-css')){const style=document.createElement('style');style.id='attendance-preload-css';style.textContent=`html:not(.attendance-ready) button[onclick*="confirmTrainingAttendance"]{visibility:hidden!important;pointer-events:none!important}`;document.head.appendChild(style);}})();
+(function loadVolleySyncPatches(){const scripts=[
+'attendance-batch-save-20260809.js?v=20260809w','game-plan-authoritative-20260809.js?v=20260809w','attendance-fix.js?v=20260809w','game-plan-sync.js?v=20260809w','app-corrections-20260809.js?v=20260809w','app-corrections-live.js?v=20260809w','hotfix-20260809c.js?v=20260809w','supabase-event-recovery.js?v=20260809w','supabase-roster-sync.js?v=20260809w','attendance-authoritative-20260809.js?v=20260809w','training-duration-authoritative-20260809.js?v=20260809w','training-load-engine-20260809.js?v=20260809w','training-load-player-dashboard-20260809.js?v=20260809w','training-load-team-dashboard-20260809.js?v=20260809w'];scripts.forEach(src=>{if(document.querySelector(`script[src^="${src.split('?')[0]}"]`))return;const script=document.createElement('script');script.src=src;script.async=false;document.head.appendChild(script);});})();
