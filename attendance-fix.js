@@ -15,7 +15,6 @@
       const a = String(idA).trim();
       const b = String(idB).trim();
       if (a === b) return true;
-
       const players = (typeof appState !== 'undefined' && Array.isArray(appState.players)) ? appState.players : [];
       const aliasesFor = value => {
         const aliases = new Set([String(value)]);
@@ -32,60 +31,66 @@
         } catch (_) {}
         return aliases;
       };
-
-      const aa = aliasesFor(a);
-      const bb = aliasesFor(b);
+      const aa = aliasesFor(a), bb = aliasesFor(b);
       for (const value of aa) if (bb.has(value)) return true;
       try { return originalIsSamePlayerId(idA, idB); } catch (_) { return false; }
     };
 
-    // BLOQUEO DEL BUCLE: la implementación base intenta volver a abrir
-    // "Pasar lista" al terminar cada carga de Supabase. Durante una hidratación
-    // impedimos esa reapertura automática. El modal solo se abre por acción del usuario.
+    // La función base openVerifyAttendanceModal dispara una carga asíncrona de Supabase
+    // sin esperarla. Para evitar datos viejos y el bucle de reapertura, hacemos UNA carga
+    // primero y, mientras pintamos el modal, bloqueamos únicamente la recarga interna.
     const baseLoadAttendance = window.loadAttendanceFromSupabase;
     window.loadAttendanceFromSupabase = async function stableLoadAttendance() {
-      if (window.__attendanceHydrating) return;
-      window.__attendanceHydrating = true;
-      try {
-        return await baseLoadAttendance.apply(this, arguments);
-      } finally {
-        window.__attendanceHydrating = false;
-      }
+      if (window.__attendanceSkipNestedLoad) return null;
+      return await baseLoadAttendance.apply(this, arguments);
     };
 
     const originalOpenVerify = window.openVerifyAttendanceModal;
     window.openVerifyAttendanceModal = async function stableOpenVerifyAttendanceModal(eventId) {
-      // Esta llamada puede venir del requestAnimationFrame interno de
-      // loadAttendanceFromSupabase. En ese caso NO reabrimos el modal.
-      if (window.__attendanceHydrating) return;
-
+      if (window.__attendanceOpeningModal) return;
+      window.__attendanceOpeningModal = true;
       try {
-        await window.loadAttendanceFromSupabase({ silent: true, force: true });
+        await baseLoadAttendance.call(this, { silent: true, force: true });
+        window.__attendanceSkipNestedLoad = true;
+        return originalOpenVerify.call(this, eventId);
       } catch (error) {
         console.warn('[AttendanceFix] No se pudo refrescar antes de pasar lista:', error);
+        window.__attendanceSkipNestedLoad = true;
+        return originalOpenVerify.call(this, eventId);
+      } finally {
+        window.__attendanceSkipNestedLoad = false;
+        window.__attendanceOpeningModal = false;
       }
-      return originalOpenVerify.call(this, eventId);
     };
+
+    // Cancelar debe cerrar de verdad el modal y anular cualquier reapertura pendiente.
+    document.addEventListener('click', function (e) {
+      const modal = document.getElementById('modal-verify-attendance');
+      if (!modal?.classList.contains('active')) return;
+      const btn = e.target?.closest?.('button');
+      if (!btn) return;
+      const text = (btn.textContent || '').trim().toLowerCase();
+      if (text.includes('cancelar') || text.includes('cerrar')) {
+        window.__attendanceOpeningModal = true;
+        modal.classList.remove('active');
+        window.setTimeout(() => { window.__attendanceOpeningModal = false; }, 250);
+      }
+    }, true);
 
     const originalConfirm = window.confirmTrainingAttendance;
     window.confirmTrainingAttendance = async function patchedConfirmTrainingAttendance(eventId, status, btnElement) {
       const result = await originalConfirm.call(this, eventId, status, btnElement);
-      try {
-        await window.loadAttendanceFromSupabase({ silent: true, force: true });
-      } catch (error) {
+      try { await baseLoadAttendance.call(this, { silent: true, force: true }); } catch (error) {
         console.warn('[AttendanceFix] No se pudo refrescar asistencia tras responder:', error);
       }
       try { if (typeof renderHomeDashboard === 'function') renderHomeDashboard(); } catch (_) {}
       try { if (typeof renderHomePortalRSVP === 'function') renderHomePortalRSVP(); } catch (_) {}
       try { if (typeof renderTraining === 'function') renderTraining(); } catch (_) {}
-      try {
-        if (typeof activeSessionId !== 'undefined' && activeSessionId === eventId && typeof renderSessionCenterDetail === 'function') renderSessionCenterDetail();
-      } catch (_) {}
+      try { if (typeof activeSessionId !== 'undefined' && activeSessionId === eventId && typeof renderSessionCenterDetail === 'function') renderSessionCenterDetail(); } catch (_) {}
       return result;
     };
 
-    console.info('[AttendanceFix] IDs sincronizados y bucle de Pasar lista desactivado.');
+    console.info('[AttendanceFix] Modal de pasar lista estabilizado.');
   }
-
   install();
 })();
