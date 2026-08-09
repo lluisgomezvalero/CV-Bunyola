@@ -14,18 +14,20 @@ window.VOLLEY_SUPABASE_CONFIG = Object.freeze({
   clubId: 'b0000000-0000-4000-8000-000000000001'
 });
 
-// Parches aislados de sincronización. Se cargan en orden para que el último
-// hotfix siempre se aplique después de los módulos base.
+// Parches aislados de sincronización. La asistencia autoritativa se registra
+// primero para interceptar el submit antiguo de "Pasar lista"; sus overrides
+// finales se aplican después de que hayan cargado los demás parches.
 (function loadVolleySyncPatches() {
   const scripts = [
-    'reset-training-state-20260809.js?v=20260809k',
-    'attendance-fix.js?v=20260809k',
-    'game-plan-sync.js?v=20260809k',
-    'app-corrections-20260809.js?v=20260809k',
-    'app-corrections-live.js?v=20260809k',
-    'hotfix-20260809c.js?v=20260809k',
-    'supabase-event-recovery.js?v=20260809k',
-    'supabase-roster-sync.js?v=20260809k'
+    'attendance-authoritative-20260809.js?v=20260809l',
+    'reset-training-state-20260809.js?v=20260809l',
+    'attendance-fix.js?v=20260809l',
+    'game-plan-sync.js?v=20260809l',
+    'app-corrections-20260809.js?v=20260809l',
+    'app-corrections-live.js?v=20260809l',
+    'hotfix-20260809c.js?v=20260809l',
+    'supabase-event-recovery.js?v=20260809l',
+    'supabase-roster-sync.js?v=20260809l'
   ];
   scripts.forEach(src => {
     if (document.querySelector(`script[src^="${src.split('?')[0]}"]`)) return;
