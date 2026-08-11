@@ -19,7 +19,7 @@ let mobileModuleReturnTarget = "home-portal";
 let activeSessionReturnTarget = "training";
 
 const MODULE_TITLES = {
-  calendar:"Calendario", roster:"Plantilla", training:"Entrenamientos", wellness:"Bienestar y Carga",
+  calendar:"Calendario", roster:"Plantilla", training:"Entrenos", wellness:"Bienestar y Carga",
   tactics:"Plan de juego", stats:"Estadísticas", competition:"Competición", users:"Usuarios",
   "coach-attendance":"Asistencia", goals:"Objetivos", planning:"Planificación", fitness:"Rendimiento"
 };
@@ -2479,7 +2479,7 @@ let currentEditingEventId = null;
 let activeSessionId = null;
 
 function setTrainingView(view) {
-  currentTrainingView = ["next", "history", "performance"].includes(view) ? view : "next";
+  currentTrainingView = ["next", "history"].includes(view) ? view : "next";
   document.querySelectorAll("[data-training-tab]").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.trainingTab === currentTrainingView);
   });
@@ -2494,10 +2494,26 @@ function getTrainingDateTime(event) {
   return Number.isNaN(parsed.getTime()) ? new Date(date) : parsed;
 }
 
-function isTrainingFinished(event) {
+function getTrainingEndDateTime(event) {
+  const rawEnd = event?.ends_at || event?.endsAt;
+  if (rawEnd) {
+    const parsed = new Date(rawEnd);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
   const start = getTrainingDateTime(event);
-  const durationMinutes = Number(event?.duration || 120);
-  return Date.now() >= start.getTime() + durationMinutes * 60000;
+  const durationMinutes = Number(event?.durationMinutes ?? event?.duration ?? 120);
+  return new Date(start.getTime() + Math.max(0, durationMinutes) * 60000);
+}
+
+function isTrainingFinished(event) {
+  return Date.now() >= getTrainingEndDateTime(event).getTime();
+}
+
+function isTrainingActive(event) {
+  const now = Date.now();
+  const start = getTrainingDateTime(event).getTime();
+  const end = getTrainingEndDateTime(event).getTime();
+  return now >= start && now < end;
 }
 
 function getLocalDateKey(date = new Date()) {
@@ -2564,46 +2580,64 @@ function renderTraining() {
   if (!container) return;
 
   const isCoach = isCoachUser();
-  const currentUser = getCurrentUser();
-  const playerId = currentUser?.playerId || null;
-  (appState.events || []).filter(e => e.type === "Entrenamiento").forEach(e => {
-    if (e.coachRpe === undefined && e.rpe !== undefined) e.coachRpe = e.rpe;
-  });
   const trainings = (appState.events || [])
     .filter(e => e.type === "Entrenamiento")
     .sort((a,b)=>getTrainingDateTime(a)-getTrainingDateTime(b));
 
   document.querySelectorAll("[data-training-tab]").forEach(btn => btn.classList.toggle("active", btn.dataset.trainingTab === currentTrainingView));
-
   const performancePanel = document.getElementById("training-performance-panel");
-  if (currentTrainingView === "performance") {
-    container.hidden = true;
-    if (performancePanel) performancePanel.hidden = false;
-    renderPerformanceModule();
-    return;
-  }
-  container.hidden = false;
   if (performancePanel) performancePanel.hidden = true;
+  container.hidden = false;
 
-  const now = Date.now();
   const upcoming = trainings.filter(t => !isTrainingFinished(t));
   const past = trainings.filter(t => isTrainingFinished(t)).reverse();
 
   if (currentTrainingView === "history") {
-    container.innerHTML = renderTrainingHistory(past, isCoach, playerId);
+    container.innerHTML = renderCompletedTrainingSessions(past);
     if (window.lucide) lucide.createIcons();
     return;
   }
 
-  if (!upcoming.length) {
-    container.innerHTML = `<div class="training-empty"><i data-lucide="calendar-x"></i><h3>No hay próximos entrenamientos</h3><p>${isCoach?'Planifica una nueva sesión para compartir objetivos, contenido y archivos con el equipo.':'Cuando el entrenador publique una sesión aparecerá aquí.'}</p></div>`;
+  const next = upcoming[0] || null;
+  if (!next) {
+    container.innerHTML = `<div class="training-empty"><i data-lucide="calendar-clock"></i><h3>No hay una próxima sesión programada</h3><p>Cuando se programe un nuevo entrenamiento aparecerá aquí.</p>${isCoach?`<button class="btn btn-primary btn-sm" onclick="openAddEventModalWithType('Entrenamiento')"><i data-lucide="plus"></i> Nueva sesión</button>`:''}</div>`;
     if (window.lucide) lucide.createIcons();
     return;
   }
 
-  const visible = upcoming.slice(0,4);
-  container.innerHTML = `<div class="training-session-grid">${visible.map((tr,index)=>renderTrainingCard(tr,isCoach,playerId,index===0)).join('')}</div>${upcoming.length>4?`<p class="training-more-note">Hay ${upcoming.length-4} sesiones posteriores. Se mostrarán al acercarse la fecha.</p>`:''}`;
+  container.innerHTML = renderNextTrainingSession(next, upcoming.length - 1);
   if (window.lucide) lucide.createIcons();
+}
+
+function renderNextTrainingSession(session, laterCount = 0) {
+  const start = getTrainingDateTime(session);
+  const end = getTrainingEndDateTime(session);
+  const active = isTrainingActive(session);
+  const duration = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+  const dateLabel = start.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
+  const timeLabel = session.time || start.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+  const statusLabel = active ? 'Sesión en curso' : 'Próxima sesión';
+  const statusIcon = active ? 'radio' : 'calendar-clock';
+  return `<div class="training-next-shell">
+    <div class="training-history-intro"><div><span class="training-eyebrow">${statusLabel}</span><h3>${active?'Entrenamiento activo':'Lo siguiente'}</h3><p>${active?'La sesión ya ha comenzado. Toda la gestión está dentro de su ficha.':'Una única referencia para saber qué entrenamiento viene ahora.'}</p></div></div>
+    <article class="training-session-card next training-session-summary" onclick="openSessionCenter('${session.id}','training')" role="button" tabindex="0" aria-label="Abrir ${escapeSessionText(session.title||'entrenamiento')}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openSessionCenter('${session.id}','training')}">
+      <div class="training-session-top"><div><span class="training-date-chip"><i data-lucide="${statusIcon}"></i> ${statusLabel}</span><h3>${escapeSessionText(session.title||'Entrenamiento')}</h3><p>${dateLabel} · ${timeLabel}${session.location?` · ${escapeSessionText(session.location)}`:''}</p><small>${duration ? `${duration} min` : 'Duración no indicada'}</small></div><div class="training-session-open-actions"><span class="btn btn-primary btn-sm">Abrir sesión <i data-lucide="chevron-right"></i></span></div></div>
+    </article>
+    ${laterCount>0?`<div class="training-more-note">Hay ${laterCount} ${laterCount===1?'sesión posterior':'sesiones posteriores'} programadas. <button type="button" class="btn btn-outline btn-sm" onclick="openModule('calendar')"><i data-lucide="calendar-days"></i> Ver calendario</button></div>`:''}
+  </div>`;
+}
+
+function renderCompletedTrainingSessions(past) {
+  if (!past.length) return `<div class="training-empty"><i data-lucide="circle-check-big"></i><h3>Aún no hay sesiones completadas</h3><p>Los entrenamientos aparecerán aquí cuando termine su hora programada.</p></div>`;
+  const rows = past.map(session => {
+    const start = getTrainingDateTime(session);
+    const end = getTrainingEndDateTime(session);
+    const duration = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+    const date = start.toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'});
+    const time = session.time || start.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+    return `<button class="training-history-row training-completed-row" onclick="openSessionCenter('${session.id}','training')"><span><strong>${escapeSessionText(session.title||'Entrenamiento')}</strong><small>${date} · ${time}${duration?` · ${duration} min`:''}</small></span><span><small>Estado</small><b>Finalizada</b></span><i data-lucide="chevron-right"></i></button>`;
+  }).join('');
+  return `<div class="training-history-intro"><div><span class="training-eyebrow">Historial</span><h3>Sesiones completadas</h3><p>${past.length} ${past.length===1?'entrenamiento finalizado':'entrenamientos finalizados'}. Pulsa uno para abrir su ficha completa.</p></div></div><div class="training-history-list">${rows}</div>`;
 }
 
 function renderTrainingCard(tr,isCoach,playerId,isNext) {
@@ -2805,7 +2839,7 @@ function renderSessionCenterDetail() {
   box.innerHTML = `<div class="session-detail-shell">
     <header class="session-detail-hero">
       <button class="session-back-button" onclick="closeSessionCenter()" aria-label="Volver a la lista de sesiones" title="Volver"><i data-lucide="arrow-left"></i></button>
-      <div><span class="session-detail-kicker">${finished?'Sesión finalizada':'Próxima sesión'}</span><h2>${escapeSessionText(session.title||'Entrenamiento')}</h2><p>${dateLabel} · ${session.time||'--:--'} · ${escapeSessionText(session.location||'Sin ubicación')}</p></div>
+      <div><span class="session-detail-kicker">${finished?'Sesión finalizada':isTrainingActive(session)?'Sesión en curso':'Próxima sesión'}</span><h2>${escapeSessionText(session.title||'Entrenamiento')}</h2><p>${dateLabel} · ${session.time||'--:--'} · ${escapeSessionText(session.location||'Sin ubicación')}</p></div>
       ${isCoach?`<button class="btn btn-outline btn-sm" onclick="editEventFromModal('${session.id}')"><i data-lucide="pencil"></i> Editar</button>`:''}
     </header>
 
