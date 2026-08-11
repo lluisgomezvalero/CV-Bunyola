@@ -1,0 +1,91 @@
+name: Apply session detail v3
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-session-detail-v3.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply session detail source
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          source_path = Path('.github/workflows/restructure-session-detail-20260812.yml')
+          source = source_path.read_text(encoding='utf-8')
+
+          fn_marker = "new_function = r'''"
+          fn_start = source.find(fn_marker)
+          if fn_start < 0:
+              raise SystemExit('new_function source not found')
+          fn_start += len(fn_marker)
+          fn_end = source.find("'''", fn_start)
+          if fn_end < 0:
+              raise SystemExit('new_function closing marker not found')
+          new_function = source[fn_start:fn_end]
+
+          css_marker = "css += r'''"
+          css_start = source.find(css_marker)
+          if css_start < 0:
+              raise SystemExit('CSS source not found')
+          css_start += len(css_marker)
+          css_end = source.find("'''", css_start)
+          if css_end < 0:
+              raise SystemExit('CSS closing marker not found')
+          css_block = source[css_start:css_end]
+
+          app_path = Path('app.js')
+          js = app_path.read_text(encoding='utf-8')
+          pattern = re.compile(r"function renderSessionCenterDetail\(\) \{.*?window\.renderSessionCenterDetail = renderSessionCenterDetail;", re.S)
+          matches = list(pattern.finditer(js))
+          if len(matches) != 1:
+              raise SystemExit(f'Expected one renderSessionCenterDetail block, found {len(matches)}')
+          js = pattern.sub(lambda _: new_function, js, count=1)
+          app_path.write_text(js, encoding='utf-8')
+
+          styles_path = Path('styles.css')
+          css = styles_path.read_text(encoding='utf-8')
+          if '/* SESSION DETAIL V3 · ficha única por fases */' not in css:
+              css += css_block
+          styles_path.write_text(css, encoding='utf-8')
+
+          config_path = Path('supabase-config.js')
+          config = config_path.read_text(encoding='utf-8')
+          config, count = re.subn(r"window\.VOLLEY_ASSET_VERSION = '[^']+';", "window.VOLLEY_ASSET_VERSION = '20260812a';", config, count=1)
+          if count != 1:
+              raise SystemExit('VOLLEY_ASSET_VERSION not found')
+          config_path.write_text(config, encoding='utf-8')
+
+          index_path = Path('index.html')
+          html = index_path.read_text(encoding='utf-8')
+          html, count = re.subn(r'styles\.css\?v=[^"\']+', 'styles.css?v=20260812a', html, count=1)
+          if count != 1:
+              raise SystemExit('styles cache token not found')
+          for name in ('supabase-config.js','supabase-client.js','data.js','app.js'):
+              html, count = re.subn(rf'{re.escape(name)}\?v=[^"\']+', f'{name}?v=20260812a', html, count=1)
+              if count != 1:
+                  raise SystemExit(f'{name} cache token not found')
+          index_path.write_text(html, encoding='utf-8')
+
+          notes_path = Path('CAMBIOS_ARQUITECTURA_SESIONES.txt')
+          if notes_path.exists():
+              notes = notes_path.read_text(encoding='utf-8')
+              if 'La ficha única se organiza en Preparación' not in notes:
+                  notes = notes.rstrip() + '\n\n- La ficha única se organiza en Preparación, Asistencia y Después de la sesión.\n- La confirmación de asistencia de la jugadora vive dentro de la ficha de sesión.\n- Bienestar deja de duplicarse dentro de la sesión y permanece en su módulo propio.\n'
+                  notes_path.write_text(notes, encoding='utf-8')
+          PY
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/restructure-session-detail-20260812.yml
+          git rm .github/workflows/apply-session-detail-v3.yml
+          git add app.js styles.css supabase-config.js index.html CAMBIOS_ARQUITECTURA_SESIONES.txt
+          git diff --cached --check
+          git commit -m 'feat: organize session detail into phases'
+          git push
