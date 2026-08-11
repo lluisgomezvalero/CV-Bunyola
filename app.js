@@ -2538,13 +2538,11 @@ function getRpeDescriptor(value) {
 }
 
 function getTrainingRpeSummary(eventId) {
-  const targetId = String(eventId ?? '');
-  const records = (appState.trainingRPEs || []).filter(record => {
-    const recordEventId = record?.eventId ?? record?.trainingId ?? record?.sessionId;
-    return String(recordEventId ?? '') === targetId && Number.isFinite(Number(record?.rpeVal));
-  });
-  const average = records.length ? records.reduce((sum, record) => sum + Number(record.rpeVal), 0) / records.length : null;
-  return { records, average, count: records.length };
+  const matchesEvent = record => [record?.eventId,record?.eventIdLegacy,record?.supabaseEventId,record?.event_id,record?.trainingId,record?.sessionId]
+    .filter(Boolean).some(id => isSameEventId(id,eventId));
+  const records = (appState.trainingRPEs || []).filter(record => matchesEvent(record) && Number.isFinite(Number(record?.rpeVal)));
+  const average = records.length ? records.reduce((sum,record)=>sum+Number(record.rpeVal),0)/records.length : null;
+  return {records,average,count:records.length};
 }
 
 function renderRpeScale(eventId, selectedValue, mode) {
@@ -2653,9 +2651,17 @@ function renderTrainingCard(tr,isCoach,playerId,isNext) {
   if (!isCoach) {
     attendance = playerConfirm ? `<div class="training-confirmed ${playerConfirm.status==='yes'?'yes':'no'}"><span>${playerConfirm.status==='yes'?'✓ Asistencia confirmada':'Ausencia comunicada'}</span><button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); openSeasonEvent('${tr.id}')">Abrir sesión</button></div>` : `<div class="training-rsvp"><span>¿Asistirás?</span><button class="yes" onclick="event.stopPropagation(); confirmTrainingAttendance('${tr.id}','yes')">Sí, asistiré</button><button class="no" onclick="event.stopPropagation(); confirmTrainingAttendance('${tr.id}','no')">No podré</button></div>`;
   } else {
-    const yes=confirmations.filter(c=>c.status==='yes').length, no=confirmations.filter(c=>c.status==='no').length;
+  const attendanceSummary=getSessionAttendanceSummary(tr.id);
+  const official=attendanceSummary.actual||[];
+  const officialPresent=official.filter(row=>['present','attended','late'].includes(String(row.status||'').toLowerCase())).length;
+  const officialAbsent=official.filter(row=>['justified','unjustified','absent','missed'].includes(String(row.status||'').toLowerCase())).length;
+  if(official.length){
+    attendance=`<div class="training-coach-actions"><span><strong>${officialPresent}</strong> presentes · <strong>${officialAbsent}</strong> ausencias · <strong>${official.length}</strong> validadas</span><button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); openVerifyAttendanceModal('${tr.id}')"><i data-lucide="clipboard-check"></i> Revisar lista</button></div>`;
+  }else{
+    const yes=attendanceSummary.yes,no=attendanceSummary.no;
     attendance=`<div class="training-coach-actions"><span><strong>${yes}</strong> sí · <strong>${no}</strong> bajas</span><button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); openVerifyAttendanceModal('${tr.id}')"><i data-lucide="clipboard-check"></i> Pasar lista</button></div>`;
   }
+}
 
   let rpe='';
   if (false && isCoach && !finished) {
@@ -2739,13 +2745,15 @@ function getSessionWellnessSnapshot(event) {
 }
 
 function getSessionAttendanceSummary(eventId) {
-  const confirmations = (appState.trainingConfirmations || []).filter(c => c.eventId === eventId);
-  const actual = (appState.attendanceData || []).filter(a => a.eventId === eventId);
+  const matchesEvent = record => [record?.eventId,record?.eventIdLegacy,record?.supabaseEventId,record?.event_id]
+    .filter(Boolean).some(id => isSameEventId(id,eventId));
+  const confirmations = (appState.trainingConfirmations || []).filter(matchesEvent);
+  const actual = (appState.attendanceData || []).filter(matchesEvent);
   return {
     confirmations,
-    yes: confirmations.filter(c=>c.status==='yes').length,
-    no: confirmations.filter(c=>c.status==='no').length,
-    pending: Math.max(0, (appState.players || []).length - confirmations.length),
+    yes:confirmations.filter(c=>c.status==='yes').length,
+    no:confirmations.filter(c=>c.status==='no').length,
+    pending:Math.max(0,(appState.players||[]).length-confirmations.length),
     actual
   };
 }
@@ -2869,6 +2877,9 @@ function renderSessionCenterDetail() {
       <p class="session-participation-note">${hasOfficial?'La asistencia oficial es la que cuenta para el seguimiento de carga.':'Estas respuestas son previsiones de las jugadoras. La asistencia definitiva la valida el cuerpo técnico.'}</p>
       <button class="btn btn-outline btn-sm btn-block" onclick="openVerifyAttendanceModal('${session.id}')"><i data-lucide="clipboard-check"></i> ${finished?'Revisar asistencia':active?'Pasar lista':'Gestionar asistencia'}</button>
     </section>`;
+    if (!finished) {
+    participationHtml += `<section class="session-panel session-panel-wide"><div class="session-panel-title"><i data-lucide="activity"></i><div><span>Control del entrenador</span><h3>RPE del entrenador</h3></div></div><div class="training-rpe-panel"><div class="training-rpe-heading"><div><span>Tu exigencia prevista/percibida</span><strong>${coachRpe===null?'Sin valorar':coachRpe+'/10'}</strong></div><div><span>Media jugadoras</span><strong>${rpe.average===null?'Sin respuestas':rpe.average.toFixed(1)+'/10'}</strong><small>${rpe.count} respuesta${rpe.count===1?'':'s'}</small></div></div>${renderRpeScale(session.id,coachRpe,'coach')}</div></section>`;
+  }
   } else if (playerId) {
     let playerAttendanceBody = '';
     if (finished) {
@@ -5957,10 +5968,14 @@ function renderHomeDashboard() {
   const coach = isCoachUser();
   const nextTraining = getUpcomingTrainingEvent();
   const nextMatch = getUpcomingMatchEvent();
-  const confirmations = (appState.trainingConfirmations || []).filter(c => nextTraining && isSameEventId(c.eventId, nextTraining.id));
-  const yes = confirmations.filter(c => c.status === "yes").length;
-  const no = confirmations.filter(c => c.status === "no").length;
-  const pending = Math.max(0, (appState.players || []).length - yes - no);
+  const nextAttendanceSummary = nextTraining ? getSessionAttendanceSummary(nextTraining.id) : {confirmations:[],actual:[],yes:0,no:0,pending:(appState.players||[]).length};
+const confirmations = nextAttendanceSummary.confirmations || [];
+const yes = nextAttendanceSummary.yes || 0;
+const no = nextAttendanceSummary.no || 0;
+const pending = nextAttendanceSummary.pending ?? Math.max(0,(appState.players||[]).length-yes-no);
+const officialNext = nextAttendanceSummary.actual || [];
+const officialNextPresent = officialNext.filter(row=>['present','attended','late'].includes(String(row.status||'').toLowerCase())).length;
+const officialNextAbsent = officialNext.filter(row=>['justified','unjustified','absent','missed'].includes(String(row.status||'').toLowerCase())).length;
   const matchLogos = nextMatch ? getMatchLogosData(nextMatch) : null;
   const playerId = user.playerId || user.authId;
   const game = playerId ? calculatePlayerAttendanceAndAchievements(playerId) : null;
@@ -5990,7 +6005,9 @@ function renderHomeDashboard() {
     <div class="dashboard-primary-content"><div><h3>${nextTraining ? nextTraining.title : 'Sin entrenamiento programado'}</h3>${nextTraining ? `<p class="dashboard-event-time">${formatEventDate(nextTraining.date)} · ${nextTraining.time}</p><p><i data-lucide="map-pin"></i>${nextTraining.location || 'Ubicación pendiente'}</p>` : `<p>Cuando se programe una sesión aparecerá aquí.</p>`}</div></div>
     ${nextTraining && nextTraining.plan ? `<div class="dashboard-training-plan"><span><i data-lucide="target"></i> Qué vamos a trabajar</span><p>${escapeDashboardText(nextTraining.plan)}</p></div>` : ''}
     ${nextTraining && (nextTraining.attachmentId || nextTraining.sessionImage) ? `<button type="button" class="dashboard-file-preview" onclick="openSessionAttachment('${nextTraining.id}')"><i data-lucide="file-search"></i><span><b>Material de la sesión</b><small>Previsualizar archivo adjunto</small></span><i data-lucide="eye"></i></button>` : ''}
-    ${coach && nextTraining ? `<div class="dashboard-metrics"><span><b>${yes}</b> confirmadas</span><span><b>${no}</b> bajas</span><span><b>${pending}</b> pendientes</span></div>` : ''}
+    ${coach && nextTraining ? (officialNext.length
+  ? `<div class="dashboard-metrics"><span><b>${officialNextPresent}</b> presentes</span><span><b>${officialNextAbsent}</b> ausencias</span><span><b>${officialNext.length}</b> validadas</span></div>`
+  : `<div class="dashboard-metrics"><span><b>${yes}</b> confirmadas</span><span><b>${no}</b> bajas</span><span><b>${pending}</b> pendientes</span></div>`) : ''}
     ${nextTraining ? `<button class="dashboard-link" onclick="openSeasonEvent('${nextTraining.id}')">Ver ficha completa de la sesión <i data-lucide="arrow-right"></i></button>` : ''}
     ${trainingActions}</article>`;
 
