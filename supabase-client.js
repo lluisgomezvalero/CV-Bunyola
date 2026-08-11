@@ -330,6 +330,16 @@
       round: payload.round || null,
       result: payload.result || null,
       stats: payload.stats || null,
+      starts_at: row.starts_at || null,
+      startsAt: row.starts_at || null,
+      ends_at: row.ends_at || null,
+      endsAt: row.ends_at || null,
+      duration: (Number.isFinite(Number(payload.duration)) && Number(payload.duration) > 0)
+        ? Number(payload.duration)
+        : (row.starts_at && row.ends_at ? Math.max(0, Math.round((new Date(row.ends_at) - new Date(row.starts_at)) / 60000)) : null),
+      durationMinutes: (Number.isFinite(Number(payload.duration)) && Number(payload.duration) > 0)
+        ? Number(payload.duration)
+        : (row.starts_at && row.ends_at ? Math.max(0, Math.round((new Date(row.ends_at) - new Date(row.starts_at)) / 60000)) : null),
       rawPayload: payload
     };
   }
