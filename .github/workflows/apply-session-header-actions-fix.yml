@@ -1,0 +1,53 @@
+name: Apply session header actions fix
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-session-header-actions-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Add patch and bump cache
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          config = Path('supabase-config.js')
+          text = config.read_text(encoding='utf-8')
+          text = text.replace("window.VOLLEY_ASSET_VERSION = '20260812b';", "window.VOLLEY_ASSET_VERSION = '20260812c';")
+          old = "'navigation-shell-20260812.js?v=20260812b']"
+          new = "'navigation-shell-20260812.js?v=20260812b','session-header-actions-fix-20260812.js?v=20260812c']"
+          if old not in text and 'session-header-actions-fix-20260812.js' not in text:
+              raise SystemExit('No se encontró el punto de inserción del patch de navegación')
+          if 'session-header-actions-fix-20260812.js' not in text:
+              text = text.replace(old, new)
+          config.write_text(text, encoding='utf-8')
+
+          index = Path('index.html')
+          html = index.read_text(encoding='utf-8')
+          html = html.replace('20260812b', '20260812c')
+          index.write_text(html, encoding='utf-8')
+          PY
+
+      - name: Commit application update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase-config.js index.html
+          git commit -m "Publish session header action spacing fix" || true
+
+      - name: Remove temporary workflow
+        run: |
+          rm -f .github/workflows/apply-session-header-actions-fix.yml
+          git add -A
+          git commit -m "Remove temporary session header fix workflow" || true
+          git push
