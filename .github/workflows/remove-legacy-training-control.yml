@@ -25,16 +25,18 @@ jobs:
           index = Path('index.html')
           html = index.read_text(encoding='utf-8')
 
-          pattern = re.compile(
-              r'\n\s*<!-- ={10,}\n\s*VIEW: CONTROL DE ENTRENOS \(ADMIN/COACH\)\n\s*={10,} -->\n'
-              r'.*?'
-              r'(?=\n\s*<!-- ={10,}\n\s*MÓDULO: OBJETIVOS SEMANALES\n\s*={10,} -->)',
-              re.S,
-          )
-          html_new, count = pattern.subn('\n', html, count=1)
-          if count != 1:
-              raise SystemExit(f'Expected to remove exactly one legacy attendance view, removed {count}')
+          legacy_label = 'VIEW: CONTROL DE ENTRENOS (ADMIN/COACH)'
+          next_label = 'MÓDULO: OBJETIVOS SEMANALES'
+          legacy_pos = html.find(legacy_label)
+          next_pos = html.find(next_label, legacy_pos + 1)
+          if legacy_pos < 0 or next_pos < 0:
+              raise SystemExit('Could not locate legacy attendance view boundaries')
+          start = html.rfind('<!--', 0, legacy_pos)
+          end = html.rfind('<!--', 0, next_pos)
+          if start < 0 or end <= start:
+              raise SystemExit('Invalid legacy attendance view boundaries')
 
+          html_new = html[:start] + html[end:]
           html_new = html_new.replace('styles.css?v=20260812d', 'styles.css?v=20260812e')
           html_new = html_new.replace('supabase-config.js?v=20260812d', 'supabase-config.js?v=20260812e')
           html_new = html_new.replace('supabase-client.js?v=20260812d', 'supabase-client.js?v=20260812e')
@@ -44,18 +46,26 @@ jobs:
 
           app = Path('app.js')
           js = app.read_text(encoding='utf-8')
-
           js = js.replace('  "coach-attendance":"Asistencia", goals:"Objetivos", planning:"Planificación", fitness:"Rendimiento"',
                           '  goals:"Objetivos", planning:"Planificación", fitness:"Rendimiento"')
-          js = js.replace('  const coachOnlyModules = new Set(["users", "fitness", "coach-attendance", "planning"]);',
-                          '  if (moduleName === "coach-attendance") moduleName = "training";\n  const coachOnlyModules = new Set(["users", "fitness", "planning"]);')
-          js = js.replace('  } else if (moduleName === "coach-attendance") {\n    renderCoachAttendanceList();', '')
+          old_guard = '  const coachOnlyModules = new Set(["users", "fitness", "coach-attendance", "planning"]);'
+          new_guard = '  if (moduleName === "coach-attendance") moduleName = "training";\n  const coachOnlyModules = new Set(["users", "fitness", "planning"]);'
+          if old_guard not in js:
+              raise SystemExit('Could not locate coach module guard')
+          js = js.replace(old_guard, new_guard, 1)
+          old_route = '  } else if (moduleName === "coach-attendance") {\n    renderCoachAttendanceList();'
+          if old_route not in js:
+              raise SystemExit('Could not locate legacy coach attendance route')
+          js = js.replace(old_route, '', 1)
           js = re.sub(r'\n\s*setMeta\("coach-attendance",[^\n]+\);', '', js, count=1)
           app.write_text(js, encoding='utf-8')
 
           config = Path('supabase-config.js')
           cfg = config.read_text(encoding='utf-8')
-          cfg = cfg.replace("window.VOLLEY_ASSET_VERSION = '20260812d';", "window.VOLLEY_ASSET_VERSION = '20260812e';")
+          old_version = "window.VOLLEY_ASSET_VERSION = '20260812d';"
+          if old_version not in cfg:
+              raise SystemExit('Expected cache version 20260812d not found')
+          cfg = cfg.replace(old_version, "window.VOLLEY_ASSET_VERSION = '20260812e';", 1)
           config.write_text(cfg, encoding='utf-8')
 
           if 'id="view-coach-attendance"' in html_new:
