@@ -1,0 +1,44 @@
+name: Apply targeted session refresh optimization
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/apply-session-refresh-optimization.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply targeted refresh changes
+        run: python tools/optimize_session_refresh_20260812.py
+
+      - name: Validate JavaScript syntax
+        run: |
+          node --check app.js
+          node --check attendance-authoritative-20260809.js
+          node --check supabase-event-recovery.js
+
+      - name: Verify cache version
+        run: |
+          grep -q "VOLLEY_ASSET_VERSION = '20260812d'" supabase-config.js
+          grep -q 'app.js?v=20260812d' index.html
+          grep -q 'attendance-authoritative-20260809.js?v=20260812d' supabase-config.js
+          grep -q 'supabase-event-recovery.js?v=20260812d' supabase-config.js
+
+      - name: Commit changes and remove temporary files
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm tools/optimize_session_refresh_20260812.py
+          git rm .github/workflows/apply-session-refresh-optimization.yml
+          git add app.js attendance-authoritative-20260809.js supabase-event-recovery.js supabase-config.js index.html
+          git commit -m 'Optimize session refresh after edits'
+          git push
