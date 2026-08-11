@@ -1,0 +1,45 @@
+name: Stabilize wellness v2 observer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/stabilize-wellness-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Patch observer and bump cache
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          js = Path('wellness-v2-20260811.js')
+          text = js.read_text(encoding='utf-8')
+          old = "dashboardObserver.observe(dashboard,{childList:true,subtree:true});"
+          new = "dashboardObserver.observe(dashboard,{childList:true,subtree:false});"
+          if old not in text:
+              raise SystemExit('Expected dashboard observer line not found')
+          js.write_text(text.replace(old, new), encoding='utf-8')
+
+          for filename in ('supabase-config.js', 'index.html'):
+              path = Path(filename)
+              content = path.read_text(encoding='utf-8')
+              if '20260811m' not in content:
+                  raise SystemExit(f'Expected 20260811m not found in {filename}')
+              path.write_text(content.replace('20260811m', '20260811n'), encoding='utf-8')
+
+          Path('.github/workflows/stabilize-wellness-v2.yml').unlink()
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wellness-v2-20260811.js supabase-config.js index.html .github/workflows/stabilize-wellness-v2.yml
+          git commit -m "Stabilize wellness v2 and bump cache to 20260811n"
+          git push
