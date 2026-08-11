@@ -144,7 +144,6 @@ function refreshTimeSensitiveDashboard(force=false){
   lastWindowKey=key;
   try { if(typeof renderHomeDashboard==='function') renderHomeDashboard(); } catch(_){}
   try { if(typeof renderHomePortalRSVP==='function') renderHomePortalRSVP(); } catch(_){}
-  try { if(typeof renderCoachAttendanceList==='function') renderCoachAttendanceList(); } catch(_){}
 }
 
 function install(){

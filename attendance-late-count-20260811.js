@@ -64,7 +64,6 @@ function install(){
   try{calculatePlayerAttendanceAndAchievements=corrected;}catch(_){}
   window[FLAG]=true;
 
-  try{if(typeof renderCoachAttendanceList==='function')renderCoachAttendanceList();}catch(_){}
   try{if(typeof renderHomeDashboard==='function')renderHomeDashboard();}catch(_){}
   try{if(typeof renderRoster==='function'&&document.getElementById('view-roster')?.classList.contains('active'))renderRoster();}catch(_){}
 

@@ -14,16 +14,6 @@ function wellnessCounts(){
   } catch(_) { return {green:0,yellow:0,red:0}; }
 }
 
-function teamAttendance(){
-  try {
-    const records=Array.isArray(appState?.attendanceData)?appState.attendanceData:[];
-    const valid=records.filter(record=>['present','attended','late','justified','unjustified','absent','missed'].includes(String(record?.status||'')));
-    if(!valid.length)return 0;
-    const attended=valid.filter(record=>['present','attended','late'].includes(String(record?.status||''))).length;
-    return Math.round(attended*100/valid.length);
-  } catch(_) { return 0; }
-}
-
 function compactHomeSummary(){
   if(!isCoach()) return;
   const root=document.getElementById('home-dashboard');
@@ -41,21 +31,6 @@ function compactHomeSummary(){
       </span>
       <span class="coach-wellness-compact-link">Ver detalle <i data-lucide="chevron-right"></i></span>
     </button>`;
-  try { window.lucide?.createIcons?.(); } catch(_){}
-}
-
-function addAttendanceToTrainingControl(){
-  if(!isCoach()) return;
-  const container=document.getElementById('coach-attendance-list');
-  if(!container) return;
-  const old=container.querySelector('.coach-training-attendance-summary');
-  if(old) old.remove();
-  const firstSection=container.querySelector('.coach-control-section');
-  if(!firstSection) return;
-  const summary=document.createElement('div');
-  summary.className='coach-training-attendance-summary';
-  summary.innerHTML=`<span><i data-lucide="clipboard-check"></i> Asistencia media del equipo</span><strong>${teamAttendance()}%</strong>`;
-  container.insertBefore(summary,firstSection);
   try { window.lucide?.createIcons?.(); } catch(_){}
 }
 
@@ -78,8 +53,7 @@ function injectCss(){
 function install(){
   if(window[FLAG]) return;
   const homeBase=window.renderHomeDashboard;
-  const attendanceBase=window.renderCoachAttendanceList;
-  if(typeof homeBase!=='function'||typeof attendanceBase!=='function'){
+  if(typeof homeBase!=='function'){
     setTimeout(install,120);
     return;
   }
@@ -91,15 +65,8 @@ function install(){
     compactHomeSummary();
     return result;
   };
-  const attendanceWrapped=function(){
-    const result=attendanceBase.apply(this,arguments);
-    addAttendanceToTrainingControl();
-    return result;
-  };
   window.renderHomeDashboard=homeWrapped;
-  window.renderCoachAttendanceList=attendanceWrapped;
   try { homeWrapped(); } catch(_){}
-  try { attendanceWrapped(); } catch(_){}
 }
 
 setTimeout(install,0);

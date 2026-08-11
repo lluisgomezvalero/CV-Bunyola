@@ -94,7 +94,6 @@ async function syncRosterFromSupabase(){
     requestAnimationFrame(()=>{
       try{renderHomeDashboard()}catch(_){}
       try{renderTraining()}catch(_){}
-      try{renderCoachAttendanceList()}catch(_){}
       try{renderHomePortalRSVP()}catch(_){}
       try{renderStats()}catch(_){}
     });

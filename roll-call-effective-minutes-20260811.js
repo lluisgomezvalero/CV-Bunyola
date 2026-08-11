@@ -165,7 +165,6 @@ async function saveAuthoritative(){
     await window.loadAttendanceFromSupabase?.({silent:true});
     window.forceCloseRollCallAuthoritative?.();
     try{renderTraining();}catch(_){}
-    try{renderCoachAttendanceList();}catch(_){}
     try{renderHomeDashboard();}catch(_){}
     toast(`Lista guardada · ${counts.present} presentes · ${counts.late} tarde · ${counts.justified} justificadas · ${counts.unjustified} no justificadas.`);
   }catch(error){

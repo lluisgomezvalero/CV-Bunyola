@@ -61,7 +61,6 @@ async function authoritativeEventSync(){
         if(activeViewId==='view-calendar')renderGoogleCalendar();
         else if(activeViewId==='view-training')renderTraining();
         else if(activeViewId==='view-home-portal'){renderHomeDashboard();renderHomePortalRSVP();}
-        else if(activeViewId==='view-coach-attendance')renderCoachAttendanceList();
       }catch(_){}
     });
     console.info(`[EventRecovery] Estado reconciliado con Supabase: ${remoteEvents.length} eventos reales.`);
