@@ -6,7 +6,7 @@
   <title>CV BUNYOLA - Hub del Equipo</title>
   
   <meta name="description" content="Plataforma de gestión del CV BUNYOLA, Cadete Femenino 1ª División. Pizarra táctica editable, calendario y estadísticas.">
-  <link rel="stylesheet" href="styles.css?v=20260812d">
+  <link rel="stylesheet" href="styles.css?v=20260812e">
   
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js'"></script>
@@ -571,49 +571,7 @@
       </div>
     </div>
 
-    <!-- ==========================================================================
-         VIEW: CONTROL DE ENTRENOS (ADMIN/COACH)
-         ========================================================================== -->
-    <div id="view-coach-attendance" class="page-view">
-      <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);">
-        <h2 style="font-family: var(--font-heading); font-size: 1.6rem; color: #0f172a; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-          <i data-lucide="clipboard-check" style="color: #10b981; width: 28px; height: 28px;"></i>
-          Control de Asistencia y Esfuerzo
-        </h2>
-        <p style="color: #64748b; font-size: 0.95rem;">Selecciona una sesión de entrenamiento para ver la asistencia de las jugadoras y la fatiga percibida (Escala de Borg).</p>
-      </div>
-
-      <div id="coach-attendance-list" style="display: flex; flex-direction: column; gap: 1rem;">
-        <!-- Javascript will populate this with a list of training events -->
-      </div>
-
-      <!-- Detalle del Entrenamiento (Oculto por defecto) -->
-      <div id="coach-attendance-detail" style="display: none; flex-direction: column; gap: 1rem;">
-        <div style="display: flex; align-items: center; gap: 1rem;">
-          <button class="btn btn-outline" onclick="closeCoachAttendanceDetail()">
-            <i data-lucide="arrow-left"></i> Volver a la lista
-          </button>
-          <h3 id="coach-attendance-detail-title" style="margin: 0; font-family: var(--font-heading);"></h3>
-        </div>
-        
-        <div class="card" style="padding: 0; overflow: hidden;">
-          <div style="overflow-x: auto;">
-            <table class="table" style="margin: 0; min-width: 500px; width: 100%; border-collapse: collapse;">
-              <thead style="background: #f1f5f9;">
-                <tr>
-                  <th style="padding: 1rem; text-align: left; font-weight: 700; color: #475569; border-bottom: 2px solid #e2e8f0;">Jugadora</th>
-                  <th style="padding: 1rem; text-align: center; font-weight: 700; color: #475569; border-bottom: 2px solid #e2e8f0;">Asistencia</th>
-                  <th style="padding: 1rem; text-align: center; font-weight: 700; color: #475569; border-bottom: 2px solid #e2e8f0;">Borg (RPE)</th>
-                </tr>
-              </thead>
-              <tbody id="coach-attendance-table-body">
-                <!-- Javascript will populate rows -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
+    
 
     <!-- ==========================================================================
          ISLA 8: USUARIOS Y ACCESOS DEL EQUIPO
@@ -1615,10 +1573,10 @@
 
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js?v=20260812d"></script>
-    <script src="supabase-client.js?v=20260812d"></script>
-    <script src="data.js?v=20260812d"></script>
-    <script src="app.js?v=20260812d"></script>
+    <script src="supabase-config.js?v=20260812e"></script>
+    <script src="supabase-client.js?v=20260812e"></script>
+    <script src="data.js?v=20260812e"></script>
+    <script src="app.js?v=20260812e"></script>
   
   <!-- EDITOR DE FOTO DE PERFIL: ENCUADRE Y ZOOM -->
   <div id="modal-avatar-crop" class="modal-backdrop avatar-crop-modal" aria-hidden="true">

@@ -21,7 +21,7 @@ let activeSessionReturnTarget = "training";
 const MODULE_TITLES = {
   calendar:"Calendario", roster:"Plantilla", training:"Entrenos", wellness:"Bienestar y Carga",
   tactics:"Plan de juego", stats:"Estadísticas", competition:"Competición", users:"Usuarios",
-  "coach-attendance":"Asistencia", goals:"Objetivos", planning:"Planificación", fitness:"Rendimiento"
+  goals:"Objetivos", planning:"Planificación", fitness:"Rendimiento"
 };
 
 function updateMobileModuleHeader(moduleName) {
@@ -1115,7 +1115,8 @@ function renderHomeIfNeeded() {
 }
 
 function openModule(moduleName, options = {}) {
-  const coachOnlyModules = new Set(["users", "fitness", "coach-attendance", "planning"]);
+  if (moduleName === "coach-attendance") moduleName = "training";
+  const coachOnlyModules = new Set(["users", "fitness", "planning"]);
   if (coachOnlyModules.has(moduleName) && !isCoachUser()) {
     showToast("Este módulo es privado del cuerpo técnico.", "error");
     return;
@@ -1178,8 +1179,7 @@ function openModule(moduleName, options = {}) {
     renderCompetition();
   } else if (moduleName === "users") {
     renderUsers();
-  } else if (moduleName === "coach-attendance") {
-    renderCoachAttendanceList();
+
   } else if (moduleName === "goals") {
     renderWeeklyGoals();
   } else if (moduleName === "planning") {
@@ -6138,7 +6138,6 @@ function updateDashboardQuickAccess() {
   setMeta("stats", completedMatches ? `${completedMatches} partido${completedMatches === 1 ? "" : "s"} registrado${completedMatches === 1 ? "" : "s"}` : "Sin partidos registrados", completedMatches ? "info" : "neutral");
   setMeta("fitness", "Evolución y prevención", "success");
   setMeta("users", `${(appState.users || []).length} accesos configurados`, "neutral");
-  setMeta("coach-attendance", nextTraining ? "Preparar próxima asistencia" : "Revisar historial", nextTraining ? "success" : "neutral");
 }
 
 function initWeeklyGoals() {
