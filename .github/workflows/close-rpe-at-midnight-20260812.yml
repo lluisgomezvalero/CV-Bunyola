@@ -1,0 +1,188 @@
+name: Close RPE at Madrid midnight
+
+on:
+  push:
+    paths:
+      - '.github/workflows/close-rpe-at-midnight-20260812.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Enforce same-day RPE window
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          app = Path('app.js')
+          js = app.read_text(encoding='utf-8')
+
+          old_window = '''function isRpeSubmissionWindowOpen(event) {
+            return Boolean(event && isTrainingFinished(event) && event.date === getLocalDateKey());
+          }
+          '''
+          new_window = '''function getMadridRpeDateKey(value) {
+            const date = value instanceof Date ? value : new Date(value);
+            if (Number.isNaN(date.getTime())) return '';
+            const parts = new Intl.DateTimeFormat('en-GB', {
+              timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit'
+            }).formatToParts(date);
+            const pick = type => parts.find(p => p.type === type)?.value || '';
+            return `${pick('year')}-${pick('month')}-${pick('day')}`;
+          }
+
+          function isRpeSameMadridDay(event, now = new Date()) {
+            if (!event) return false;
+            const end = getTrainingEndDateTime(event);
+            return getMadridRpeDateKey(end) === getMadridRpeDateKey(now);
+          }
+
+          function isRpeSubmissionWindowOpen(event) {
+            return Boolean(event && isTrainingFinished(event) && isRpeSameMadridDay(event));
+          }
+
+          function isCoachRpeWindowOpen(event) {
+            return Boolean(event && isRpeSameMadridDay(event));
+          }
+          '''
+          if old_window not in js:
+              raise SystemExit('RPE window source block not found')
+          js = js.replace(old_window, new_window, 1)
+
+          start = js.find('function renderRpeScale(eventId, selectedValue, mode) {')
+          end = js.find('\nfunction submitTrainingRpe(', start)
+          if start < 0 or end < 0:
+              raise SystemExit('renderRpeScale boundaries not found')
+          new_scale = '''function renderRpeScale(eventId, selectedValue, mode) {
+            const event = (appState.events || []).find(e =>
+              [e.id,e.supabaseId,e.supabase_id,e.legacy_id,e.legacyId].filter(Boolean).some(id => isSameEventId(id,eventId))
+            );
+            const windowOpen = mode === 'coach' ? isCoachRpeWindowOpen(event) : isRpeSubmissionWindowOpen(event);
+            const hasValue = Number.isFinite(Number(selectedValue));
+            if (hasValue) {
+              const saved = Number(selectedValue);
+              return `<div class="training-rpe-submitted"><i data-lucide="circle-check"></i><div><strong>RPE registrado</strong><span>${saved}/10 · Registro cerrado.</span></div></div>`;
+            }
+            if (!windowOpen) {
+              const finished = event ? isTrainingFinished(event) : false;
+              const text = finished
+                ? 'El plazo terminó al finalizar el día del entrenamiento.'
+                : 'El RPE estará disponible el día del entrenamiento.';
+              return `<div class="training-rpe-locked training-rpe-expired"><i data-lucide="lock"></i><span><strong>RPE cerrado</strong><small>${text}</small></span></div>`;
+            }
+            const value = 5;
+            const descriptor = getRpeDescriptor(value);
+            return `<div class="training-rpe-slider-wrap" data-rpe-event="${eventId}">
+              <div class="training-rpe-slider-value"><strong id="rpe-value-${eventId}-${mode}">${value}</strong><span id="rpe-label-${eventId}-${mode}">${descriptor.label}</span></div>
+              <input id="rpe-input-${eventId}-${mode}" type="range" class="training-rpe-slider" min="0" max="10" step="1" value="${value}"
+                aria-label="RPE de 0 a 10" oninput="previewTrainingRPE('${eventId}', this.value, '${mode}')">
+              <div class="training-rpe-slider-marks"><span>0</span><span>5</span><span>10</span></div>
+              <button type="button" class="btn btn-primary btn-sm training-rpe-submit" onclick="submitTrainingRpe('${eventId}','${mode}')">Guardar RPE</button>
+            </div>`;
+          }
+          '''
+          js = js[:start] + new_scale + js[end:]
+
+          old_player_rows = '''    const playerRows=(appState.players||[]).map(p=>{
+                const rec=s.records.find(r=>r.playerId===p.id);
+                return `<div class="training-rpe-record-item"><img src="${p.photo||p.avatar||'assets/default_avatar.svg'}"><span>${p.name}<small>${rec?'Registro cerrado':'Sin respuesta'}</small></span>${rec?`<b>${rec.rpeVal}/10</b>`:`<div class="coach-rpe-add"><select id="coach-rpe-${eventId}-${p.id}" aria-label="RPE para ${p.name}">${Array.from({length:11},(_,i)=>`<option value="${i}" ${i===5?'selected':''}>${i}</option>`).join('')}</select><button type="button" onclick="addPlayerRpeByCoach('${eventId}','${p.id}')">Añadir</button></div>`}</div>`;
+              }).join('');
+              box.innerHTML=`${coachBlock}<div class="training-history-subheading"><strong>RPE de las jugadoras</strong><small>Puedes añadir registros que falten en cualquier momento. Los ya guardados no se modifican.</small></div><div class="training-rpe-records coach-entry-list">${playerRows}</div>`;'''
+          new_player_rows = '''    const playerRows=(appState.players||[]).map(p=>{
+                const rec=s.records.find(r=>r.playerId===p.id);
+                const missingAction = windowOpen
+                  ? `<div class="coach-rpe-add"><select id="coach-rpe-${eventId}-${p.id}" aria-label="RPE para ${p.name}">${Array.from({length:11},(_,i)=>`<option value="${i}" ${i===5?'selected':''}>${i}</option>`).join('')}</select><button type="button" onclick="addPlayerRpeByCoach('${eventId}','${p.id}')">Añadir</button></div>`
+                  : `<span class="training-rpe-closed-label"><i data-lucide="lock"></i> Plazo cerrado</span>`;
+                return `<div class="training-rpe-record-item"><img src="${p.photo||p.avatar||'assets/default_avatar.svg'}"><span>${p.name}<small>${rec?'Registro cerrado':'Sin respuesta'}</small></span>${rec?`<b>${rec.rpeVal}/10</b>`:missingAction}</div>`;
+              }).join('');
+              box.innerHTML=`${coachBlock}<div class="training-history-subheading"><strong>RPE de las jugadoras</strong><small>Los registros faltantes solo pueden añadirse el mismo día del entrenamiento. Los ya guardados no se modifican.</small></div><div class="training-rpe-records coach-entry-list">${playerRows}</div>`;'''
+          if old_player_rows not in js:
+              raise SystemExit('Coach-for-player history RPE block not found')
+          js = js.replace(old_player_rows, new_player_rows, 1)
+
+          app.write_text(js, encoding='utf-8')
+
+          rp = Path('rpe-authoritative-20260810.js')
+          rjs = rp.read_text(encoding='utf-8')
+
+          marker = "function currentPlayer(){"
+          helper = "function madridKey(d){const x=d instanceof Date?d:new Date(d);if(Number.isNaN(x.getTime()))return'';const p=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(x);const g=t=>p.find(v=>v.type===t)?.value||'';return `${g('year')}-${g('month')}-${g('day')}`;}function rpeDayOpen(e,now=new Date()){const end=endTime(e);return !!(end&&madridKey(end)===madridKey(now));}function playerWindowOpen(e,now=new Date()){const end=endTime(e);return !!(end&&end<=now&&rpeDayOpen(e,now));}\n"
+          if marker not in rjs:
+              raise SystemExit('RPE helper insertion marker not found')
+          rjs = rjs.replace(marker, helper + marker, 1)
+
+          old_pending = "return !!(end&&end.getTime()<=now&&!answered.has(String(row.id)));"
+          new_pending = "return !!(end&&end.getTime()<=now&&rpeDayOpen(row,new Date(now))&&!answered.has(String(row.id)));"
+          if old_pending not in rjs:
+              raise SystemExit('Pending RPE predicate not found')
+          rjs = rjs.replace(old_pending, new_pending, 1)
+
+          old_player_guard = "const end=endTime(e);if(!end||end>new Date())throw new Error('Podrás enviar el RPE cuando haya terminado el entrenamiento.');"
+          new_player_guard = "const end=endTime(e),now=new Date();if(!end||end>now)throw new Error('Podrás enviar el RPE cuando haya terminado el entrenamiento.');if(!rpeDayOpen(e,now))throw new Error('El plazo para responder el RPE de esta sesión ya ha finalizado.');"
+          if old_player_guard not in rjs:
+              raise SystemExit('Player save timing guard not found')
+          rjs = rjs.replace(old_player_guard, new_player_guard, 1)
+
+          old_coach_guard = "if(!UUID.test(String(eid||''))||!UUID.test(String(cid||'')))throw new Error('No se encuentra la sesión o el entrenador.');const{data:old}=await c.from('rpe_entries').select('id').eq('event_id',eid).eq('coach_profile_id',cid).maybeSingle();"
+          new_coach_guard = "if(!UUID.test(String(eid||''))||!UUID.test(String(cid||'')))throw new Error('No se encuentra la sesión o el entrenador.');const{data:e,error:ee}=await c.from('events').select('ends_at,starts_at,payload').eq('id',eid).single();if(ee)throw ee;if(!rpeDayOpen(e,new Date()))throw new Error('El plazo para registrar el RPE de esta sesión ya ha finalizado.');const{data:old}=await c.from('rpe_entries').select('id').eq('event_id',eid).eq('coach_profile_id',cid).maybeSingle();"
+          if old_coach_guard not in rjs:
+              raise SystemExit('Coach save guard not found')
+          rjs = rjs.replace(old_coach_guard, new_coach_guard, 1)
+
+          old_for_player = "const eid=await eventUuid(eventId),p=pl(playerId),pid=p?.supabaseId;if(!UUID.test(String(eid||''))||!UUID.test(String(pid||'')))throw new Error('No se encuentra la jugadora.');const{data:old,error:oe}=await c.from('rpe_entries').select('id,source').eq('event_id',eid).eq('player_id',pid).maybeSingle();"
+          new_for_player = "const eid=await eventUuid(eventId),p=pl(playerId),pid=p?.supabaseId;if(!UUID.test(String(eid||''))||!UUID.test(String(pid||'')))throw new Error('No se encuentra la jugadora.');const{data:e,error:ee}=await c.from('events').select('ends_at,starts_at,payload').eq('id',eid).single();if(ee)throw ee;const now=new Date(),end=endTime(e);if(!end||end>now)throw new Error('El RPE de una jugadora solo puede registrarse cuando termina el entrenamiento.');if(!rpeDayOpen(e,now))throw new Error('El plazo para registrar este RPE ya ha finalizado.');const{data:old,error:oe}=await c.from('rpe_entries').select('id,source').eq('event_id',eid).eq('player_id',pid).maybeSingle();"
+          if old_for_player not in rjs:
+              raise SystemExit('Coach-for-player save block not found')
+          rjs = rjs.replace(old_for_player, new_for_player, 1)
+
+          old_install = "window.isRpeSubmissionWindowOpen=e=>{const end=endTime(e);return !!(e&&end&&end<=new Date());};"
+          new_install = "window.isRpeSubmissionWindowOpen=e=>playerWindowOpen(e,new Date());window.isRpeDayOpen=e=>rpeDayOpen(e,new Date());"
+          if old_install not in rjs:
+              raise SystemExit('Authoritative RPE window export not found')
+          rjs = rjs.replace(old_install, new_install, 1)
+
+          rp.write_text(rjs, encoding='utf-8')
+
+          cfg = Path('supabase-config.js')
+          c = cfg.read_text(encoding='utf-8')
+          if "window.VOLLEY_ASSET_VERSION = '20260812g';" not in c:
+              raise SystemExit('Expected cache g not found')
+          c = c.replace("window.VOLLEY_ASSET_VERSION = '20260812g';", "window.VOLLEY_ASSET_VERSION = '20260812h';", 1)
+          if 'rpe-authoritative-20260810.js?v=20260812g' not in c:
+              raise SystemExit('Expected RPE authoritative cache g not found')
+          c = c.replace('rpe-authoritative-20260810.js?v=20260812g', 'rpe-authoritative-20260810.js?v=20260812h', 1)
+          cfg.write_text(c, encoding='utf-8')
+
+          idx = Path('index.html')
+          h = idx.read_text(encoding='utf-8')
+          for name in ['styles.css','supabase-config.js','supabase-client.js','data.js','app.js']:
+              h = h.replace(f'{name}?v=20260812g', f'{name}?v=20260812h')
+          idx.write_text(h, encoding='utf-8')
+          PY
+
+      - name: Validate RPE window
+        run: |
+          node --check app.js
+          node --check rpe-authoritative-20260810.js
+          grep -q "Europe/Madrid" app.js
+          grep -q "playerWindowOpen" rpe-authoritative-20260810.js
+          grep -q "plazo para responder el RPE" rpe-authoritative-20260810.js
+          grep -q "mismo día del entrenamiento" app.js
+          grep -q "VOLLEY_ASSET_VERSION = '20260812h'" supabase-config.js
+          grep -q "app.js?v=20260812h" index.html
+
+      - name: Commit and self-remove
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/close-rpe-at-midnight-20260812.yml
+          git add app.js rpe-authoritative-20260810.js supabase-config.js index.html
+          git commit -m "Close RPE submissions after training day"
+          git push
