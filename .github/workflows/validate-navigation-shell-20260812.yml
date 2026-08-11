@@ -1,0 +1,29 @@
+name: Validate navigation shell
+on:
+  push:
+    paths:
+      - '.github/workflows/validate-navigation-shell-20260812.yml'
+permissions:
+  contents: write
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate navigation JavaScript and cache
+        shell: bash
+        run: |
+          node --check navigation-shell-20260812.js
+          grep -q "VOLLEY_ASSET_VERSION = '20260812b'" supabase-config.js
+          grep -q "navigation-shell-20260812.js?v=20260812b" supabase-config.js
+          grep -q "app.js?v=20260812b" index.html
+          grep -q "supabase-config.js?v=20260812b" index.html
+      - name: Remove validation workflow
+        if: success()
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/validate-navigation-shell-20260812.yml
+          git commit -m "chore: remove navigation validation workflow"
+          git push
