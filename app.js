@@ -2684,115 +2684,6 @@ function renderCompletedTrainingSessions(past) {
   return `<div class="training-history-intro"><div><span class="training-eyebrow">Historial</span><h3>Sesiones completadas</h3><p>${past.length} ${past.length===1?'entrenamiento finalizado':'entrenamientos finalizados'}. Pulsa uno para abrir su ficha completa.</p></div></div><div class="training-history-list">${rows}</div>`;
 }
 
-function renderTrainingCard(tr,isCoach,playerId,isNext) {
-  const confirmations = (appState.trainingConfirmations || []).filter(c=>isSameEventId(c.eventId, tr.id));
-  const playerConfirm = playerId ? getPlayerConfirmationForEvent(tr.id, playerId) : null;
-  const summary = getTrainingRpeSummary(tr.id);
-  const ownRpe = playerId ? summary.records.find(r=>r.playerId===playerId)?.rpeVal : null;
-  const coachRpe = Number.isFinite(Number(tr.coachRpe)) ? Number(tr.coachRpe) : null;
-  const finished = isTrainingFinished(tr);
-  const dateLabel = new Date(`${tr.date}T12:00:00`).toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'});
-
-  let attendance='';
-  if (!isCoach) {
-    attendance = playerConfirm ? `<div class="training-confirmed ${playerConfirm.status==='yes'?'yes':'no'}"><span>${playerConfirm.status==='yes'?'✓ Asistencia confirmada':'Ausencia comunicada'}</span><button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); openSeasonEvent('${tr.id}')">Abrir sesión</button></div>` : `<div class="training-rsvp"><span>¿Asistirás?</span><button class="yes" onclick="event.stopPropagation(); confirmTrainingAttendance('${tr.id}','yes')">Sí, asistiré</button><button class="no" onclick="event.stopPropagation(); confirmTrainingAttendance('${tr.id}','no')">No podré</button></div>`;
-  } else {
-  const attendanceSummary=getSessionAttendanceSummary(tr.id);
-  const official=attendanceSummary.actual||[];
-  const officialPresent=official.filter(row=>['present','attended','late'].includes(String(row.status||'').toLowerCase())).length;
-  const officialAbsent=official.filter(row=>['justified','unjustified','absent','missed'].includes(String(row.status||'').toLowerCase())).length;
-  if(official.length){
-    attendance=`<div class="training-coach-actions"><span><strong>${officialPresent}</strong> presentes · <strong>${officialAbsent}</strong> ausencias · <strong>${official.length}</strong> validadas</span><button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); openVerifyAttendanceModal('${tr.id}')"><i data-lucide="clipboard-check"></i> Revisar lista</button></div>`;
-  }else{
-    const yes=attendanceSummary.yes,no=attendanceSummary.no;
-    attendance=`<div class="training-coach-actions"><span><strong>${yes}</strong> sí · <strong>${no}</strong> bajas</span><button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); openVerifyAttendanceModal('${tr.id}')"><i data-lucide="clipboard-check"></i> Pasar lista</button></div>`;
-  }
-}
-
-  let rpe='';
-  if (false && isCoach && !finished) {
-    rpe=`<div class="training-rpe-locked"><i data-lucide="lock"></i> Podrás puntuar la RPE cuando termine el entrenamiento.</div>`;
-  } else if (isCoach) {
-    rpe=`<div class="training-rpe-panel">
-      <div class="training-rpe-heading"><div><span>Tu exigencia prevista/percibida</span><strong>${coachRpe===null?'Sin valorar':coachRpe+'/10'}</strong></div><div><span>Media jugadoras</span><strong>${summary.average===null?'Sin respuestas':summary.average.toFixed(1)+'/10'}</strong><small>${summary.count} respuesta${summary.count===1?'':'s'}</small></div></div>
-      ${renderRpeScale(tr.id,coachRpe,'coach')}
-      ${coachRpe!==null&&summary.average!==null?`<div class="training-rpe-comparison"><span>Tu valoración</span><div class="training-rpe-track"><i style="width:${coachRpe*10}%"></i></div><b>${coachRpe}</b><span>Jugadoras</span><div class="training-rpe-track players"><i style="width:${summary.average*10}%"></i></div><b>${summary.average.toFixed(1)}</b></div>`:''}
-    </div>`;
-  } else if (isRpeSubmissionWindowOpen(tr)) {
-    rpe=`<div class="training-rpe-panel player"><div class="training-rpe-heading"><div><span>¿Qué esfuerzo has percibido?</span><strong>${ownRpe===null||ownRpe===undefined?'Puntúa de 0 a 10':ownRpe+'/10 · '+getRpeDescriptor(ownRpe).label}</strong></div></div>${ownRpe===null||ownRpe===undefined ? renderRpeScale(tr.id,ownRpe,'player') : ''}<p>${ownRpe===null||ownRpe===undefined?'Disponible durante las pruebas. Una vez enviado no puede modificarse.':'Registro enviado. Ya no puede modificarse.'}</p></div>`;
-  } else if (finished) {
-    rpe=`<button type="button" class="training-rpe-locked training-rpe-expired" onclick="showCenteredNotice('El plazo para enviar el RPE ha finalizado.')"><i data-lucide="lock"></i> Plazo de RPE finalizado</button>`;
-  } else {
-    rpe=`<div class="training-rpe-locked"><i data-lucide="lock"></i> Podrás valorar el esfuerzo cuando termine el entrenamiento.</div>`;
-  }
-
-  return `<article class="training-session-card ${isNext?'next':''}">
-    <div class="training-session-top training-session-open" onclick="openSessionCenter('${tr.id}','training')" role="button" tabindex="0" aria-label="Abrir ${tr.title||'entrenamiento'}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openSessionCenter('${tr.id}','training')}"><div><span class="training-date-chip">${isNext?'PRÓXIMO · ':''}${dateLabel}</span><h3>${tr.title||'Entrenamiento'}</h3><p><i data-lucide="clock"></i>${tr.time||'--:--'} <i data-lucide="map-pin"></i>${tr.location||'Sin ubicación'}</p></div><div class="training-session-open-actions"><i class="training-open-chevron" data-lucide="chevron-right" aria-hidden="true"></i>${isCoach?`<button class="training-icon-button" onclick="event.stopPropagation(); editEventFromModal('${tr.id}')" title="Editar sesión"><i data-lucide="pencil"></i></button>`:''}</div></div>
-    <details class="training-content" onclick="event.stopPropagation()" ${isNext?'open':''}><summary>Ver contenido de la sesión <i data-lucide="chevron-down"></i></summary><div class="training-plan"><h4>Objetivos y trabajo</h4><p>${(tr.plan||'El entrenador todavía no ha añadido una descripción.').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p>${(tr.attachmentId||tr.sessionImage)?`<button class="training-file-preview" onclick="event.stopPropagation(); openSessionAttachment('${tr.id}')"><i data-lucide="file-search"></i> Abrir ${tr.attachmentType==='application/pdf'?'PDF':'archivo adjunto'}</button>`:''}</div></details>
-    ${attendance}${rpe}
-  </article>`;
-}
-
-function renderTrainingHistory(past,isCoach,playerId) {
-  if (!past.length) return `<div class="training-empty"><i data-lucide="history"></i><h3>Aún no hay historial</h3><p>Los entrenamientos finalizados y sus valoraciones aparecerán aquí.</p></div>`;
-  const rows=past.map(tr=>{
-    const s=getTrainingRpeSummary(tr.id); const own=playerId?s.records.find(r=>r.playerId===playerId)?.rpeVal:null; const coach=Number.isFinite(Number(tr.coachRpe))?Number(tr.coachRpe):null;
-    return `<button class="training-history-row" onclick="toggleTrainingHistoryDetail('${tr.id}')"><span><strong>${tr.title||'Entrenamiento'}</strong><small>${new Date(`${tr.date}T12:00:00`).toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'})}</small></span>${isCoach?`<span><small>Tu RPE</small><b>${coach??'—'}</b></span><span><small>Media equipo</small><b>${s.average===null?'—':s.average.toFixed(1)}</b></span><span><small>Respuestas</small><b>${s.count}</b></span>`:`<span><small>Mi RPE</small><b>${own??'—'}</b></span>`}<i data-lucide="chevron-down"></i></button><div id="training-history-${tr.id}" class="training-history-detail"></div>`;
-  }).join('');
-  return `<div class="training-history-intro"><div><h3>${isCoach?'Registro de percepción del esfuerzo':'Mis valoraciones de esfuerzo'}</h3><p>${isCoach?'Compara tu exigencia con la media del equipo y abre una sesión para consultar cada respuesta.':'Aquí quedan guardados todos los entrenamientos que hayas decidido puntuar.'}</p></div></div><div class="training-history-list">${rows}</div>`;
-}
-
-function toggleTrainingHistoryDetail(eventId) {
-  const box=document.getElementById(`training-history-${eventId}`); if(!box)return;
-  if(box.classList.contains('open')){box.classList.remove('open');box.innerHTML='';return;}
-  const tr=(appState.events||[]).find(e=>e.id===eventId), s=getTrainingRpeSummary(eventId);
-  const windowOpen = isRpeSubmissionWindowOpen(tr);
-  if(isCoachUser()){
-    const coachValue = Number.isFinite(Number(tr?.coachRpe)) ? Number(tr.coachRpe) : null;
-    const coachBlock = coachValue !== null
-      ? `<div class="training-own-record locked"><span>Tu percepción de intensidad<small>Registro cerrado</small></span><strong>${coachValue}/10</strong></div>`
-      : windowOpen
-        ? `<div class="training-history-coach-entry"><div><strong>Tu percepción de intensidad</strong><small>Disponible hasta las 23:59 de hoy.</small></div>${renderRpeScale(eventId,null,'coach')}</div>`
-        : `<div class="training-rpe-locked"><i data-lucide="lock"></i> No registraste tu percepción el día del entrenamiento.</div>`;
-    const playerRows=(appState.players||[]).map(p=>{
-      const rec=s.records.find(r=>r.playerId===p.id);
-      const missingAction = windowOpen
-        ? `<div class="coach-rpe-add"><select id="coach-rpe-${eventId}-${p.id}" aria-label="RPE para ${p.name}">${Array.from({length:11},(_,i)=>`<option value="${i}" ${i===5?'selected':''}>${i}</option>`).join('')}</select><button type="button" onclick="addPlayerRpeByCoach('${eventId}','${p.id}')">Añadir</button></div>`
-        : `<span class="training-rpe-closed-label"><i data-lucide="lock"></i> Plazo cerrado</span>`;
-      return `<div class="training-rpe-record-item"><img src="${p.photo||p.avatar||'assets/default_avatar.svg'}"><span>${p.name}<small>${rec?'Registro cerrado':'Sin respuesta'}</small></span>${rec?`<b>${rec.rpeVal}/10</b>`:missingAction}</div>`;
-    }).join('');
-    box.innerHTML=`${coachBlock}<div class="training-history-subheading"><strong>RPE de las jugadoras</strong><small>Los registros faltantes solo pueden añadirse el mismo día del entrenamiento. Los ya guardados no se modifican.</small></div><div class="training-rpe-records coach-entry-list">${playerRows}</div>`;
-  }else{
-    const u=getCurrentUser(), rec=s.records.find(r=>r.playerId===u?.playerId);
-    box.innerHTML=rec
-      ? `<div class="training-own-record locked"><span>Tu esfuerzo percibido<small>Registro enviado y cerrado</small></span><strong>${rec.rpeVal}/10</strong></div>`
-      : windowOpen
-        ? `<div class="training-history-player-entry"><div><strong>Registra tu esfuerzo percibido</strong><small>Disponible hasta las 23:59 de hoy.</small></div>${renderRpeScale(eventId,null,'player')}</div>`
-        : `<p class="training-no-rpe"><i data-lucide="lock"></i> No se registró el RPE el día del entrenamiento y el plazo ya ha terminado.</p>`;
-  }
-  box.classList.add('open'); if(window.lucide)lucide.createIcons();
-}
-
-window.toggleTrainingHistoryDetail=toggleTrainingHistoryDetail;
-
-
-function getSessionWellnessSnapshot(event) {
-  const logs = (appState.wellnessLogs || []).filter(log =>
-    log.sessionId === event.id || (!log.sessionId && (log.dateKey === event.date || log.date === event.date))
-  );
-  const scores = logs.map(log => {
-    const fatigue = Number(log.fatigue ?? log.fatigueLevel ?? 0);
-    const sleep = Number(log.sleepQuality ?? 0);
-    const soreness = Number(log.soreness ?? log.muscleSoreness ?? 0);
-    const stress = Number(log.stress ?? 0);
-    const components = [fatigue, soreness, stress].filter(Number.isFinite);
-    if (Number.isFinite(sleep) && sleep > 0) components.push(Math.max(0, 6 - sleep));
-    return components.length ? components.reduce((a,b)=>a+b,0)/components.length : null;
-  }).filter(v => v !== null);
-  const average = scores.length ? scores.reduce((a,b)=>a+b,0)/scores.length : null;
-  return { logs, average, count: logs.length, dateKey: event.date };
-}
-
 function getSessionAttendanceSummary(eventId) {
   const matchesEvent = record => [record?.eventId,record?.eventIdLegacy,record?.supabaseEventId,record?.event_id]
     .filter(Boolean).some(id => isSameEventId(id,eventId));
@@ -5605,20 +5496,6 @@ function setTrainingRPE(eventId, rpeVal, mode = null) {
   saveAppData(appState); renderTraining(); renderHomePortalRSVP(); renderHomeDashboard(); renderTeamRpeSummary(); if (document.getElementById('view-wellness')?.classList.contains('active')) { renderWellness(); renderWellnessCharts(); } showToast(`Esfuerzo registrado: ${numVal}/10`);
 }
 
-function addPlayerRpeByCoach(eventId, playerId) {
-  if (!isCoachUser()) return;
-  const select = document.getElementById(`coach-rpe-${eventId}-${playerId}`);
-  const value = Math.max(0, Math.min(10, parseInt(select?.value, 10)));
-  if (!Number.isFinite(value)) return;
-  if (!appState.trainingRPEs) appState.trainingRPEs = [];
-  const existing = appState.trainingRPEs.find(r => r.eventId === eventId && r.playerId === playerId);
-  if (existing) { showToast('Ese registro ya existe y no puede modificarse.', 'error'); return; }
-  appState.trainingRPEs.push({ eventId, playerId, rpeVal: value, date: getLocalDateKey(), addedByCoach: true });
-  awardEngagementXP(playerId,'rpe',eventId,appState.engagementSettings?.rpe||10,'RPE registrado por el entrenador');
-  saveAppData(appState); toggleTrainingHistoryDetail(eventId); toggleTrainingHistoryDetail(eventId); renderTeamRpeSummary(); if (document.getElementById('view-wellness')?.classList.contains('active')) { renderWellness(); renderWellnessCharts(); } showToast('RPE añadido correctamente.');
-}
-window.addPlayerRpeByCoach = addPlayerRpeByCoach;
-
 window.setTrainingRPE = setTrainingRPE;
 
 window.deletePlayer = function(playerId) {
@@ -7258,7 +7135,6 @@ function refreshAttendanceValidationUIRC183() {
   homeDashboardCache = { revision: -1, role: '', dayKey: '' };
   try { renderHomePortalRSVP(); } catch (_) {}
   try { renderHomeDashboard(); } catch (_) {}
-  try { renderCoachAttendanceList(); } catch (_) {}
 }
 
 const initVerifyAttendanceFormListenerRC183Base = initVerifyAttendanceFormListener;
@@ -7966,7 +7842,6 @@ window.renderWellness = renderWellness;
           try {
             if (activeViewId === "view-training") renderTraining();
             else if (activeViewId === "view-home-portal") { renderHomePortalRSVP(); renderHomeDashboard(); }
-            else if (activeViewId === "view-coach-attendance") renderCoachAttendanceList();
           } catch (_) {}
         });
       }

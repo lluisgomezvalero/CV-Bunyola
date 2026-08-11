@@ -6,7 +6,6 @@
   const WEEKLY_HIGH_MEAN = 7.5;
   let feedbackChannel = null;
   let planReadsChannel = null;
-  let rpeSyncBusy = false;
   let wellnessSyncBusy = false;
   let planHydrateBusy = false;
 
@@ -51,58 +50,7 @@
     document.head.appendChild(style);
   }
 
-  async function syncRpe(){
-    const c=client(), st=state(); if(!c||!st||rpeSyncBusy) return;
-    rpeSyncBusy=true;
-    try{
-      const {data,error}=await c.from('rpe_entries').select('id,event_id,player_id,coach_profile_id,score,source,created_at,updated_at');
-      if(error){console.warn('[Corrections] RPE fetch',error);return;}
-      st.trainingRPEs=Array.isArray(st.trainingRPEs)?st.trainingRPEs:[];
-      for(const row of data||[]){
-        const ev=eventByAnyId(row.event_id); if(!ev) continue;
-        if(row.source==='coach' && !row.player_id){ ev.coachRpe=Number(row.score); continue; }
-        if(!row.player_id) continue;
-        const p=localPlayerByAnyId(row.player_id); if(!p) continue;
-        const existing=st.trainingRPEs.find(r=>String(r.eventId)===String(ev.id)&&String(r.playerId)===String(p.id));
-        const mapped={eventId:ev.id,playerId:p.id,rpeVal:Number(row.score),date:ev.date||row.created_at?.slice(0,10),addedByCoach:row.source==='coach_for_player',supabaseId:row.id};
-        if(existing) Object.assign(existing,mapped); else st.trainingRPEs.push(mapped);
-      }
-    }finally{rpeSyncBusy=false;}
-  }
-
-  async function saveRpe(eventId,value,mode){
-    const c=client(); if(!c) return false;
-    const evId=await eventUuid(eventId); if(!evId) throw new Error('No se ha encontrado el entrenamiento en Supabase.');
-    const score=Math.max(0,Math.min(10,Number(value)));
-    const u=user();
-    if(mode==='coach' || (typeof isCoachUser==='function'&&isCoachUser()&&!u?.playerId)){
-      const coachId=u?.authId||u?.id; if(!coachId) throw new Error('No se ha encontrado el perfil del entrenador.');
-      const {data:existing,error:readError}=await c.from('rpe_entries').select('id,score').eq('event_id',evId).eq('coach_profile_id',coachId).eq('source','coach').maybeSingle();
-      if(readError) throw readError;
-      if(existing) return {already:true,score:Number(existing.score)};
-      const {error}=await c.from('rpe_entries').insert({event_id:evId,player_id:null,coach_profile_id:coachId,score,source:'coach'}); if(error) throw error;
-      return {already:false,score};
-    }
-    const pid=await playerUuid(u?.playerId); if(!pid) throw new Error('No se ha encontrado la jugadora en Supabase.');
-    const {data:existing,error:readError}=await c.from('rpe_entries').select('id,score,source').eq('event_id',evId).eq('player_id',pid).maybeSingle();
-    if(readError) throw readError;
-    if(existing) return {already:true,score:Number(existing.score),source:existing.source};
-    const {error}=await c.from('rpe_entries').insert({event_id:evId,player_id:pid,coach_profile_id:null,score,source:'player'}); if(error) throw error;
-    return {already:false,score};
-  }
-
-  async function saveManualPlayerRpe(eventId,localPlayerId,value){
-    const c=client(); if(!c) return false;
-    const evId=await eventUuid(eventId), pid=await playerUuid(localPlayerId); if(!evId||!pid) throw new Error('No se pudo resolver entrenamiento o jugadora.');
-    const {data:existing,error:readError}=await c.from('rpe_entries').select('id,score,source').eq('event_id',evId).eq('player_id',pid).maybeSingle();
-    if(readError) throw readError;
-    if(existing) return {already:true,score:Number(existing.score),source:existing.source};
-    const u=user();
-    const {error}=await c.from('rpe_entries').insert({event_id:evId,player_id:pid,coach_profile_id:u?.authId||u?.id||null,score:Number(value),source:'coach_for_player'}); if(error) throw error;
-    return {already:false,score:Number(value)};
-  }
-
-  async function hydrateSessionFeedback(eventId){
+        async function hydrateSessionFeedback(eventId){
     const c=client(), st=state(); if(!c||!st) return;
     const evId=await eventUuid(eventId); if(!evId) return;
     const {data,error}=await c.from('session_feedback').select('id,event_id,player_id,coach_profile_id,kind,comment_text,assessment,continuity_notes,created_at,updated_at,players(id,legacy_id,profile_id)').eq('event_id',evId);
@@ -258,17 +206,10 @@
     if(typeof window.renderSessionCenterDetail!=='function'||typeof window.renderTraining!=='function'||typeof window.renderWellness!=='function'){setTimeout(install,150);return;}
     window.__appCorrections20260809Installed=true;injectStyles();ensureSleepHoursField();
 
-    const baseSetRpe=window.setTrainingRPE;
-    window.setTrainingRPE=async function(eventId,value,mode=null){
-      try{const result=await saveRpe(eventId,value,mode);if(result?.already){showToast('Esta percepción del esfuerzo ya está contestada y no puede modificarse.','info');}await syncRpe();const ev=eventByAnyId(eventId);if(mode==='coach'&&ev&&result?.score!=null)ev.coachRpe=result.score;try{saveAppData(state());}catch(_){}if(typeof renderTraining==='function')renderTraining();if(typeof renderHomeDashboard==='function')renderHomeDashboard();if(typeof renderTeamRpeSummary==='function')renderTeamRpeSummary();if(typeof activeSessionId!=='undefined'&&String(activeSessionId)===String(eventId)&&typeof renderSessionCenterDetail==='function')renderSessionCenterDetail();if(!result?.already)showToast(`Esfuerzo registrado: ${result.score}/10`);return;}catch(error){console.error(error);showToast(error.message||'No se pudo guardar el RPE.','error');if(typeof baseSetRpe==='function'&&!client())return baseSetRpe(eventId,value,mode);}
-    };
-
-    window.addPlayerRpeByCoach=async function(eventId,playerId){if(!(typeof isCoachUser==='function'&&isCoachUser()))return;const select=document.getElementById(`coach-rpe-${eventId}-${playerId}`);const value=Math.max(0,Math.min(10,Number(select?.value)));if(!Number.isFinite(value))return;try{const result=await saveManualPlayerRpe(eventId,playerId,value);if(result?.already){showToast(result.source==='player'?'Esta jugadora ya ha contestado su RPE. No puedes modificarla.':'Este RPE ya está registrado.','info');}else showToast('RPE añadido correctamente.');await syncRpe();if(typeof toggleTrainingHistoryDetail==='function'){toggleTrainingHistoryDetail(eventId);toggleTrainingHistoryDetail(eventId);}if(typeof renderTeamRpeSummary==='function')renderTeamRpeSummary();}catch(error){console.error(error);showToast(error.message||'No se pudo guardar el RPE.','error');}};
-
     const baseSessionRender=window.renderSessionCenterDetail;
     window.renderSessionCenterDetail=function(){const r=baseSessionRender.apply(this,arguments);postProcessSession();return r;};
     const baseOpenSession=window.openSessionCenter;
-    window.openSessionCenter=function(eventId,returnTarget){const r=baseOpenSession.call(this,eventId,returnTarget);Promise.all([syncRpe(),hydrateSessionFeedback(eventId)]).then(()=>window.renderSessionCenterDetail());return r;};
+    window.openSessionCenter=function(eventId,returnTarget){const r=baseOpenSession.call(this,eventId,returnTarget);Promise.resolve(hydrateSessionFeedback(eventId)).then(()=>window.renderSessionCenterDetail());return r;};
 
     window.saveSessionCoachNotes=async function(eventId){if(!(typeof isCoachUser==='function'&&isCoachUser()))return;const session=eventByAnyId(eventId);if(!session)return;const assessment=document.getElementById('session-coach-assessment')?.value.trim()||'';const notes=document.getElementById('session-coach-notes')?.value.trim()||'';try{await saveCoachFeedback(eventId,assessment,notes);session.coachAssessment=assessment;session.coachNotes=notes;session._coachFeedbackSaved=true;session._coachFeedbackSavedAt=new Date().toISOString();try{saveAppData(state());}catch(_){}showToast('Valoración de la sesión guardada');window.renderSessionCenterDetail();}catch(error){console.error(error);showToast(error.message||'No se pudo guardar la valoración.','error');}};
 
@@ -286,8 +227,8 @@
     window.__correctionsBaseRenderTactics=baseTactics;
     window.renderTactics=function(){const r=baseTactics.apply(this,arguments);if(typeof isCoachUser==='function'&&isCoachUser()){hydratePlanReadsDirect(()=>baseTactics());subscribePlanReads();}else markPlanReadDirect();return r;};
 
-    syncRpe().then(()=>{try{renderTraining();}catch(_){}});syncWellness().then(()=>{try{if(document.getElementById('view-wellness')?.classList.contains('active'))window.renderWellness();}catch(_){}});
-    console.info('[AppCorrections] Correcciones de sesión, RPE, bienestar, carga y lectura del plan activadas.');
+    syncWellness().then(()=>{try{if(document.getElementById('view-wellness')?.classList.contains('active'))window.renderWellness();}catch(_){}});
+    console.info('[AppCorrections] Correcciones de sesión, bienestar, carga y lectura del plan activadas.');
   }
 
   if(document.readyState==='complete')setTimeout(install,0);else window.addEventListener('load',()=>setTimeout(install,0),{once:true});
