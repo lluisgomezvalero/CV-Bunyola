@@ -1,0 +1,165 @@
+name: Fix session RPE and attendance summary v2
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-session-rpe-attendance-summary-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch robust session summaries
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          app=Path('app.js')
+          js=app.read_text(encoding='utf-8')
+
+          # 1) RPE summary: accept local, legacy and Supabase event ids.
+          pat=re.compile(r"function getTrainingRpeSummary\(eventId\) \{.*?\n\}\n\n(?=function renderRpeScale)",re.S)
+          repl="""function getTrainingRpeSummary(eventId) {
+            const matchesEvent = record => [record?.eventId,record?.eventIdLegacy,record?.supabaseEventId,record?.event_id,record?.trainingId,record?.sessionId]
+              .filter(Boolean).some(id => isSameEventId(id,eventId));
+            const records = (appState.trainingRPEs || []).filter(record => matchesEvent(record) && Number.isFinite(Number(record?.rpeVal)));
+            const average = records.length ? records.reduce((sum,record)=>sum+Number(record.rpeVal),0)/records.length : null;
+            return {records,average,count:records.length};
+          }
+
+          """
+          js,n=pat.subn(repl,js,count=1)
+          if n!=1: raise SystemExit(f'getTrainingRpeSummary replacements={n}')
+
+          # 2) Attendance summary: same robust event identity rules.
+          pat=re.compile(r"function getSessionAttendanceSummary\(eventId\) \{.*?\n\}\n\n(?=function escapeSessionText)",re.S)
+          repl="""function getSessionAttendanceSummary(eventId) {
+            const matchesEvent = record => [record?.eventId,record?.eventIdLegacy,record?.supabaseEventId,record?.event_id]
+              .filter(Boolean).some(id => isSameEventId(id,eventId));
+            const confirmations = (appState.trainingConfirmations || []).filter(matchesEvent);
+            const actual = (appState.attendanceData || []).filter(matchesEvent);
+            return {
+              confirmations,
+              yes:confirmations.filter(c=>c.status==='yes').length,
+              no:confirmations.filter(c=>c.status==='no').length,
+              pending:Math.max(0,(appState.players||[]).length-confirmations.length),
+              actual
+            };
+          }
+
+          """
+          js,n=pat.subn(repl,js,count=1)
+          if n!=1: raise SystemExit(f'getSessionAttendanceSummary replacements={n}')
+
+          # 3) Entrenos card: once official roll call exists, show official attendance instead of RSVP count.
+          start=js.find('function renderTrainingCard(')
+          end=js.find('\nfunction ',start+30)
+          if start<0 or end<0: raise SystemExit('renderTrainingCard boundaries not found')
+          seg=js[start:end]
+          card_pat=re.compile(r"  \} else \{\n\s*const yes=confirmations\.filter\(c=>c\.status==='yes'\)\.length,\s*no=confirmations\.filter\(c=>c\.status==='no'\)\.length;\n\s*attendance=`<div class=\"training-coach-actions\">.*?</div>`;\n\s*\}",re.S)
+          card_repl="""  } else {
+            const attendanceSummary=getSessionAttendanceSummary(tr.id);
+            const official=attendanceSummary.actual||[];
+            const officialPresent=official.filter(row=>['present','attended','late'].includes(String(row.status||'').toLowerCase())).length;
+            const officialAbsent=official.filter(row=>['justified','unjustified','absent','missed'].includes(String(row.status||'').toLowerCase())).length;
+            if(official.length){
+              attendance=`<div class=\"training-coach-actions\"><span><strong>${officialPresent}</strong> presentes · <strong>${officialAbsent}</strong> ausencias · <strong>${official.length}</strong> validadas</span><button class=\"btn btn-outline btn-sm\" onclick=\"event.stopPropagation(); openVerifyAttendanceModal('${tr.id}')\"><i data-lucide=\"clipboard-check\"></i> Revisar lista</button></div>`;
+            }else{
+              const yes=attendanceSummary.yes,no=attendanceSummary.no;
+              attendance=`<div class=\"training-coach-actions\"><span><strong>${yes}</strong> sí · <strong>${no}</strong> bajas</span><button class=\"btn btn-outline btn-sm\" onclick=\"event.stopPropagation(); openVerifyAttendanceModal('${tr.id}')\"><i data-lucide=\"clipboard-check\"></i> Pasar lista</button></div>`;
+            }
+          }"""
+          seg,n=card_pat.subn(card_repl,seg,count=1)
+          if n!=1: raise SystemExit(f'training card replacements={n}')
+          js=js[:start]+seg+js[end:]
+
+          # 4) Dashboard: official roll-call data supersedes RSVP counters once present.
+          dash_vars_pat=re.compile(r"  const confirmations = \(appState\.trainingConfirmations \|\| \[\]\)\.filter\(c => nextTraining && isSameEventId\(c\.eventId, nextTraining\.id\)\);\n\s*const yes = confirmations\.filter\(c => c\.status === \"yes\"\)\.length;\n\s*const no = confirmations\.filter\(c => c\.status === \"no\"\)\.length;\n\s*const pending = Math\.max\(0, \(appState\.players \|\| \[\]\)\.length - yes - no\);")
+          dash_vars_repl="""  const nextAttendanceSummary = nextTraining ? getSessionAttendanceSummary(nextTraining.id) : {confirmations:[],actual:[],yes:0,no:0,pending:(appState.players||[]).length};
+          const confirmations = nextAttendanceSummary.confirmations || [];
+          const yes = nextAttendanceSummary.yes || 0;
+          const no = nextAttendanceSummary.no || 0;
+          const pending = nextAttendanceSummary.pending ?? Math.max(0,(appState.players||[]).length-yes-no);
+          const officialNext = nextAttendanceSummary.actual || [];
+          const officialNextPresent = officialNext.filter(row=>['present','attended','late'].includes(String(row.status||'').toLowerCase())).length;
+          const officialNextAbsent = officialNext.filter(row=>['justified','unjustified','absent','missed'].includes(String(row.status||'').toLowerCase())).length;"""
+          js,n=dash_vars_pat.subn(dash_vars_repl,js,count=1)
+          if n!=1: raise SystemExit(f'dashboard vars replacements={n}')
+
+          dash_metric_pat=re.compile(r"\$\{coach && nextTraining \? `<div class=\"dashboard-metrics\"><span><b>\$\{yes\}</b> confirmadas</span><span><b>\$\{no\}</b> bajas</span><span><b>\$\{pending\}</b> pendientes</span></div>` : ''\}")
+          dash_metric_repl="""${coach && nextTraining ? (officialNext.length
+            ? `<div class=\"dashboard-metrics\"><span><b>${officialNextPresent}</b> presentes</span><span><b>${officialNextAbsent}</b> ausencias</span><span><b>${officialNext.length}</b> validadas</span></div>`
+            : `<div class=\"dashboard-metrics\"><span><b>${yes}</b> confirmadas</span><span><b>${no}</b> bajas</span><span><b>${pending}</b> pendientes</span></div>`) : ''}"""
+          js,n=dash_metric_pat.subn(dash_metric_repl,js,count=1)
+          if n!=1: raise SystemExit(f'dashboard metric replacements={n}')
+
+          # 5) Unified session: coach RPE remains available before session end; player RPE stays post-session only.
+          marker="""      <button class=\"btn btn-outline btn-sm btn-block\" onclick=\"openVerifyAttendanceModal('${session.id}')\"><i data-lucide=\"clipboard-check\"></i> ${finished?'Revisar asistencia':active?'Pasar lista':'Gestionar asistencia'}</button>
+            </section>`;
+          } else if (playerId) {"""
+          insert="""      <button class=\"btn btn-outline btn-sm btn-block\" onclick=\"openVerifyAttendanceModal('${session.id}')\"><i data-lucide=\"clipboard-check\"></i> ${finished?'Revisar asistencia':active?'Pasar lista':'Gestionar asistencia'}</button>
+            </section>`;
+            if (!finished) {
+              participationHtml += `<section class=\"session-panel session-panel-wide\"><div class=\"session-panel-title\"><i data-lucide=\"activity\"></i><div><span>Control del entrenador</span><h3>RPE del entrenador</h3></div></div><div class=\"training-rpe-panel\"><div class=\"training-rpe-heading\"><div><span>Tu exigencia prevista/percibida</span><strong>${coachRpe===null?'Sin valorar':coachRpe+'/10'}</strong></div><div><span>Media jugadoras</span><strong>${rpe.average===null?'Sin respuestas':rpe.average.toFixed(1)+'/10'}</strong><small>${rpe.count} respuesta${rpe.count===1?'':'s'}</small></div></div>${renderRpeScale(session.id,coachRpe,'coach')}</div></section>`;
+            }
+          } else if (playerId) {"""
+          if marker not in js: raise SystemExit('session coach attendance marker not found')
+          js=js.replace(marker,insert,1)
+          app.write_text(js,encoding='utf-8')
+
+          # 6) Refresh an open unified session after RPE sync/save, no data-write changes.
+          rp=Path('rpe-authoritative-20260810.js')
+          rjs=rp.read_text(encoding='utf-8')
+          pairs=[
+            ("if(!opts.silent){call('renderTraining');call('renderHomeDashboard');call('renderTeamRpeSummary');}","if(!opts.silent){call('renderTraining');call('renderHomeDashboard');call('renderTeamRpeSummary');call('renderSessionCenterDetail');}"),
+            ("await load({silent:true});call('renderTraining');call('renderHomeDashboard');setTimeout(paintPendingNotice,0);","await load({silent:true});call('renderTraining');call('renderHomeDashboard');call('renderSessionCenterDetail');setTimeout(paintPendingNotice,0);"),
+            ("await load({silent:true});call('renderTraining');call('renderHomeDashboard');showToast?.(`Valoración registrada: ${score}/10`);","await load({silent:true});call('renderTraining');call('renderHomeDashboard');call('renderSessionCenterDetail');showToast?.(`Valoración registrada: ${score}/10`);"),
+            ("await load({silent:true});call('renderTraining');call('renderTeamRpeSummary');showToast?.('RPE añadido correctamente.');","await load({silent:true});call('renderTraining');call('renderTeamRpeSummary');call('renderSessionCenterDetail');showToast?.('RPE añadido correctamente.');")
+          ]
+          for old,new in pairs:
+            if old not in rjs: raise SystemExit('RPE refresh token not found')
+            rjs=rjs.replace(old,new,1)
+          rp.write_text(rjs,encoding='utf-8')
+
+          # Cache bust.
+          cfg=Path('supabase-config.js')
+          c=cfg.read_text(encoding='utf-8')
+          if "window.VOLLEY_ASSET_VERSION = '20260812f';" not in c: raise SystemExit('cache f not found')
+          c=c.replace("window.VOLLEY_ASSET_VERSION = '20260812f';","window.VOLLEY_ASSET_VERSION = '20260812g';",1)
+          if 'rpe-authoritative-20260810.js?v=20260810o' not in c: raise SystemExit('RPE cache token not found')
+          c=c.replace('rpe-authoritative-20260810.js?v=20260810o','rpe-authoritative-20260810.js?v=20260812g',1)
+          cfg.write_text(c,encoding='utf-8')
+
+          idx=Path('index.html')
+          h=idx.read_text(encoding='utf-8')
+          for name in ['styles.css','supabase-config.js','supabase-client.js','data.js','app.js']:
+            h=h.replace(f'{name}?v=20260812f',f'{name}?v=20260812g')
+          idx.write_text(h,encoding='utf-8')
+          PY
+
+      - name: Validate JavaScript and expected behavior markers
+        run: |
+          node --check app.js
+          node --check rpe-authoritative-20260810.js
+          grep -q "VOLLEY_ASSET_VERSION = '20260812g'" supabase-config.js
+          grep -q "app.js?v=20260812g" index.html
+          grep -q "RPE del entrenador" app.js
+          grep -q "officialNextPresent" app.js
+          grep -q "supabaseEventId" app.js
+
+      - name: Commit and self-remove
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/fix-session-rpe-attendance-summary-v2.yml
+          git add app.js rpe-authoritative-20260810.js supabase-config.js index.html
+          git commit -m "Fix session RPE and official attendance summaries"
+          git push
