@@ -25,18 +25,35 @@ jobs:
           index = Path('index.html')
           html = index.read_text(encoding='utf-8')
 
-          legacy_pos = html.find('id="view-coach-attendance"')
-          next_pos = html.find('id="view-goals"', legacy_pos + 1)
-          if legacy_pos < 0 or next_pos < 0:
-              raise SystemExit(f'Could not locate legacy view IDs: legacy={legacy_pos}, next={next_pos}')
-          start = html.rfind('<!--', 0, legacy_pos)
-          end = html.rfind('<!--', 0, next_pos)
+          view_pos = html.find('id="view-coach-attendance"')
+          if view_pos < 0:
+              raise SystemExit('Legacy coach attendance view ID not found')
+          start = html.rfind('<div', 0, view_pos)
           if start < 0:
-              start = html.rfind('<div', 0, legacy_pos)
-          if end < 0 or end <= start:
-              end = html.rfind('<div', 0, next_pos)
-          if start < 0 or end <= start:
-              raise SystemExit(f'Invalid legacy attendance boundaries: start={start}, end={end}')
+              raise SystemExit('Legacy coach attendance opening div not found')
+
+          depth = 0
+          end = None
+          token_re = re.compile(r'<div\b|</div\s*>', re.I)
+          for match in token_re.finditer(html, start):
+              token = match.group(0).lower()
+              if token.startswith('<div'):
+                  depth += 1
+              else:
+                  depth -= 1
+                  if depth == 0:
+                      end = match.end()
+                      break
+          if end is None:
+              raise SystemExit('Legacy coach attendance closing div not found')
+
+          # Remove the immediately preceding legacy heading comment too when present.
+          comment_start = html.rfind('<!--', 0, start)
+          comment_end = html.find('-->', comment_start, start) if comment_start >= 0 else -1
+          if comment_start >= 0 and comment_end >= 0 and comment_end < start:
+              comment_text = html[comment_start:comment_end + 3]
+              if 'CONTROL DE ENTRENOS' in comment_text:
+                  start = comment_start
 
           html_new = html[:start] + html[end:]
           for old, new in [
