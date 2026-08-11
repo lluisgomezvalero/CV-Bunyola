@@ -221,7 +221,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const loginView = document.getElementById("view-login");
   const portalWrapper = document.querySelector(".app-portal-wrapper");
-  const currentUser = await restoreSupabaseSession();
+  let currentUser = null;
+  try {
+    currentUser = await restoreSupabaseSession();
+  } catch (error) {
+    console.error('[VolleyCoach] No se pudo restaurar la sesión:', error);
+  }
   const isAuthenticated = Boolean(currentUser && currentUser.username);
 
   if (!isAuthenticated) {
@@ -236,6 +241,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     safeInit("perfil de navegación", renderNavUserProfile);
     safeInit("recordatorio de bienestar semanal", maybeOpenWeeklyWellnessPrompt);
   }
+
+  document.documentElement.classList.add('auth-ready');
 
   [
     // Las vistas pesadas se renderizan bajo demanda al abrir cada módulo.
@@ -2566,6 +2573,9 @@ function getTrainingRpeSummary(eventId) {
 }
 
 function renderRpeScale(eventId, selectedValue, mode) {
+  if (window.__rpeAuthoritativeReady !== true) {
+    return `<div class="training-rpe-loading"><span class="training-rpe-loading-dot"></span><span>Actualizando RPE…</span></div>`;
+  }
   const event = (appState.events || []).find(e =>
     [e.id,e.supabaseId,e.supabase_id,e.legacy_id,e.legacyId].filter(Boolean).some(id => isSameEventId(id,eventId))
   );

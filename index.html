@@ -4,14 +4,37 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>CV BUNYOLA - Hub del Equipo</title>
+
+  <style id="auth-boot-style">
+    html:not(.auth-ready) #view-login,
+    html:not(.auth-ready) .app-portal-wrapper{visibility:hidden!important}
+    #app-boot-screen{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:#f8fafc;color:#0f172a}
+    #app-boot-screen .app-boot-inner{display:flex;flex-direction:column;align-items:center;gap:.8rem;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    #app-boot-screen strong{font-size:1rem;letter-spacing:.01em}
+    #app-boot-screen small{font-size:.78rem;color:#64748b}
+    #app-boot-screen .app-boot-spinner{width:28px;height:28px;border:3px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;animation:appBootSpin .7s linear infinite}
+    html.auth-ready #app-boot-screen{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .16s ease,visibility .16s ease}
+    .training-rpe-loading{display:flex;align-items:center;gap:.55rem;padding:.85rem 1rem;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;color:#64748b;font-size:.86rem}
+    .training-rpe-loading-dot{width:8px;height:8px;border-radius:50%;background:#3b82f6;animation:rpeLoadingPulse .9s ease-in-out infinite alternate}
+    @keyframes appBootSpin{to{transform:rotate(360deg)}}
+    @keyframes rpeLoadingPulse{to{opacity:.25;transform:scale(.8)}}
+  </style>
   
   <meta name="description" content="Plataforma de gestión del CV BUNYOLA, Cadete Femenino 1ª División. Pizarra táctica editable, calendario y estadísticas.">
-  <link rel="stylesheet" href="styles.css?v=20260812h">
+  <link rel="stylesheet" href="styles.css?v=20260812i">
   
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js'"></script>
 </head>
 <body>
+
+  <div id="app-boot-screen" aria-live="polite">
+    <div class="app-boot-inner">
+      <span class="app-boot-spinner" aria-hidden="true"></span>
+      <strong>VolleyCoach HUB</strong>
+      <small>Preparando tu sesión…</small>
+    </div>
+  </div>
 
   <!-- ==========================================================================
        PANTALLA 1: INICIO DE SESIÓN
@@ -1573,10 +1596,10 @@
 
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js?v=20260812h"></script>
-    <script src="supabase-client.js?v=20260812h"></script>
-    <script src="data.js?v=20260812h"></script>
-    <script src="app.js?v=20260812h"></script>
+    <script src="supabase-config.js?v=20260812i"></script>
+    <script src="supabase-client.js?v=20260812i"></script>
+    <script src="data.js?v=20260812i"></script>
+    <script src="app.js?v=20260812i"></script>
   
   <!-- EDITOR DE FOTO DE PERFIL: ENCUADRE Y ZOOM -->
   <div id="modal-avatar-crop" class="modal-backdrop avatar-crop-modal" aria-hidden="true">
