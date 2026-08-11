@@ -1,0 +1,35 @@
+name: cache-bust-wellness-coach-pain-once
+on:
+  push:
+    paths:
+      - '.github/workflows/cache-bust-wellness-coach-pain-once.yml'
+permissions:
+  contents: write
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Bump four root asset versions and self-delete
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+          old='?v=20260811n'
+          new='?v=20260811o'
+          count=s.count(old)
+          if count != 4:
+              raise SystemExit(f'Expected exactly 4 root cache refs, found {count}')
+          p.write_text(s.replace(old,new))
+          PY
+          rm .github/workflows/cache-bust-wellness-coach-pain-once.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html .github/workflows/cache-bust-wellness-coach-pain-once.yml
+          git commit -m 'Bump root cache for coach pain column'
+          git push
