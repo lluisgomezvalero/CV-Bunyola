@@ -25,34 +25,41 @@ jobs:
           index = Path('index.html')
           html = index.read_text(encoding='utf-8')
 
-          legacy_label = 'VIEW: CONTROL DE ENTRENOS (ADMIN/COACH)'
-          next_label = 'MÓDULO: OBJETIVOS SEMANALES'
-          legacy_pos = html.find(legacy_label)
-          next_pos = html.find(next_label, legacy_pos + 1)
+          legacy_pos = html.find('id="view-coach-attendance"')
+          next_pos = html.find('id="view-goals"', legacy_pos + 1)
           if legacy_pos < 0 or next_pos < 0:
-              raise SystemExit('Could not locate legacy attendance view boundaries')
+              raise SystemExit(f'Could not locate legacy view IDs: legacy={legacy_pos}, next={next_pos}')
           start = html.rfind('<!--', 0, legacy_pos)
           end = html.rfind('<!--', 0, next_pos)
+          if start < 0:
+              start = html.rfind('<div', 0, legacy_pos)
+          if end < 0 or end <= start:
+              end = html.rfind('<div', 0, next_pos)
           if start < 0 or end <= start:
-              raise SystemExit('Invalid legacy attendance view boundaries')
+              raise SystemExit(f'Invalid legacy attendance boundaries: start={start}, end={end}')
 
           html_new = html[:start] + html[end:]
-          html_new = html_new.replace('styles.css?v=20260812d', 'styles.css?v=20260812e')
-          html_new = html_new.replace('supabase-config.js?v=20260812d', 'supabase-config.js?v=20260812e')
-          html_new = html_new.replace('supabase-client.js?v=20260812d', 'supabase-client.js?v=20260812e')
-          html_new = html_new.replace('data.js?v=20260812d', 'data.js?v=20260812e')
-          html_new = html_new.replace('app.js?v=20260812d', 'app.js?v=20260812e')
+          for old, new in [
+              ('styles.css?v=20260812d', 'styles.css?v=20260812e'),
+              ('supabase-config.js?v=20260812d', 'supabase-config.js?v=20260812e'),
+              ('supabase-client.js?v=20260812d', 'supabase-client.js?v=20260812e'),
+              ('data.js?v=20260812d', 'data.js?v=20260812e'),
+              ('app.js?v=20260812d', 'app.js?v=20260812e'),
+          ]:
+              html_new = html_new.replace(old, new)
           index.write_text(html_new, encoding='utf-8')
 
           app = Path('app.js')
           js = app.read_text(encoding='utf-8')
           js = js.replace('  "coach-attendance":"Asistencia", goals:"Objetivos", planning:"Planificación", fitness:"Rendimiento"',
                           '  goals:"Objetivos", planning:"Planificación", fitness:"Rendimiento"')
+
           old_guard = '  const coachOnlyModules = new Set(["users", "fitness", "coach-attendance", "planning"]);'
           new_guard = '  if (moduleName === "coach-attendance") moduleName = "training";\n  const coachOnlyModules = new Set(["users", "fitness", "planning"]);'
           if old_guard not in js:
               raise SystemExit('Could not locate coach module guard')
           js = js.replace(old_guard, new_guard, 1)
+
           old_route = '  } else if (moduleName === "coach-attendance") {\n    renderCoachAttendanceList();'
           if old_route not in js:
               raise SystemExit('Could not locate legacy coach attendance route')
