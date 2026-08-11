@@ -250,7 +250,7 @@ function observeUi(){
   const dashboard=document.getElementById('home-dashboard');
   if(dashboard&&!dashboardObserver){
     dashboardObserver=new MutationObserver(()=>schedulePlayerCard());
-    dashboardObserver.observe(dashboard,{childList:true,subtree:true});
+    dashboardObserver.observe(dashboard,{childList:true,subtree:false});
   }
 }
 
