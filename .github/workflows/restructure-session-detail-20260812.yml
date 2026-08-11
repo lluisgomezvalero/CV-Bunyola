@@ -1,0 +1,205 @@
+name: Restructure session detail
+on:
+  push:
+    paths:
+      - '.github/workflows/restructure-session-detail-20260812.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rebuild unique session detail
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          app_path = Path('app.js')
+          js = app_path.read_text(encoding='utf-8')
+
+          pattern = re.compile(r"function renderSessionCenterDetail\(\) \{.*?window\.renderSessionCenterDetail = renderSessionCenterDetail;", re.S)
+          matches = list(pattern.finditer(js))
+          if len(matches) != 1:
+              raise SystemExit(f'Expected exactly one renderSessionCenterDetail block, found {len(matches)}')
+
+          new_function = r'''function renderSessionCenterDetail() {
+  const box = document.getElementById('session-center-detail');
+  const session = (appState.events || []).find(e=>e.id===activeSessionId);
+  if (!box || !session) return;
+
+  const isCoach = isCoachUser();
+  const user = getCurrentUser();
+  const playerId = user?.playerId;
+  const finished = isTrainingFinished(session);
+  const active = isTrainingActive(session);
+  const rpe = getTrainingRpeSummary(session.id);
+  const coachRpe = Number.isFinite(Number(session.coachRpe)) ? Number(session.coachRpe) : null;
+  const ownRpe = playerId ? rpe.records.find(r=>isSamePlayerId(r.playerId,playerId))?.rpeVal : null;
+  const att = getSessionAttendanceSummary(session.id);
+  const start = getTrainingDateTime(session);
+  const end = getTrainingEndDateTime(session);
+  const duration = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+  const dateLabel = start.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const timeLabel = session.time || start.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+  const playerComment = playerId ? (appState.sessionPlayerComments||[]).find(c=>c.eventId===session.id&&c.playerId===playerId)?.text||'' : '';
+  const comments = (appState.sessionPlayerComments||[]).filter(c=>c.eventId===session.id && c.text);
+  const diff = coachRpe!==null && rpe.average!==null ? rpe.average-coachRpe : null;
+  const comparison = diff===null ? 'Faltan valoraciones para comparar.' : Math.abs(diff)<0.5 ? 'La percepción del equipo coincide con la tuya.' : diff>0 ? `El equipo la percibió ${Math.abs(diff).toFixed(1)} puntos más exigente.` : `El equipo la percibió ${Math.abs(diff).toFixed(1)} puntos menos exigente.`;
+
+  const officialRows = Array.isArray(att.actual) ? att.actual : [];
+  const officialPresent = officialRows.filter(row=>['present','attended','late'].includes(String(row.status||'').toLowerCase())).length;
+  const officialAbsent = officialRows.filter(row=>['justified','unjustified','absent','missed'].includes(String(row.status||'').toLowerCase())).length;
+  const playerConfirmation = playerId ? getPlayerConfirmationForEvent(session.id,playerId) : null;
+  const playerOfficial = playerId ? officialRows.find(row=>isSamePlayerId(row.playerId,playerId)||isSamePlayerId(row.playerIdLegacy,playerId)) : null;
+  const officialStatus = String(playerOfficial?.status || '').toLowerCase();
+  const officialCopy = {
+    present:{tone:'ok',icon:'circle-check-big',title:'Asistencia validada',text:'El entrenador ha registrado tu asistencia.'},
+    attended:{tone:'ok',icon:'circle-check-big',title:'Asistencia validada',text:'El entrenador ha registrado tu asistencia.'},
+    late:{tone:'warn',icon:'clock-3',title:'Llegada tarde',text:'El entrenador ha validado tu asistencia como llegada tarde.'},
+    justified:{tone:'neutral',icon:'badge-check',title:'Ausencia justificada',text:'El entrenador ha registrado tu ausencia como justificada.'},
+    unjustified:{tone:'danger',icon:'circle-x',title:'Ausencia no justificada',text:'El entrenador ha registrado tu ausencia como no justificada.'},
+    absent:{tone:'neutral',icon:'circle-minus',title:'Ausencia registrada',text:'El entrenador ha registrado tu ausencia.'},
+    missed:{tone:'neutral',icon:'circle-minus',title:'Ausencia registrada',text:'El entrenador ha registrado tu ausencia.'}
+  }[officialStatus] || null;
+
+  let participationHtml = '';
+  if (isCoach) {
+    const hasOfficial = officialRows.length > 0;
+    participationHtml = `<section class="session-panel session-panel-wide session-participation-panel">
+      <div class="session-panel-title"><i data-lucide="users"></i><div><span>${hasOfficial?'Asistencia oficial':'Confirmaciones previas'}</span><h3>Asistencia</h3></div></div>
+      <div class="session-metric-row">
+        ${hasOfficial
+          ? `<div><strong>${officialPresent}</strong><span>Presentes</span></div><div><strong>${officialAbsent}</strong><span>Ausencias</span></div><div><strong>${officialRows.length}</strong><span>Validadas</span></div>`
+          : `<div><strong>${att.yes}</strong><span>Asistirán</span></div><div><strong>${att.no}</strong><span>No asistirán</span></div><div><strong>${att.pending}</strong><span>Pendientes</span></div>`}
+      </div>
+      <p class="session-participation-note">${hasOfficial?'La asistencia oficial es la que cuenta para el seguimiento de carga.':'Estas respuestas son previsiones de las jugadoras. La asistencia definitiva la valida el cuerpo técnico.'}</p>
+      <button class="btn btn-outline btn-sm btn-block" onclick="openVerifyAttendanceModal('${session.id}')"><i data-lucide="clipboard-check"></i> ${finished?'Revisar asistencia':active?'Pasar lista':'Gestionar asistencia'}</button>
+    </section>`;
+  } else if (playerId) {
+    let playerAttendanceBody = '';
+    if (finished) {
+      if (officialCopy) {
+        playerAttendanceBody = `<div class="session-attendance-state ${officialCopy.tone}"><i data-lucide="${officialCopy.icon}"></i><div><strong>${officialCopy.title}</strong><span>${officialCopy.text}</span></div></div>`;
+      } else {
+        const previous = playerConfirmation?.status==='yes' ? 'Habías indicado que asistirías.' : playerConfirmation?.status==='no' ? 'Habías comunicado que no podrías asistir.' : 'No consta una respuesta previa de asistencia.';
+        playerAttendanceBody = `<div class="session-attendance-state neutral"><i data-lucide="clock-3"></i><div><strong>Asistencia pendiente de validar</strong><span>${previous} El entrenador todavía no ha validado la asistencia final.</span></div></div>`;
+      }
+    } else if (active) {
+      const current = playerConfirmation?.status==='yes' ? 'Habías indicado que asistirías.' : playerConfirmation?.status==='no' ? 'Habías comunicado que no podrías asistir.' : 'No habías enviado una confirmación previa.';
+      playerAttendanceBody = `<div class="session-attendance-state active"><i data-lucide="radio"></i><div><strong>Sesión en curso</strong><span>${current} La asistencia definitiva la validará el entrenador.</span></div></div>`;
+    } else if (playerConfirmation) {
+      const yes = playerConfirmation.status==='yes';
+      playerAttendanceBody = `<div class="session-attendance-state ${yes?'ok':'neutral'}"><i data-lucide="${yes?'circle-check-big':'calendar-x'}"></i><div><strong>${yes?'Asistencia confirmada':'Ausencia comunicada'}</strong><span>${yes?'Has indicado que asistirás a este entrenamiento.':'Has indicado que no podrás asistir a este entrenamiento.'}</span></div></div>`;
+    } else {
+      playerAttendanceBody = `<p class="session-rsvp-question">¿Asistirás a este entrenamiento?</p><div class="training-rsvp session-rsvp-actions"><button class="yes btn-rsvp-yes" onclick="Promise.resolve(confirmTrainingAttendance('${session.id}','yes',this)).finally(()=>window.renderSessionCenterDetail?.())"><i data-lucide="check"></i> Sí, asistiré</button><button class="no btn-rsvp-no" onclick="Promise.resolve(confirmTrainingAttendance('${session.id}','no',this)).finally(()=>window.renderSessionCenterDetail?.())"><i data-lucide="x"></i> No podré</button></div>`;
+    }
+    participationHtml = `<section class="session-panel session-panel-wide session-participation-panel"><div class="session-panel-title"><i data-lucide="user-check"></i><div><span>Mi participación</span><h3>Asistencia</h3></div></div>${playerAttendanceBody}</section>`;
+  }
+
+  const afterHtml = finished ? `<section class="session-phase session-phase-after">
+    <div class="session-phase-heading"><span class="session-phase-step">03</span><div><small>Al terminar</small><h3>Después de la sesión</h3></div></div>
+    <div class="session-detail-grid">
+      <section class="session-panel session-panel-wide"><div class="session-panel-title"><i data-lucide="activity"></i><div><span>Percepción del esfuerzo</span><h3>${isCoach?'Percepción del esfuerzo':'Mi percepción del esfuerzo'}</h3></div></div>
+        ${isCoach?`<div class="session-rpe-compare"><div><span>Entrenador</span><strong>${coachRpe===null?'—':coachRpe}</strong><div class="training-rpe-track"><i style="width:${(coachRpe||0)*10}%"></i></div></div><div><span>Media jugadoras</span><strong>${rpe.average===null?'—':rpe.average.toFixed(1)}</strong><div class="training-rpe-track players"><i style="width:${(rpe.average||0)*10}%"></i></div><small>${rpe.count} respuesta${rpe.count===1?'':'s'}</small></div></div><p class="session-comparison-message">${comparison}</p>${renderRpeScale(session.id,coachRpe,'coach')}`:(ownRpe!==null&&ownRpe!==undefined?`<div class="training-rpe-submitted"><i data-lucide="circle-check"></i><div><strong>Percepción del esfuerzo registrada</strong><span>Has valorado esta sesión con un ${ownRpe}/10.</span></div></div>`:renderRpeScale(session.id,null,'player'))}
+      </section>
+
+      ${isCoach?`<section class="session-panel session-panel-wide"><div class="session-panel-title"><i data-lucide="notebook-pen"></i><div><span>Solo cuerpo técnico</span><h3>Valoración y continuidad</h3></div></div><label class="form-label" for="session-coach-assessment">Valoración del entrenamiento</label><textarea id="session-coach-assessment" class="form-control" rows="3" placeholder="Qué funcionó, qué no y cómo respondió el equipo...">${escapeSessionText(session.coachAssessment||'')}</textarea><label class="form-label" for="session-coach-notes">Notas para la próxima sesión</label><textarea id="session-coach-notes" class="form-control" rows="3" placeholder="Ajustes, incidencias o ideas para continuar...">${escapeSessionText(session.coachNotes||'')}</textarea><button class="btn btn-primary btn-sm" onclick="saveSessionCoachNotes('${session.id}')"><i data-lucide="save"></i> Guardar valoración</button></section>`:`<section class="session-panel session-panel-wide"><div class="session-panel-title"><i data-lucide="message-square-text"></i><div><span>Opcional y privado</span><h3>Mi comentario</h3></div></div><textarea id="session-player-comment" class="form-control" rows="3" placeholder="Puedes explicar cómo te sentiste o añadir una observación para el entrenador.">${escapeSessionText(playerComment)}</textarea><button class="btn btn-primary btn-sm" onclick="saveSessionPlayerComment('${session.id}')"><i data-lucide="save"></i> Guardar comentario</button></section>`}
+
+      ${isCoach?`<section class="session-panel session-panel-wide"><div class="session-panel-title"><i data-lucide="messages-square"></i><div><span>Feedback del equipo</span><h3>Comentarios de jugadoras</h3></div></div>${comments.length?`<div class="session-comments-list">${comments.map(c=>{const p=(appState.players||[]).find(x=>x.id===c.playerId);return `<div><img src="${p?.photo||'assets/default_avatar.svg'}"><span><strong>${escapeSessionText(p?.name||'Jugadora')}</strong><p>${escapeSessionText(c.text)}</p></span></div>`}).join('')}</div>`:'<p class="session-muted">No hay comentarios en esta sesión.</p>'}</section>`:''}
+    </div>
+  </section>` : '';
+
+  box.innerHTML = `<div class="session-detail-shell">
+    <header class="session-detail-hero">
+      <button class="session-back-button" onclick="closeSessionCenter()" aria-label="Volver a la lista de sesiones" title="Volver"><i data-lucide="arrow-left"></i></button>
+      <div><span class="session-detail-kicker">${finished?'Sesión finalizada':active?'Sesión en curso':'Próxima sesión'}</span><h2>${escapeSessionText(session.title||'Entrenamiento')}</h2><p>${dateLabel} · ${timeLabel}${session.location?` · ${escapeSessionText(session.location)}`:''}${duration?` · ${duration} min`:''}</p></div>
+      ${isCoach?`<button class="btn btn-outline btn-sm" onclick="editEventFromModal('${session.id}')"><i data-lucide="pencil"></i> Editar</button>`:''}
+    </header>
+
+    <section class="session-phase">
+      <div class="session-phase-heading"><span class="session-phase-step">01</span><div><small>Antes de empezar</small><h3>Preparación</h3></div></div>
+      <div class="session-detail-grid">
+        <section class="session-panel session-panel-wide"><div class="session-panel-title"><i data-lucide="target"></i><div><span>Plan de trabajo</span><h3>Objetivos y contenido</h3></div></div><div class="session-rich-text">${escapeSessionText(session.plan||'Todavía no se ha añadido una descripción.').replace(/\n/g,'<br>')}</div>${(session.attachmentId||session.sessionImage)?`<button class="training-file-preview" onclick="openSessionAttachment('${session.id}')"><i data-lucide="file-search"></i> Abrir ${session.attachmentType==='application/pdf'?'PDF':'archivo adjunto'}${session.attachmentName?` · ${escapeSessionText(session.attachmentName)}`:''}</button>`:'<p class="session-muted">Sin archivo adjunto.</p>'}</section>
+      </div>
+    </section>
+
+    <section class="session-phase">
+      <div class="session-phase-heading"><span class="session-phase-step">02</span><div><small>${active?'Durante el entrenamiento':'Participación'}</small><h3>Asistencia</h3></div></div>
+      <div class="session-detail-grid">${participationHtml}</div>
+    </section>
+
+    ${afterHtml}
+  </div>`;
+  if (window.lucide) lucide.createIcons();
+}
+window.renderSessionCenterDetail = renderSessionCenterDetail;'''
+
+          js = pattern.sub(lambda _: new_function, js, count=1)
+          app_path.write_text(js, encoding='utf-8')
+
+          styles_path = Path('styles.css')
+          css = styles_path.read_text(encoding='utf-8')
+          marker = '/* SESSION DETAIL V3 · ficha única por fases */'
+          if marker not in css:
+              css += r'''
+
+/* SESSION DETAIL V3 · ficha única por fases */
+.session-phase{margin-top:1.15rem}
+.session-phase-heading{display:flex;align-items:center;gap:.75rem;margin:0 0 .75rem;padding:0 .15rem}
+.session-phase-step{width:34px;height:34px;display:grid;place-items:center;flex:0 0 auto;border-radius:11px;background:#e0f2fe;color:#0369a1;font-size:.72rem;font-weight:900;letter-spacing:.04em}
+.session-phase-heading small{display:block;margin-bottom:.08rem;color:#64748b;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+.session-phase-heading h3{margin:0;font-family:var(--font-heading);font-size:1.05rem;color:#0f172a}
+.session-phase-after{padding-top:.15rem}
+.session-participation-panel{max-width:none}
+.session-participation-note{margin:-.25rem 0 .9rem;color:#64748b;font-size:.82rem;line-height:1.45}
+.session-attendance-state{display:flex;align-items:flex-start;gap:.75rem;padding:.9rem 1rem;border:1px solid #e2e8f0;border-radius:14px;background:#f8fafc}
+.session-attendance-state>svg{width:20px;height:20px;flex:0 0 auto;margin-top:.05rem}
+.session-attendance-state strong,.session-attendance-state span{display:block}
+.session-attendance-state strong{font-size:.9rem;color:#0f172a}
+.session-attendance-state span{margin-top:.15rem;color:#64748b;font-size:.8rem;line-height:1.4}
+.session-attendance-state.ok{background:#f0fdf4;border-color:#bbf7d0}.session-attendance-state.ok>svg{color:#16a34a}
+.session-attendance-state.warn{background:#fff7ed;border-color:#fed7aa}.session-attendance-state.warn>svg{color:#ea580c}
+.session-attendance-state.danger{background:#fef2f2;border-color:#fecaca}.session-attendance-state.danger>svg{color:#dc2626}
+.session-attendance-state.neutral{background:#f8fafc;border-color:#e2e8f0}.session-attendance-state.neutral>svg{color:#64748b}
+.session-attendance-state.active{background:#eff6ff;border-color:#bfdbfe}.session-attendance-state.active>svg{color:#2563eb}
+.session-rsvp-question{margin:0;color:#334155;font-weight:800}
+.session-rsvp-actions{border-top:0;padding-top:0;margin-top:.7rem}
+.session-rsvp-actions button{display:inline-flex;align-items:center;gap:.35rem}
+.session-rsvp-actions button svg{width:15px;height:15px}
+@media(max-width:700px){.session-phase{margin-top:1rem}.session-phase-heading{margin-bottom:.6rem}.session-phase-step{width:30px;height:30px;border-radius:10px}.session-phase-heading h3{font-size:1rem}.session-participation-note{font-size:.78rem}.session-attendance-state{padding:.8rem}}
+'''
+          styles_path.write_text(css, encoding='utf-8')
+
+          config_path = Path('supabase-config.js')
+          config = config_path.read_text(encoding='utf-8')
+          config, n = re.subn(r"window\.VOLLEY_ASSET_VERSION = '[^']+';", "window.VOLLEY_ASSET_VERSION = '20260812a';", config, count=1)
+          if n != 1:
+              raise SystemExit('Could not update VOLLEY_ASSET_VERSION')
+          config_path.write_text(config, encoding='utf-8')
+
+          index_path = Path('index.html')
+          html = index_path.read_text(encoding='utf-8')
+          html = re.sub(r'styles\.css\?v=[^"\']+', 'styles.css?v=20260812a', html, count=1)
+          for name in ('supabase-config.js','supabase-client.js','data.js','app.js'):
+              html = re.sub(rf'{re.escape(name)}\?v=[^"\']+', f'{name}?v=20260812a', html, count=1)
+          index_path.write_text(html, encoding='utf-8')
+
+          notes_path = Path('CAMBIOS_ARQUITECTURA_SESIONES.txt')
+          if notes_path.exists():
+              notes = notes_path.read_text(encoding='utf-8')
+              addition = '\n- La ficha única se organiza en Preparación, Asistencia y Después de la sesión.\n- La confirmación de asistencia de la jugadora vive dentro de la ficha de sesión.\n- Bienestar deja de duplicarse dentro de la sesión y permanece en su módulo propio.\n'
+              if 'La ficha única se organiza en Preparación' not in notes:
+                  notes = notes.rstrip() + '\n' + addition
+                  notes_path.write_text(notes, encoding='utf-8')
+          PY
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/restructure-session-detail-20260812.yml
+          git add app.js styles.css supabase-config.js index.html CAMBIOS_ARQUITECTURA_SESIONES.txt
+          git diff --cached --check
+          git commit -m 'feat: organize unique session detail by phase'
+          git push
