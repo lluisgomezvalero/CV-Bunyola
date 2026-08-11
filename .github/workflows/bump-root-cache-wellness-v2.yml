@@ -1,0 +1,36 @@
+name: Bump root cache wellness v2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/bump-root-cache-wellness-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Update root asset version and remove temporary workflow
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('index.html')
+          text = path.read_text(encoding='utf-8')
+          old = '20260811l'
+          new = '20260811m'
+          if old not in text:
+              raise SystemExit(f'Expected cache version {old} not found in index.html')
+          path.write_text(text.replace(old, new), encoding='utf-8')
+          Path('.github/workflows/bump-root-cache-wellness-v2.yml').unlink()
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html .github/workflows/bump-root-cache-wellness-v2.yml
+          git commit -m "Bump root cache to 20260811m"
+          git push
