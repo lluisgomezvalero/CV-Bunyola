@@ -23,100 +23,76 @@ jobs:
           import re
 
           def replace_checked(path, old, new='', count=1):
-              p=Path(path); text=p.read_text(encoding='utf-8')
-              found=text.count(old)
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              found = text.count(old)
               if found < count:
-                  raise SystemExit(f'{path}: expected at least {count} occurrences, found {found}: {old[:80]}')
-              text=text.replace(old,new,count)
-              p.write_text(text,encoding='utf-8')
+                  raise SystemExit(f'{path}: expected at least {count} occurrences, found {found}')
+              p.write_text(text.replace(old, new, count), encoding='utf-8')
 
-          replace_checked(
-              'attendance-authoritative-20260809.js',
-              "if(includeCoachList||activeViewId==='view-coach-attendance')call('renderCoachAttendanceList');",
-              ''
-          )
-          replace_checked(
-              'roll-call-effective-minutes-20260811.js',
-              "    try{renderCoachAttendanceList();}catch(_){}\n",
-              ''
-          )
-          replace_checked(
-              'attendance-late-count-20260811.js',
-              "  try{if(typeof renderCoachAttendanceList==='function')renderCoachAttendanceList();}catch(_){}\n",
-              ''
-          )
-          replace_checked(
-              'supabase-event-recovery.js',
-              "        else if(activeViewId==='view-coach-attendance')renderCoachAttendanceList();\n",
-              ''
-          )
-          replace_checked(
-              'supabase-roster-sync.js',
-              "      try{renderCoachAttendanceList()}catch(_){}\n",
-              ''
-          )
-          replace_checked(
-              'coach-training-windows-20260810.js',
-              "  try { if(typeof renderCoachAttendanceList==='function') renderCoachAttendanceList(); } catch(_){}\n",
-              ''
-          )
+          replace_checked('attendance-authoritative-20260809.js', "if(includeCoachList||activeViewId==='view-coach-attendance')call('renderCoachAttendanceList');")
+          replace_checked('roll-call-effective-minutes-20260811.js', "    try{renderCoachAttendanceList();}catch(_){}\n")
+          replace_checked('attendance-late-count-20260811.js', "  try{if(typeof renderCoachAttendanceList==='function')renderCoachAttendanceList();}catch(_){}\n")
+          replace_checked('supabase-event-recovery.js', "        else if(activeViewId==='view-coach-attendance')renderCoachAttendanceList();\n")
+          replace_checked('supabase-roster-sync.js', "      try{renderCoachAttendanceList()}catch(_){}\n")
+          replace_checked('coach-training-windows-20260810.js', "  try { if(typeof renderCoachAttendanceList==='function') renderCoachAttendanceList(); } catch(_){}\n")
 
-          # The compact dashboard patch only needs to wrap the home dashboard now.
-          p=Path('coach-dashboard-compact-summary-20260810.js')
-          text=p.read_text(encoding='utf-8')
-          text=re.sub(r'\nfunction teamAttendance\(\)\{.*?\n\}\n\n(?=function compactHomeSummary)', '\n', text, count=1, flags=re.S)
-          text=re.sub(r'\nfunction addAttendanceToTrainingControl\(\)\{.*?\n\}\n\n(?=function injectCss)', '\n', text, count=1, flags=re.S)
-          install_start=text.find('function install(){')
-          install_end=text.find('\n\nsetTimeout(install,0);',install_start)
-          if install_start<0 or install_end<0:
+          p = Path('coach-dashboard-compact-summary-20260810.js')
+          text = p.read_text(encoding='utf-8')
+          text = re.sub(r'\nfunction teamAttendance\(\)\{.*?\n\}\n\n(?=function compactHomeSummary)', '\n', text, count=1, flags=re.S)
+          text = re.sub(r'\nfunction addAttendanceToTrainingControl\(\)\{.*?\n\}\n\n(?=function injectCss)', '\n', text, count=1, flags=re.S)
+          install_start = text.find('function install(){')
+          install_end = text.find('\n\nsetTimeout(install,0);', install_start)
+          if install_start < 0 or install_end < 0:
               raise SystemExit('coach-dashboard-compact-summary: install block not found')
-          new_install="""function install(){
-  if(window[FLAG]) return;
-  const homeBase=window.renderHomeDashboard;
-  if(typeof homeBase!=='function'){
-    setTimeout(install,120);
-    return;
-  }
-  window[FLAG]=true;
-  injectCss();
-
-  const homeWrapped=function(){
-    const result=homeBase.apply(this,arguments);
-    compactHomeSummary();
-    return result;
-  };
-  window.renderHomeDashboard=homeWrapped;
-  try { homeWrapped(); } catch(_){}
-}"""
-          text=text[:install_start]+new_install+text[install_end:]
+          new_install = '\n'.join([
+              'function install(){',
+              '  if(window[FLAG]) return;',
+              '  const homeBase=window.renderHomeDashboard;',
+              "  if(typeof homeBase!=='function'){
+",              '    setTimeout(install,120);',
+              '    return;',
+              '  }',
+              '  window[FLAG]=true;',
+              '  injectCss();',
+              '',
+              '  const homeWrapped=function(){',
+              '    const result=homeBase.apply(this,arguments);',
+              '    compactHomeSummary();',
+              '    return result;',
+              '  };',
+              '  window.renderHomeDashboard=homeWrapped;',
+              '  try { homeWrapped(); } catch(_){}',
+              '}',
+          ])
+          text = text[:install_start] + new_install + text[install_end:]
           if 'attendanceBase' in text or 'attendanceWrapped' in text or 'addAttendanceToTrainingControl' in text:
               raise SystemExit('coach-dashboard-compact-summary: legacy attendance wrapper remains')
-          p.write_text(text,encoding='utf-8')
+          p.write_text(text, encoding='utf-8')
 
-          # Cache bust only the files changed in this cleanup.
-          cfg=Path('supabase-config.js')
-          c=cfg.read_text(encoding='utf-8')
-          c=c.replace("window.VOLLEY_ASSET_VERSION = '20260812e';","window.VOLLEY_ASSET_VERSION = '20260812f';",1)
-          replacements={
-            'supabase-event-recovery.js?v=20260812d':'supabase-event-recovery.js?v=20260812f',
-            'supabase-roster-sync.js?v=20260810n':'supabase-roster-sync.js?v=20260812f',
-            'attendance-authoritative-20260809.js?v=20260812d':'attendance-authoritative-20260809.js?v=20260812f',
-            'roll-call-effective-minutes-20260811.js?v=20260811c':'roll-call-effective-minutes-20260811.js?v=20260812f',
-            'attendance-late-count-20260811.js?v=20260811e':'attendance-late-count-20260811.js?v=20260812f',
-            'coach-training-windows-20260810.js?v=20260811h':'coach-training-windows-20260810.js?v=20260812f',
-            'coach-dashboard-compact-summary-20260810.js?v=20260811e':'coach-dashboard-compact-summary-20260810.js?v=20260812f',
+          cfg = Path('supabase-config.js')
+          c = cfg.read_text(encoding='utf-8')
+          c = c.replace("window.VOLLEY_ASSET_VERSION = '20260812e';", "window.VOLLEY_ASSET_VERSION = '20260812f';", 1)
+          replacements = {
+              'supabase-event-recovery.js?v=20260812d': 'supabase-event-recovery.js?v=20260812f',
+              'supabase-roster-sync.js?v=20260810n': 'supabase-roster-sync.js?v=20260812f',
+              'attendance-authoritative-20260809.js?v=20260812d': 'attendance-authoritative-20260809.js?v=20260812f',
+              'roll-call-effective-minutes-20260811.js?v=20260811c': 'roll-call-effective-minutes-20260811.js?v=20260812f',
+              'attendance-late-count-20260811.js?v=20260811e': 'attendance-late-count-20260811.js?v=20260812f',
+              'coach-training-windows-20260810.js?v=20260811h': 'coach-training-windows-20260810.js?v=20260812f',
+              'coach-dashboard-compact-summary-20260810.js?v=20260811e': 'coach-dashboard-compact-summary-20260810.js?v=20260812f',
           }
-          for old,new in replacements.items():
+          for old, new in replacements.items():
               if old not in c:
-                  raise SystemExit(f'supabase-config: token not found: {old}')
-              c=c.replace(old,new,1)
-          cfg.write_text(c,encoding='utf-8')
+                  raise SystemExit(f'supabase-config token not found: {old}')
+              c = c.replace(old, new, 1)
+          cfg.write_text(c, encoding='utf-8')
 
-          index=Path('index.html')
-          h=index.read_text(encoding='utf-8')
+          index = Path('index.html')
+          h = index.read_text(encoding='utf-8')
           for name in ['styles.css','supabase-config.js','supabase-client.js','data.js','app.js']:
-              h=h.replace(f'{name}?v=20260812e',f'{name}?v=20260812f')
-          index.write_text(h,encoding='utf-8')
+              h = h.replace(f'{name}?v=20260812e', f'{name}?v=20260812f')
+          index.write_text(h, encoding='utf-8')
           PY
 
       - name: Validate changed JavaScript
