@@ -41,38 +41,21 @@ jobs:
           text = p.read_text(encoding='utf-8')
           text = re.sub(r'\nfunction teamAttendance\(\)\{.*?\n\}\n\n(?=function compactHomeSummary)', '\n', text, count=1, flags=re.S)
           text = re.sub(r'\nfunction addAttendanceToTrainingControl\(\)\{.*?\n\}\n\n(?=function injectCss)', '\n', text, count=1, flags=re.S)
-          install_start = text.find('function install(){')
-          install_end = text.find('\n\nsetTimeout(install,0);', install_start)
-          if install_start < 0 or install_end < 0:
-              raise SystemExit('coach-dashboard-compact-summary: install block not found')
-          new_install = '\n'.join([
-              'function install(){',
-              '  if(window[FLAG]) return;',
-              '  const homeBase=window.renderHomeDashboard;',
-              "  if(typeof homeBase!=='function'){
-",              '    setTimeout(install,120);',
-              '    return;',
-              '  }',
-              '  window[FLAG]=true;',
-              '  injectCss();',
-              '',
-              '  const homeWrapped=function(){',
-              '    const result=homeBase.apply(this,arguments);',
-              '    compactHomeSummary();',
-              '    return result;',
-              '  };',
-              '  window.renderHomeDashboard=homeWrapped;',
-              '  try { homeWrapped(); } catch(_){}',
-              '}',
-          ])
-          text = text[:install_start] + new_install + text[install_end:]
+          text = text.replace('  const attendanceBase=window.renderCoachAttendanceList;\n', '', 1)
+          text = text.replace("  if(typeof homeBase!=='function'||typeof attendanceBase!=='function'){", "  if(typeof homeBase!=='function'){")
+          text = re.sub(r'\n  const attendanceWrapped=function\(\)\{.*?\n  \};', '', text, count=1, flags=re.S)
+          text = text.replace('  window.renderCoachAttendanceList=attendanceWrapped;\n', '', 1)
+          text = text.replace('  try { attendanceWrapped(); } catch(_){}\n', '', 1)
           if 'attendanceBase' in text or 'attendanceWrapped' in text or 'addAttendanceToTrainingControl' in text:
               raise SystemExit('coach-dashboard-compact-summary: legacy attendance wrapper remains')
           p.write_text(text, encoding='utf-8')
 
           cfg = Path('supabase-config.js')
           c = cfg.read_text(encoding='utf-8')
-          c = c.replace("window.VOLLEY_ASSET_VERSION = '20260812e';", "window.VOLLEY_ASSET_VERSION = '20260812f';", 1)
+          old_global = "window.VOLLEY_ASSET_VERSION = '20260812e';"
+          if old_global not in c:
+              raise SystemExit('Expected global cache 20260812e not found')
+          c = c.replace(old_global, "window.VOLLEY_ASSET_VERSION = '20260812f';", 1)
           replacements = {
               'supabase-event-recovery.js?v=20260812d': 'supabase-event-recovery.js?v=20260812f',
               'supabase-roster-sync.js?v=20260810n': 'supabase-roster-sync.js?v=20260812f',
@@ -91,7 +74,10 @@ jobs:
           index = Path('index.html')
           h = index.read_text(encoding='utf-8')
           for name in ['styles.css','supabase-config.js','supabase-client.js','data.js','app.js']:
-              h = h.replace(f'{name}?v=20260812e', f'{name}?v=20260812f')
+              old = f'{name}?v=20260812e'
+              if old not in h:
+                  raise SystemExit(f'index cache token not found: {old}')
+              h = h.replace(old, f'{name}?v=20260812f', 1)
           index.write_text(h, encoding='utf-8')
           PY
 
