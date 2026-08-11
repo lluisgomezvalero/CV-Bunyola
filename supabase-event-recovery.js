@@ -50,11 +50,19 @@ async function authoritativeEventSync(){
     try{saveAppData(st)}catch(_){}
     try{if(typeof invalidateViewRenderCache==='function')invalidateViewRenderCache()}catch(_){}
     requestAnimationFrame(()=>{
-      try{renderGoogleCalendar()}catch(_){}
-      try{renderTraining()}catch(_){}
-      try{renderHomeDashboard()}catch(_){}
-      try{renderHomePortalRSVP()}catch(_){}
-      try{renderCoachAttendanceList()}catch(_){}
+      try{
+        if(typeof activeSessionId!=='undefined'&&activeSessionId){
+          renderSessionCenterDetail();
+          return;
+        }
+      }catch(_){}
+      const activeViewId=document.querySelector('.app-portal-wrapper > .page-view.active')?.id||'';
+      try{
+        if(activeViewId==='view-calendar')renderGoogleCalendar();
+        else if(activeViewId==='view-training')renderTraining();
+        else if(activeViewId==='view-home-portal'){renderHomeDashboard();renderHomePortalRSVP();}
+        else if(activeViewId==='view-coach-attendance')renderCoachAttendanceList();
+      }catch(_){}
     });
     console.info(`[EventRecovery] Estado reconciliado con Supabase: ${remoteEvents.length} eventos reales.`);
   }finally{syncing=false}

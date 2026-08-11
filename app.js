@@ -4369,7 +4369,14 @@ function initFormListeners() {
       if (typeof invalidateViewRenderCache === "function") invalidateViewRenderCache();
       homeDashboardCache = { revision: -1, role: "", dayKey: "" };
 
-      const wasEditing = Boolean(currentEditingEventId);
+      const editedEventId = currentEditingEventId;
+      const wasEditing = Boolean(editedEventId);
+      const keepEditedSessionOpen = Boolean(
+        editedEventId &&
+        typeof activeSessionId !== "undefined" &&
+        activeSessionId &&
+        String(activeSessionId) === String(editedEventId)
+      );
       currentEditingEventId = null;
       pendingSessionFile = null;
       if (sessionFileInput) sessionFileInput.value = "";
@@ -4379,10 +4386,22 @@ function initFormListeners() {
       showToast(wasEditing ? "Evento actualizado correctamente en Supabase" : "Evento guardado en Supabase");
 
       requestAnimationFrame(() => {
-        try { renderGoogleCalendar(); } catch (error) { console.error("Error al refrescar calendario:", error); }
-        try { renderTraining(); } catch (error) { console.error("Error al refrescar entrenamientos:", error); }
-        try { renderStats(); } catch (error) { console.error("Error al refrescar estadísticas:", error); }
-        try { renderHomeDashboard(); } catch (error) { console.error("Error al refrescar dashboard:", error); }
+        // Si se editó la sesión que está abierta, solo repintamos su ficha.
+        // El resto de vistas ya quedaron invalidadas y se renderizarán al abrirse.
+        if (keepEditedSessionOpen) {
+          try { renderSessionCenterDetail(); } catch (error) { console.error("Error al refrescar la sesión:", error); }
+          return;
+        }
+        const activeViewId = document.querySelector(".app-portal-wrapper > .page-view.active")?.id || "";
+        try {
+          if (activeViewId === "view-calendar") renderGoogleCalendar();
+          else if (activeViewId === "view-training") renderTraining();
+          else if (activeViewId === "view-stats") renderStats();
+          else if (activeViewId === "view-competition") renderCompetition();
+          else if (activeViewId === "view-home-portal") renderHomeDashboard();
+        } catch (error) {
+          console.error("Error al refrescar la vista activa tras guardar:", error);
+        }
       });
     } catch (error) {
       console.error("Error al guardar el evento:", error);
@@ -7773,11 +7792,20 @@ window.renderWellness = renderWellness;
         homeDashboardCache = { revision: -1, role: "", dayKey: "" };
 
         requestAnimationFrame(() => {
-          try { renderGoogleCalendar(); } catch (e) {}
-          try { renderTraining(); } catch (e) {}
-          try { renderHomeDashboard(); } catch (e) {}
-          try { renderStats(); } catch (e) {}
-          try { renderCompetition(); } catch (e) {}
+          try {
+            if (typeof activeSessionId !== "undefined" && activeSessionId) {
+              renderSessionCenterDetail();
+              return;
+            }
+          } catch (_) {}
+          const activeViewId = document.querySelector(".app-portal-wrapper > .page-view.active")?.id || "";
+          try {
+            if (activeViewId === "view-calendar") renderGoogleCalendar();
+            else if (activeViewId === "view-training") renderTraining();
+            else if (activeViewId === "view-home-portal") { renderHomeDashboard(); renderHomePortalRSVP(); }
+            else if (activeViewId === "view-stats") renderStats();
+            else if (activeViewId === "view-competition") renderCompetition();
+          } catch (_) {}
         });
       }
 
@@ -7855,17 +7883,26 @@ window.renderWellness = renderWellness;
         if (typeof invalidateViewRenderCache === "function") invalidateViewRenderCache();
 
         requestAnimationFrame(() => {
-          try { renderHomeDashboard(); } catch (e) {}
-          try { renderTraining(); } catch (e) {}
-          try { renderHomePortalRSVP(); } catch (e) {}
-          try { renderCoachAttendanceList(); } catch (e) {}
           try {
             const modal = document.getElementById('modal-verify-attendance');
             const openEvtId = document.getElementById('verify-attendance-event-id')?.value;
             if (modal && modal.classList.contains('active') && openEvtId) {
               openVerifyAttendanceModal(openEvtId);
+              return;
             }
           } catch(e) {}
+          try {
+            if (typeof activeSessionId !== "undefined" && activeSessionId) {
+              renderSessionCenterDetail();
+              return;
+            }
+          } catch (_) {}
+          const activeViewId = document.querySelector(".app-portal-wrapper > .page-view.active")?.id || "";
+          try {
+            if (activeViewId === "view-training") renderTraining();
+            else if (activeViewId === "view-home-portal") { renderHomePortalRSVP(); renderHomeDashboard(); }
+            else if (activeViewId === "view-coach-attendance") renderCoachAttendanceList();
+          } catch (_) {}
         });
       }
 
