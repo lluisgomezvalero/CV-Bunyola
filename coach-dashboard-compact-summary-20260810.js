@@ -16,10 +16,11 @@ function wellnessCounts(){
 
 function teamAttendance(){
   try {
-    const players=Array.isArray(appState?.players)?appState.players:[];
-    if(!players.length||typeof calculatePlayerAttendanceAndAchievements!=='function') return 0;
-    const values=players.map(player=>Number(calculatePlayerAttendanceAndAchievements(player.id)?.ratio||0));
-    return Math.round(values.reduce((sum,value)=>sum+value,0)/values.length);
+    const records=Array.isArray(appState?.attendanceData)?appState.attendanceData:[];
+    const valid=records.filter(record=>['present','attended','late','justified','unjustified','absent','missed'].includes(String(record?.status||'')));
+    if(!valid.length)return 0;
+    const attended=valid.filter(record=>['present','attended','late'].includes(String(record?.status||''))).length;
+    return Math.round(attended*100/valid.length);
   } catch(_) { return 0; }
 }
 
