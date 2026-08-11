@@ -2523,8 +2523,28 @@ function getLocalDateKey(date = new Date()) {
   return `${y}-${m}-${d}`;
 }
 
+function getMadridRpeDateKey(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(date);
+  const pick = type => parts.find(p => p.type === type)?.value || '';
+  return `${pick('year')}-${pick('month')}-${pick('day')}`;
+}
+
+function isRpeSameMadridDay(event, now = new Date()) {
+  if (!event) return false;
+  const end = getTrainingEndDateTime(event);
+  return getMadridRpeDateKey(end) === getMadridRpeDateKey(now);
+}
+
 function isRpeSubmissionWindowOpen(event) {
-  return Boolean(event && isTrainingFinished(event) && event.date === getLocalDateKey());
+  return Boolean(event && isTrainingFinished(event) && isRpeSameMadridDay(event));
+}
+
+function isCoachRpeWindowOpen(event) {
+  return Boolean(event && isRpeSameMadridDay(event));
 }
 
 function getRpeDescriptor(value) {
@@ -2546,7 +2566,23 @@ function getTrainingRpeSummary(eventId) {
 }
 
 function renderRpeScale(eventId, selectedValue, mode) {
-  const value = Number.isFinite(Number(selectedValue)) ? Number(selectedValue) : 5;
+  const event = (appState.events || []).find(e =>
+    [e.id,e.supabaseId,e.supabase_id,e.legacy_id,e.legacyId].filter(Boolean).some(id => isSameEventId(id,eventId))
+  );
+  const windowOpen = mode === 'coach' ? isCoachRpeWindowOpen(event) : isRpeSubmissionWindowOpen(event);
+  const hasValue = Number.isFinite(Number(selectedValue));
+  if (hasValue) {
+    const saved = Number(selectedValue);
+    return `<div class="training-rpe-submitted"><i data-lucide="circle-check"></i><div><strong>RPE registrado</strong><span>${saved}/10 · Registro cerrado.</span></div></div>`;
+  }
+  if (!windowOpen) {
+    const finished = event ? isTrainingFinished(event) : false;
+    const text = finished
+      ? 'El plazo terminó al finalizar el día del entrenamiento.'
+      : 'El RPE estará disponible el día del entrenamiento.';
+    return `<div class="training-rpe-locked training-rpe-expired"><i data-lucide="lock"></i><span><strong>RPE cerrado</strong><small>${text}</small></span></div>`;
+  }
+  const value = 5;
   const descriptor = getRpeDescriptor(value);
   return `<div class="training-rpe-slider-wrap" data-rpe-event="${eventId}">
     <div class="training-rpe-slider-value"><strong id="rpe-value-${eventId}-${mode}">${value}</strong><span id="rpe-label-${eventId}-${mode}">${descriptor.label}</span></div>
@@ -2710,9 +2746,12 @@ function toggleTrainingHistoryDetail(eventId) {
         : `<div class="training-rpe-locked"><i data-lucide="lock"></i> No registraste tu percepción el día del entrenamiento.</div>`;
     const playerRows=(appState.players||[]).map(p=>{
       const rec=s.records.find(r=>r.playerId===p.id);
-      return `<div class="training-rpe-record-item"><img src="${p.photo||p.avatar||'assets/default_avatar.svg'}"><span>${p.name}<small>${rec?'Registro cerrado':'Sin respuesta'}</small></span>${rec?`<b>${rec.rpeVal}/10</b>`:`<div class="coach-rpe-add"><select id="coach-rpe-${eventId}-${p.id}" aria-label="RPE para ${p.name}">${Array.from({length:11},(_,i)=>`<option value="${i}" ${i===5?'selected':''}>${i}</option>`).join('')}</select><button type="button" onclick="addPlayerRpeByCoach('${eventId}','${p.id}')">Añadir</button></div>`}</div>`;
+      const missingAction = windowOpen
+        ? `<div class="coach-rpe-add"><select id="coach-rpe-${eventId}-${p.id}" aria-label="RPE para ${p.name}">${Array.from({length:11},(_,i)=>`<option value="${i}" ${i===5?'selected':''}>${i}</option>`).join('')}</select><button type="button" onclick="addPlayerRpeByCoach('${eventId}','${p.id}')">Añadir</button></div>`
+        : `<span class="training-rpe-closed-label"><i data-lucide="lock"></i> Plazo cerrado</span>`;
+      return `<div class="training-rpe-record-item"><img src="${p.photo||p.avatar||'assets/default_avatar.svg'}"><span>${p.name}<small>${rec?'Registro cerrado':'Sin respuesta'}</small></span>${rec?`<b>${rec.rpeVal}/10</b>`:missingAction}</div>`;
     }).join('');
-    box.innerHTML=`${coachBlock}<div class="training-history-subheading"><strong>RPE de las jugadoras</strong><small>Puedes añadir registros que falten en cualquier momento. Los ya guardados no se modifican.</small></div><div class="training-rpe-records coach-entry-list">${playerRows}</div>`;
+    box.innerHTML=`${coachBlock}<div class="training-history-subheading"><strong>RPE de las jugadoras</strong><small>Los registros faltantes solo pueden añadirse el mismo día del entrenamiento. Los ya guardados no se modifican.</small></div><div class="training-rpe-records coach-entry-list">${playerRows}</div>`;
   }else{
     const u=getCurrentUser(), rec=s.records.find(r=>r.playerId===u?.playerId);
     box.innerHTML=rec
