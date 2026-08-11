@@ -4263,3 +4263,29 @@ body.profile-modal-open #module-header-nav{visibility:hidden!important;pointer-e
   background: #ef4444;
   box-shadow: 0 0 0 3px rgba(239, 68, 68, .16);
 }
+
+
+/* SESSION DETAIL V3 · ficha única por fases */
+.session-phase{margin-top:1.15rem}
+.session-phase-heading{display:flex;align-items:center;gap:.75rem;margin:0 0 .75rem;padding:0 .15rem}
+.session-phase-step{width:34px;height:34px;display:grid;place-items:center;flex:0 0 auto;border-radius:11px;background:#e0f2fe;color:#0369a1;font-size:.72rem;font-weight:900;letter-spacing:.04em}
+.session-phase-heading small{display:block;margin-bottom:.08rem;color:#64748b;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+.session-phase-heading h3{margin:0;font-family:var(--font-heading);font-size:1.05rem;color:#0f172a}
+.session-phase-after{padding-top:.15rem}
+.session-participation-panel{max-width:none}
+.session-participation-note{margin:-.25rem 0 .9rem;color:#64748b;font-size:.82rem;line-height:1.45}
+.session-attendance-state{display:flex;align-items:flex-start;gap:.75rem;padding:.9rem 1rem;border:1px solid #e2e8f0;border-radius:14px;background:#f8fafc}
+.session-attendance-state>svg{width:20px;height:20px;flex:0 0 auto;margin-top:.05rem}
+.session-attendance-state strong,.session-attendance-state span{display:block}
+.session-attendance-state strong{font-size:.9rem;color:#0f172a}
+.session-attendance-state span{margin-top:.15rem;color:#64748b;font-size:.8rem;line-height:1.4}
+.session-attendance-state.ok{background:#f0fdf4;border-color:#bbf7d0}.session-attendance-state.ok>svg{color:#16a34a}
+.session-attendance-state.warn{background:#fff7ed;border-color:#fed7aa}.session-attendance-state.warn>svg{color:#ea580c}
+.session-attendance-state.danger{background:#fef2f2;border-color:#fecaca}.session-attendance-state.danger>svg{color:#dc2626}
+.session-attendance-state.neutral{background:#f8fafc;border-color:#e2e8f0}.session-attendance-state.neutral>svg{color:#64748b}
+.session-attendance-state.active{background:#eff6ff;border-color:#bfdbfe}.session-attendance-state.active>svg{color:#2563eb}
+.session-rsvp-question{margin:0;color:#334155;font-weight:800}
+.session-rsvp-actions{border-top:0;padding-top:0;margin-top:.7rem}
+.session-rsvp-actions button{display:inline-flex;align-items:center;gap:.35rem}
+.session-rsvp-actions button svg{width:15px;height:15px}
+@media(max-width:700px){.session-phase{margin-top:1rem}.session-phase-heading{margin-bottom:.6rem}.session-phase-step{width:30px;height:30px;border-radius:10px}.session-phase-heading h3{font-size:1rem}.session-participation-note{font-size:.78rem}.session-attendance-state{padding:.8rem}}

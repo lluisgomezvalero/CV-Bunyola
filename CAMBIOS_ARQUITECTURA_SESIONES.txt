@@ -8,3 +8,7 @@ VOLLEYCOACH HUB · ARQUITECTURA DE SESIONES
 - Los comentarios y puntuaciones quedan asociados al entrenamiento concreto.
 - Se mantiene la vista resumida de próximas sesiones y el historial de RPE.
 - No se han añadido constructor, biblioteca de ejercicios, plantillas ni monedas.
+
+- La ficha única se organiza en Preparación, Asistencia y Después de la sesión.
+- La confirmación de asistencia de la jugadora vive dentro de la ficha de sesión.
+- Bienestar deja de duplicarse dentro de la sesión y permanece en su módulo propio.

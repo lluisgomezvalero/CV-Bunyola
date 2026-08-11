@@ -2820,44 +2820,109 @@ function renderSessionCenterDetail() {
   const box = document.getElementById('session-center-detail');
   const session = (appState.events || []).find(e=>e.id===activeSessionId);
   if (!box || !session) return;
+
   const isCoach = isCoachUser();
   const user = getCurrentUser();
   const playerId = user?.playerId;
   const finished = isTrainingFinished(session);
+  const active = isTrainingActive(session);
   const rpe = getTrainingRpeSummary(session.id);
   const coachRpe = Number.isFinite(Number(session.coachRpe)) ? Number(session.coachRpe) : null;
-  const ownRpe = playerId ? rpe.records.find(r=>r.playerId===playerId)?.rpeVal : null;
+  const ownRpe = playerId ? rpe.records.find(r=>isSamePlayerId(r.playerId,playerId))?.rpeVal : null;
   const att = getSessionAttendanceSummary(session.id);
-  const wellness = getSessionWellnessSnapshot(session);
-  const weeklyWellnessStatus = playerId ? getPlayerDailyStatus(playerId) : { isContestada:false };
-  const dateLabel = new Date(`${session.date}T12:00:00`).toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const start = getTrainingDateTime(session);
+  const end = getTrainingEndDateTime(session);
+  const duration = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+  const dateLabel = start.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const timeLabel = session.time || start.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
   const playerComment = playerId ? (appState.sessionPlayerComments||[]).find(c=>c.eventId===session.id&&c.playerId===playerId)?.text||'' : '';
   const comments = (appState.sessionPlayerComments||[]).filter(c=>c.eventId===session.id && c.text);
   const diff = coachRpe!==null && rpe.average!==null ? rpe.average-coachRpe : null;
   const comparison = diff===null ? 'Faltan valoraciones para comparar.' : Math.abs(diff)<0.5 ? 'La percepción del equipo coincide con la tuya.' : diff>0 ? `El equipo la percibió ${Math.abs(diff).toFixed(1)} puntos más exigente.` : `El equipo la percibió ${Math.abs(diff).toFixed(1)} puntos menos exigente.`;
 
-  box.innerHTML = `<div class="session-detail-shell">
-    <header class="session-detail-hero">
-      <button class="session-back-button" onclick="closeSessionCenter()" aria-label="Volver a la lista de sesiones" title="Volver"><i data-lucide="arrow-left"></i></button>
-      <div><span class="session-detail-kicker">${finished?'Sesión finalizada':isTrainingActive(session)?'Sesión en curso':'Próxima sesión'}</span><h2>${escapeSessionText(session.title||'Entrenamiento')}</h2><p>${dateLabel} · ${session.time||'--:--'} · ${escapeSessionText(session.location||'Sin ubicación')}</p></div>
-      ${isCoach?`<button class="btn btn-outline btn-sm" onclick="editEventFromModal('${session.id}')"><i data-lucide="pencil"></i> Editar</button>`:''}
-    </header>
+  const officialRows = Array.isArray(att.actual) ? att.actual : [];
+  const officialPresent = officialRows.filter(row=>['present','attended','late'].includes(String(row.status||'').toLowerCase())).length;
+  const officialAbsent = officialRows.filter(row=>['justified','unjustified','absent','missed'].includes(String(row.status||'').toLowerCase())).length;
+  const playerConfirmation = playerId ? getPlayerConfirmationForEvent(session.id,playerId) : null;
+  const playerOfficial = playerId ? officialRows.find(row=>isSamePlayerId(row.playerId,playerId)||isSamePlayerId(row.playerIdLegacy,playerId)) : null;
+  const officialStatus = String(playerOfficial?.status || '').toLowerCase();
+  const officialCopy = {
+    present:{tone:'ok',icon:'circle-check-big',title:'Asistencia validada',text:'El entrenador ha registrado tu asistencia.'},
+    attended:{tone:'ok',icon:'circle-check-big',title:'Asistencia validada',text:'El entrenador ha registrado tu asistencia.'},
+    late:{tone:'warn',icon:'clock-3',title:'Llegada tarde',text:'El entrenador ha validado tu asistencia como llegada tarde.'},
+    justified:{tone:'neutral',icon:'badge-check',title:'Ausencia justificada',text:'El entrenador ha registrado tu ausencia como justificada.'},
+    unjustified:{tone:'danger',icon:'circle-x',title:'Ausencia no justificada',text:'El entrenador ha registrado tu ausencia como no justificada.'},
+    absent:{tone:'neutral',icon:'circle-minus',title:'Ausencia registrada',text:'El entrenador ha registrado tu ausencia.'},
+    missed:{tone:'neutral',icon:'circle-minus',title:'Ausencia registrada',text:'El entrenador ha registrado tu ausencia.'}
+  }[officialStatus] || null;
 
+  let participationHtml = '';
+  if (isCoach) {
+    const hasOfficial = officialRows.length > 0;
+    participationHtml = `<section class="session-panel session-panel-wide session-participation-panel">
+      <div class="session-panel-title"><i data-lucide="users"></i><div><span>${hasOfficial?'Asistencia oficial':'Confirmaciones previas'}</span><h3>Asistencia</h3></div></div>
+      <div class="session-metric-row">
+        ${hasOfficial
+          ? `<div><strong>${officialPresent}</strong><span>Presentes</span></div><div><strong>${officialAbsent}</strong><span>Ausencias</span></div><div><strong>${officialRows.length}</strong><span>Validadas</span></div>`
+          : `<div><strong>${att.yes}</strong><span>Asistirán</span></div><div><strong>${att.no}</strong><span>No asistirán</span></div><div><strong>${att.pending}</strong><span>Pendientes</span></div>`}
+      </div>
+      <p class="session-participation-note">${hasOfficial?'La asistencia oficial es la que cuenta para el seguimiento de carga.':'Estas respuestas son previsiones de las jugadoras. La asistencia definitiva la valida el cuerpo técnico.'}</p>
+      <button class="btn btn-outline btn-sm btn-block" onclick="openVerifyAttendanceModal('${session.id}')"><i data-lucide="clipboard-check"></i> ${finished?'Revisar asistencia':active?'Pasar lista':'Gestionar asistencia'}</button>
+    </section>`;
+  } else if (playerId) {
+    let playerAttendanceBody = '';
+    if (finished) {
+      if (officialCopy) {
+        playerAttendanceBody = `<div class="session-attendance-state ${officialCopy.tone}"><i data-lucide="${officialCopy.icon}"></i><div><strong>${officialCopy.title}</strong><span>${officialCopy.text}</span></div></div>`;
+      } else {
+        const previous = playerConfirmation?.status==='yes' ? 'Habías indicado que asistirías.' : playerConfirmation?.status==='no' ? 'Habías comunicado que no podrías asistir.' : 'No consta una respuesta previa de asistencia.';
+        playerAttendanceBody = `<div class="session-attendance-state neutral"><i data-lucide="clock-3"></i><div><strong>Asistencia pendiente de validar</strong><span>${previous} El entrenador todavía no ha validado la asistencia final.</span></div></div>`;
+      }
+    } else if (active) {
+      const current = playerConfirmation?.status==='yes' ? 'Habías indicado que asistirías.' : playerConfirmation?.status==='no' ? 'Habías comunicado que no podrías asistir.' : 'No habías enviado una confirmación previa.';
+      playerAttendanceBody = `<div class="session-attendance-state active"><i data-lucide="radio"></i><div><strong>Sesión en curso</strong><span>${current} La asistencia definitiva la validará el entrenador.</span></div></div>`;
+    } else if (playerConfirmation) {
+      const yes = playerConfirmation.status==='yes';
+      playerAttendanceBody = `<div class="session-attendance-state ${yes?'ok':'neutral'}"><i data-lucide="${yes?'circle-check-big':'calendar-x'}"></i><div><strong>${yes?'Asistencia confirmada':'Ausencia comunicada'}</strong><span>${yes?'Has indicado que asistirás a este entrenamiento.':'Has indicado que no podrás asistir a este entrenamiento.'}</span></div></div>`;
+    } else {
+      playerAttendanceBody = `<p class="session-rsvp-question">¿Asistirás a este entrenamiento?</p><div class="training-rsvp session-rsvp-actions"><button class="yes btn-rsvp-yes" onclick="Promise.resolve(confirmTrainingAttendance('${session.id}','yes',this)).finally(()=>window.renderSessionCenterDetail?.())"><i data-lucide="check"></i> Sí, asistiré</button><button class="no btn-rsvp-no" onclick="Promise.resolve(confirmTrainingAttendance('${session.id}','no',this)).finally(()=>window.renderSessionCenterDetail?.())"><i data-lucide="x"></i> No podré</button></div>`;
+    }
+    participationHtml = `<section class="session-panel session-panel-wide session-participation-panel"><div class="session-panel-title"><i data-lucide="user-check"></i><div><span>Mi participación</span><h3>Asistencia</h3></div></div>${playerAttendanceBody}</section>`;
+  }
+
+  const afterHtml = finished ? `<section class="session-phase session-phase-after">
+    <div class="session-phase-heading"><span class="session-phase-step">03</span><div><small>Al terminar</small><h3>Después de la sesión</h3></div></div>
     <div class="session-detail-grid">
-      <section class="session-panel session-panel-wide"><div class="session-panel-title"><i data-lucide="target"></i><div><span>Antes de la sesión</span><h3>Objetivos y contenido</h3></div></div><div class="session-rich-text">${escapeSessionText(session.plan||'Todavía no se ha añadido una descripción.').replace(/\n/g,'<br>')}</div>${(session.attachmentId||session.sessionImage)?`<button class="training-file-preview" onclick="openSessionAttachment('${session.id}')"><i data-lucide="file-search"></i> Abrir ${session.attachmentType==='application/pdf'?'PDF':'archivo adjunto'}${session.attachmentName?` · ${escapeSessionText(session.attachmentName)}`:''}</button>`:'<p class="session-muted">Sin archivo adjunto.</p>'}</section>
-
-      ${isCoach?`<section class="session-panel"><div class="session-panel-title"><i data-lucide="users"></i><div><span>Participación</span><h3>Asistencia</h3></div></div><div class="session-metric-row"><div><strong>${att.yes}</strong><span>Confirmadas</span></div><div><strong>${att.no}</strong><span>Bajas</span></div><div><strong>${att.pending}</strong><span>Pendientes</span></div></div><button class="btn btn-outline btn-sm btn-block" onclick="openVerifyAttendanceModal('${session.id}')"><i data-lucide="clipboard-check"></i> Pasar lista</button></section>`:''}
-
-      ${isCoach?`<section class="session-panel"><div class="session-panel-title"><i data-lucide="heart-pulse"></i><div><span>Estado previo</span><h3>Bienestar semanal</h3></div></div><div class="session-primary-number">${wellness.count}</div><p>${wellness.count===1?'respuesta registrada':'respuestas registradas'} · ${wellness.average===null?'sin índice medio':`índice medio ${wellness.average.toFixed(1)}`}</p><button class="btn btn-ghost btn-sm btn-block" onclick="openModule('wellness')">Abrir seguimiento de bienestar</button></section>`:`<section class="session-panel session-wellness-player"><div class="session-panel-title"><i data-lucide="heart-pulse"></i><div><span>Seguimiento de carga</span><h3>Bienestar semanal</h3></div></div>${weeklyWellnessStatus.isContestada?`<div class="training-rpe-submitted"><i data-lucide="circle-check"></i><div><strong>Bienestar de hoy ya contestado</strong><span>Has completado la valoración de hoy.</span></div></div>`:`<p>Registra una vez por semana cómo te encuentras en una escala de 0 a 5.</p>${isWellnessWindowOpen()?`<button class="btn btn-primary btn-sm btn-block" onclick="openAddWellnessModal()"><i data-lucide="plus-circle"></i> Registrar bienestar de hoy</button>`:`<div class="training-rpe-locked"><i data-lucide="calendar-clock"></i> Disponible de lunes a martes a las 23:59.</div>`}`}<button class="btn btn-ghost btn-sm btn-block" onclick="openModule('wellness')">Ver bienestar</button></section>`}
-
-      <section class="session-panel session-panel-wide"><div class="session-panel-title"><i data-lucide="activity"></i><div><span>Después de la sesión</span><h3>${isCoach?'Percepción del esfuerzo':'Mi percepción del esfuerzo'}</h3></div></div>
-        ${isCoach?(finished?`<div class="session-rpe-compare"><div><span>Entrenador</span><strong>${coachRpe===null?'—':coachRpe}</strong><div class="training-rpe-track"><i style="width:${(coachRpe||0)*10}%"></i></div></div><div><span>Media jugadoras</span><strong>${rpe.average===null?'—':rpe.average.toFixed(1)}</strong><div class="training-rpe-track players"><i style="width:${(rpe.average||0)*10}%"></i></div><small>${rpe.count} respuesta${rpe.count===1?'':'s'}</small></div></div><p class="session-comparison-message">${comparison}</p>${renderRpeScale(session.id,coachRpe,'coach')}`:'<div class="training-rpe-locked"><i data-lucide="lock"></i> Se habilitará al terminar la sesión.</div>'):(finished?(ownRpe!==null&&ownRpe!==undefined?`<div class="training-rpe-submitted"><i data-lucide="circle-check"></i><div><strong>Percepción del esfuerzo registrada</strong><span>Has valorado esta sesión con un ${ownRpe}/10.</span></div></div>`:renderRpeScale(session.id,null,'player')):'<div class="training-rpe-locked"><i data-lucide="lock"></i> Se habilitará al terminar la sesión.</div>')}
+      <section class="session-panel session-panel-wide"><div class="session-panel-title"><i data-lucide="activity"></i><div><span>Percepción del esfuerzo</span><h3>${isCoach?'Percepción del esfuerzo':'Mi percepción del esfuerzo'}</h3></div></div>
+        ${isCoach?`<div class="session-rpe-compare"><div><span>Entrenador</span><strong>${coachRpe===null?'—':coachRpe}</strong><div class="training-rpe-track"><i style="width:${(coachRpe||0)*10}%"></i></div></div><div><span>Media jugadoras</span><strong>${rpe.average===null?'—':rpe.average.toFixed(1)}</strong><div class="training-rpe-track players"><i style="width:${(rpe.average||0)*10}%"></i></div><small>${rpe.count} respuesta${rpe.count===1?'':'s'}</small></div></div><p class="session-comparison-message">${comparison}</p>${renderRpeScale(session.id,coachRpe,'coach')}`:(ownRpe!==null&&ownRpe!==undefined?`<div class="training-rpe-submitted"><i data-lucide="circle-check"></i><div><strong>Percepción del esfuerzo registrada</strong><span>Has valorado esta sesión con un ${ownRpe}/10.</span></div></div>`:renderRpeScale(session.id,null,'player'))}
       </section>
 
       ${isCoach?`<section class="session-panel session-panel-wide"><div class="session-panel-title"><i data-lucide="notebook-pen"></i><div><span>Solo cuerpo técnico</span><h3>Valoración y continuidad</h3></div></div><label class="form-label" for="session-coach-assessment">Valoración del entrenamiento</label><textarea id="session-coach-assessment" class="form-control" rows="3" placeholder="Qué funcionó, qué no y cómo respondió el equipo...">${escapeSessionText(session.coachAssessment||'')}</textarea><label class="form-label" for="session-coach-notes">Notas para la próxima sesión</label><textarea id="session-coach-notes" class="form-control" rows="3" placeholder="Ajustes, incidencias o ideas para continuar...">${escapeSessionText(session.coachNotes||'')}</textarea><button class="btn btn-primary btn-sm" onclick="saveSessionCoachNotes('${session.id}')"><i data-lucide="save"></i> Guardar valoración</button></section>`:`<section class="session-panel session-panel-wide"><div class="session-panel-title"><i data-lucide="message-square-text"></i><div><span>Opcional y privado</span><h3>Mi comentario</h3></div></div><textarea id="session-player-comment" class="form-control" rows="3" placeholder="Puedes explicar cómo te sentiste o añadir una observación para el entrenador.">${escapeSessionText(playerComment)}</textarea><button class="btn btn-primary btn-sm" onclick="saveSessionPlayerComment('${session.id}')"><i data-lucide="save"></i> Guardar comentario</button></section>`}
 
       ${isCoach?`<section class="session-panel session-panel-wide"><div class="session-panel-title"><i data-lucide="messages-square"></i><div><span>Feedback del equipo</span><h3>Comentarios de jugadoras</h3></div></div>${comments.length?`<div class="session-comments-list">${comments.map(c=>{const p=(appState.players||[]).find(x=>x.id===c.playerId);return `<div><img src="${p?.photo||'assets/default_avatar.svg'}"><span><strong>${escapeSessionText(p?.name||'Jugadora')}</strong><p>${escapeSessionText(c.text)}</p></span></div>`}).join('')}</div>`:'<p class="session-muted">No hay comentarios en esta sesión.</p>'}</section>`:''}
     </div>
+  </section>` : '';
+
+  box.innerHTML = `<div class="session-detail-shell">
+    <header class="session-detail-hero">
+      <button class="session-back-button" onclick="closeSessionCenter()" aria-label="Volver a la lista de sesiones" title="Volver"><i data-lucide="arrow-left"></i></button>
+      <div><span class="session-detail-kicker">${finished?'Sesión finalizada':active?'Sesión en curso':'Próxima sesión'}</span><h2>${escapeSessionText(session.title||'Entrenamiento')}</h2><p>${dateLabel} · ${timeLabel}${session.location?` · ${escapeSessionText(session.location)}`:''}${duration?` · ${duration} min`:''}</p></div>
+      ${isCoach?`<button class="btn btn-outline btn-sm" onclick="editEventFromModal('${session.id}')"><i data-lucide="pencil"></i> Editar</button>`:''}
+    </header>
+
+    <section class="session-phase">
+      <div class="session-phase-heading"><span class="session-phase-step">01</span><div><small>Antes de empezar</small><h3>Preparación</h3></div></div>
+      <div class="session-detail-grid">
+        <section class="session-panel session-panel-wide"><div class="session-panel-title"><i data-lucide="target"></i><div><span>Plan de trabajo</span><h3>Objetivos y contenido</h3></div></div><div class="session-rich-text">${escapeSessionText(session.plan||'Todavía no se ha añadido una descripción.').replace(/\n/g,'<br>')}</div>${(session.attachmentId||session.sessionImage)?`<button class="training-file-preview" onclick="openSessionAttachment('${session.id}')"><i data-lucide="file-search"></i> Abrir ${session.attachmentType==='application/pdf'?'PDF':'archivo adjunto'}${session.attachmentName?` · ${escapeSessionText(session.attachmentName)}`:''}</button>`:'<p class="session-muted">Sin archivo adjunto.</p>'}</section>
+      </div>
+    </section>
+
+    <section class="session-phase">
+      <div class="session-phase-heading"><span class="session-phase-step">02</span><div><small>${active?'Durante el entrenamiento':'Participación'}</small><h3>Asistencia</h3></div></div>
+      <div class="session-detail-grid">${participationHtml}</div>
+    </section>
+
+    ${afterHtml}
   </div>`;
   if (window.lucide) lucide.createIcons();
 }
