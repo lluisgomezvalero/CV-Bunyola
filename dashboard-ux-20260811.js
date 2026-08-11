@@ -45,9 +45,6 @@ function injectStyles(){
 .dashboard-training-empty-interactive{cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
 .dashboard-training-empty-interactive:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(15,23,42,.10);border-color:rgba(59,130,246,.30)}
 .dashboard-training-empty-interactive:focus-visible{outline:3px solid rgba(59,130,246,.25);outline-offset:3px}
-.player-training-load-card .training-load-metrics>div:first-child{display:none!important}
-.player-training-load-card .training-load-metrics{grid-template-columns:repeat(3,minmax(0,1fr))!important}
-@media(max-width:700px){.player-training-load-card .training-load-metrics{grid-template-columns:repeat(3,minmax(0,1fr))!important}.player-training-load-card .training-load-metrics>div{padding:.7rem!important}.player-training-load-card .training-load-metrics small{font-size:.68rem!important}.player-training-load-card .training-load-metrics strong{font-size:1rem!important}}
 `;
   document.head.appendChild(style);
 }
