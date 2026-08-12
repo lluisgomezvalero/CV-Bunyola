@@ -2595,7 +2595,7 @@ function renderRpeScale(eventId, selectedValue, mode) {
     [e.id,e.supabaseId,e.supabase_id,e.legacy_id,e.legacyId].filter(Boolean).some(id => isSameEventId(id,eventId))
   );
   const windowOpen = mode === 'coach' ? isCoachRpeWindowOpen(event) : isRpeSubmissionWindowOpen(event);
-  const hasValue = Number.isFinite(Number(selectedValue));
+  const hasValue = selectedValue !== null && selectedValue !== undefined && String(selectedValue).trim() !== '' && Number.isFinite(Number(selectedValue));
   if (hasValue) {
     const saved = Number(selectedValue);
     return `<div class="training-rpe-submitted"><i data-lucide="circle-check"></i><div><strong>RPE registrado</strong><span>${saved}/10 · Registro cerrado.</span></div></div>`;
