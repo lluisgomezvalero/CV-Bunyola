@@ -21,7 +21,7 @@
   </style>
   
   <meta name="description" content="Plataforma de gestión del CV BUNYOLA, Cadete Femenino 1ª División. Pizarra táctica editable, calendario y estadísticas.">
-  <link rel="stylesheet" href="styles.css?v=20260812j">
+  <link rel="stylesheet" href="styles.css?v=20260812k">
   
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js'"></script>
@@ -124,14 +124,12 @@
             <h2 id="dashboard-user-welcome">Lluís</h2>
             <span id="dashboard-user-role">Entrenador principal</span>
           </div>
-          <div class="dashboard-hero-actions">
-            <div class="save-status-pill save-status-hero" data-save-status data-state="saved"><i data-lucide="check-circle-2"></i><span>Todos los cambios guardados</span></div>
-            <button id="btn-my-profile-home" class="dashboard-hero-btn" title="Ver mi perfil">
-              <img id="nav-user-avatar-home" src="assets/default_avatar.svg" class="nav-user-avatar" alt="Mi foto">
+          <div class="dashboard-compat-actions" hidden aria-hidden="true">
+            <button id="btn-my-profile-home" type="button" tabindex="-1">
+              <img id="nav-user-avatar-home" src="assets/default_avatar.svg" class="nav-user-avatar" alt="">
               <span id="nav-user-name-home">Mi perfil</span>
             </button>
-            <button id="btn-club-settings" class="dashboard-hero-icon-btn coach-only-view" title="Ajustes del club"><i data-lucide="settings"></i></button>
-            <button class="dashboard-hero-icon-btn dashboard-logout-btn" onclick="handleLogout(event)" title="Cerrar sesión"><i data-lucide="log-out"></i></button>
+            <button id="btn-club-settings" type="button" class="coach-only-view" tabindex="-1"><i data-lucide="settings"></i></button>
           </div>
         </div>
       </section>
@@ -142,94 +140,7 @@
       <!-- Confirmación rápida (se mantiene por compatibilidad y se integra con el dashboard) -->
       <div id="home-rsvp-widget" style="display:none;"></div>
 
-      <!-- ACCESOS RÁPIDOS -->
-      <div class="dashboard-section-heading">
-        <div><span>Herramientas</span><h2>Accesos rápidos</h2></div>
-        <p>Todo el equipo, a un toque.</p>
-      </div>
-      <div class="islands-grid dashboard-quick-access">
 
-        <div class="island-card highlight-card" onclick="openModule('calendar')">
-          <div class="island-icon-box"><i data-lucide="calendar"></i></div>
-          <div class="island-card-content">
-            <h3>Calendario</h3><p class="island-card-meta" data-module-meta="calendar">Próximos eventos</p>
-          </div>
-          <i data-lucide="chevron-right" class="island-arrow"></i>
-        </div>
-
-        <div class="island-card" onclick="openModule('roster')">
-          <div class="island-icon-box"><i data-lucide="users"></i></div>
-          <div class="island-card-content">
-            <h3>Plantilla</h3><p class="island-card-meta" data-module-meta="roster">14 jugadoras</p>
-          </div>
-          <i data-lucide="chevron-right" class="island-arrow"></i>
-        </div>
-
-        <div class="island-card coach-only-view" onclick="openModule('planning')">
-          <div class="island-icon-box"><i data-lucide="calendar-range"></i></div>
-          <div class="island-card-content"><h3>Planificación</h3><p class="island-card-meta">Archivo privado del entrenador</p></div>
-          <i data-lucide="chevron-right" class="island-arrow"></i>
-        </div>
-
-        <!-- TERCERA POSICIÓN (3ª Columna, 1ª Fila): COMPETICIÓN -->
-        <div class="island-card highlight-card" onclick="openModule('competition')">
-          <div class="island-icon-box"><i data-lucide="trophy"></i></div>
-          <div class="island-card-content">
-            <h3>Competición</h3><p class="island-card-meta" data-module-meta="competition">Clasificación de liga</p>
-          </div>
-          <i data-lucide="chevron-right" class="island-arrow"></i>
-        </div>
-
-        <div class="island-card" onclick="openModule('wellness')">
-          <div class="island-icon-box"><i data-lucide="activity"></i></div>
-          <div class="island-card-content">
-            <h3>Bienestar y Carga</h3><p class="island-card-meta" data-module-meta="wellness">Registro semanal</p>
-          </div>
-          <i data-lucide="chevron-right" class="island-arrow"></i>
-        </div>
-
-        <div class="island-card" onclick="openModule('training')">
-          <div class="island-icon-box"><i data-lucide="dumbbell"></i></div>
-          <div class="island-card-content">
-            <h3>Sesiones</h3><p class="island-card-meta" data-module-meta="training">Entrenamientos centralizados</p>
-          </div>
-          <i data-lucide="chevron-right" class="island-arrow"></i>
-        </div>
-
-        <div class="island-card" onclick="openModule('tactics')">
-          <div class="island-icon-box"><i data-lucide="layout"></i></div>
-          <div class="island-card-content">
-            <h3>Plan de juego</h3><p class="island-card-meta" data-module-meta="tactics">Scouting y táctica</p>
-          </div>
-          <i data-lucide="chevron-right" class="island-arrow"></i>
-        </div>
-
-        <div class="island-card highlight-card" onclick="openModule('goals')">
-          <div class="island-icon-box"><i data-lucide="target"></i></div>
-          <div class="island-card-content">
-            <h3>Objetivos</h3><p class="island-card-meta" data-module-meta="goals">Progreso semanal</p>
-          </div>
-          <i data-lucide="chevron-right" class="island-arrow"></i>
-        </div>
-
-        <div class="island-card highlight-card" onclick="openModule('stats')">
-          <div class="island-icon-box"><i data-lucide="bar-chart-2"></i></div>
-          <div class="island-card-content">
-            <h3>Estadísticas</h3><p class="island-card-meta" data-module-meta="stats">Rendimiento en partidos</p>
-          </div>
-          <i data-lucide="chevron-right" class="island-arrow"></i>
-        </div>
-
-        <div class="island-card coach-only-view" id="island-card-users" onclick="openModule('users')">
-          <div class="island-icon-box"><i data-lucide="user-check"></i></div>
-          <div class="island-card-content">
-            <h3>Usuarios</h3><p class="island-card-meta" data-module-meta="users">Gestión de accesos</p>
-          </div>
-          <i data-lucide="chevron-right" class="island-arrow"></i>
-        </div>
-
-
-      </div>
     </div>
 
     <!-- ==========================================================================
@@ -1596,10 +1507,10 @@
 
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js?v=20260812j"></script>
-    <script src="supabase-client.js?v=20260812j"></script>
-    <script src="data.js?v=20260812j"></script>
-    <script src="app.js?v=20260812j"></script>
+    <script src="supabase-config.js?v=20260812k"></script>
+    <script src="supabase-client.js?v=20260812k"></script>
+    <script src="data.js?v=20260812k"></script>
+    <script src="app.js?v=20260812k"></script>
   
   <!-- EDITOR DE FOTO DE PERFIL: ENCUADRE Y ZOOM -->
   <div id="modal-avatar-crop" class="modal-backdrop avatar-crop-modal" aria-hidden="true">

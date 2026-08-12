@@ -132,6 +132,7 @@
             <span><strong id="volley-side-user-name">Mi perfil</strong><small id="volley-side-user-role">Cuenta del equipo</small></span>
             <i data-lucide="chevron-right"></i>
           </button>
+          <button type="button" class="volley-settings-entry" data-volley-settings data-access="coach" title="Ajustes del club" aria-label="Ajustes del club"><i data-lucide="settings"></i></button>
           <button type="button" class="volley-logout-entry" data-volley-logout title="Cerrar sesión" aria-label="Cerrar sesión"><i data-lucide="log-out"></i></button>
         </div>
       </aside>
@@ -165,6 +166,12 @@
         document.getElementById('btn-my-profile-home')?.click();
         return;
       }
+      if (event.target.closest('[data-volley-settings]')) {
+        event.preventDefault();
+        closeDrawer();
+        document.getElementById('btn-club-settings')?.click();
+        return;
+      }
       if (event.target.closest('[data-volley-logout]')) {
         event.preventDefault();
         closeDrawer();
@@ -189,9 +196,9 @@
       .volley-side-scroll{flex:1;min-height:0;overflow-y:auto;padding:.8rem .7rem 1rem;overscroll-behavior:contain}
       .volley-side-group{margin-bottom:.85rem}.volley-side-group[hidden]{display:none!important}.volley-side-group>p{margin:0;padding:.4rem .6rem .35rem;font-size:.64rem;line-height:1;text-transform:uppercase;letter-spacing:.11em;font-weight:900;color:#94a3b8}.volley-side-group nav{display:grid;gap:.18rem}
       .volley-side-item{width:100%;border:0;background:transparent;color:#475569;border-radius:12px;padding:.7rem .72rem;display:grid;grid-template-columns:22px 1fr;gap:.68rem;align-items:center;text-align:left;font-size:.83rem;font-weight:750;cursor:pointer;transition:background .16s ease,color .16s ease,transform .16s ease}.volley-side-item svg{width:19px;height:19px}.volley-side-item:hover{background:#f8fafc;color:#0f172a}.volley-side-item.active{background:#fff7ed;color:#9a3412;box-shadow:inset 0 0 0 1px #fed7aa}.volley-side-item:active{transform:scale(.985)}
-      .volley-side-footer{display:grid;grid-template-columns:minmax(0,1fr) 42px;gap:.45rem;align-items:center;padding:.8rem;border-top:1px solid #eef2f7;background:rgba(248,250,252,.78)}
+      .volley-side-footer{display:grid;grid-template-columns:minmax(0,1fr) 42px 42px;gap:.45rem;align-items:center;padding:.8rem;border-top:1px solid #eef2f7;background:rgba(248,250,252,.78)}
       .volley-profile-entry{min-width:0;border:0;background:transparent;border-radius:13px;padding:.45rem;display:grid;grid-template-columns:38px minmax(0,1fr) 16px;gap:.55rem;align-items:center;text-align:left;cursor:pointer}.volley-profile-entry:hover{background:#fff}.volley-profile-entry img{width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid #d97706;background:#fff}.volley-profile-entry strong,.volley-profile-entry small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.volley-profile-entry strong{font-size:.78rem;color:#0f172a}.volley-profile-entry small{font-size:.65rem;color:#64748b;margin-top:.1rem}.volley-profile-entry>svg{width:15px;color:#94a3b8}
-      .volley-logout-entry{width:42px;height:42px;border:0;border-radius:12px;background:#fff;color:#64748b;display:grid;place-items:center;cursor:pointer}.volley-logout-entry:hover{background:#fef2f2;color:#b91c1c}.volley-logout-entry svg{width:18px}
+      .volley-settings-entry,.volley-logout-entry{width:42px;height:42px;border:0;border-radius:12px;background:#fff;color:#64748b;display:grid;place-items:center;cursor:pointer}.volley-settings-entry:hover{background:#eff6ff;color:#2563eb}.volley-logout-entry:hover{background:#fef2f2;color:#b91c1c}.volley-settings-entry svg,.volley-logout-entry svg{width:18px}
       .volley-mobile-bar{display:none}
       .volley-nav-overlay{display:none}
 
