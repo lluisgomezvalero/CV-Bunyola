@@ -7,7 +7,7 @@ function isPlayer(){
   try{return typeof window.getCurrentUser==='function'&&window.getCurrentUser()?.role==='player';}catch(_){return false;}
 }
 function esc(value){
-  return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[ch]));
 }
 function playerId(){
   try{
@@ -43,7 +43,7 @@ function progressCard(id){
     <p class="player-dashboard-next-level">${nextLine}</p>
     <div class="player-dashboard-progress-metrics">
       <div><span class="player-dashboard-metric-icon tone-attendance"><i data-lucide="badge-check"></i></span><strong>${attendance}%</strong><small>Mi asistencia</small></div>
-      <div><span class="player-dashboard-metric-icon tone-streak"><i data-lucide="flame"></i></span><strong>${streak}</strong><small>Racha actual</small></div>
+      <div><span class="player-dashboard-metric-icon tone-streak"><i data-lucide="flame"></i></span><strong>${streak}</strong><small>Racha de asistencia</small></div>
       <div><span class="player-dashboard-metric-icon tone-habits"><i data-lucide="circle-check-big"></i></span><strong>${completed}/${missions.length}</strong><small>Hábitos esta semana</small></div>
     </div>
   </article>`;
