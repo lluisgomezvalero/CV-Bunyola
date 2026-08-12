@@ -1,0 +1,111 @@
+name: Fix player avatar direct sync
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-player-avatar-direct-sync-20260812.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply direct avatar sync fix
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          app = Path('app.js')
+          text = app.read_text()
+          old = '''    const file = e.target.files[0];
+    if (!file || !activePlayerIdForAvatar) return;
+
+    compressAndResizeImage(file, 400, 400, 0.85, (dataUrl) => {
+      const player = appState.players.find(p => p.id === activePlayerIdForAvatar);'''
+          new = '''    const file = e.target.files[0];
+    if (!file || !activePlayerIdForAvatar) return;
+
+    // Capturamos la jugadora y su foto anterior antes de comprimir.
+    // La sincronización con Supabase se dispara desde este mismo flujo,
+    // evitando depender de listeners paralelos o del orden de eventos del navegador.
+    const targetPlayerId = activePlayerIdForAvatar;
+    const playerBeforeAvatarChange = appState.players.find(p => p.id === targetPlayerId);
+    const previousAvatar = String(playerBeforeAvatarChange?.avatar || '');
+
+    compressAndResizeImage(file, 400, 400, 0.85, (dataUrl) => {
+      const player = appState.players.find(p => p.id === targetPlayerId);'''
+          if text.count(old) != 1:
+              raise SystemExit(f'Unexpected avatar listener start count: {text.count(old)}')
+          text = text.replace(old, new, 1)
+
+          old2 = '''        renderRoster();
+        renderNavUserProfile();
+        showToast(`¡Foto de ${player.name} actualizada con éxito!`);'''
+          new2 = '''        renderRoster();
+        renderNavUserProfile();
+
+        // Supabase es la copia autoritativa de las fotos de Plantilla.
+        // Pasamos también la foto anterior para que la capa de sincronización
+        // detecte inmediatamente el JPEG recién comprimido.
+        if (typeof window.syncPlayerAvatarToSupabase === 'function') {
+          void window.syncPlayerAvatarToSupabase(player, file, previousAvatar);
+        } else {
+          console.error('[PlayerAvatar] La capa de sincronización no está disponible.');
+          showToast('La foto se ha cambiado solo en este dispositivo. Recarga e inténtalo de nuevo.', 'error');
+        }
+        showToast(`¡Foto de ${player.name} actualizada con éxito!`);'''
+          if text.count(old2) != 1:
+              raise SystemExit(f'Unexpected avatar listener finish count: {text.count(old2)}')
+          text = text.replace(old2, new2, 1)
+          app.write_text(text)
+
+          avatar = Path('player-avatar-authoritative-20260812.js')
+          av = avatar.read_text()
+          if 'bindDelegatedRosterCapture();' not in av:
+              raise SystemExit('Delegated avatar capture hook not found')
+          av = av.replace('  bindDelegatedRosterCapture();\n', '  // La subida se invoca directamente desde initPlayerAvatarUploadListener.\n  // No usamos un segundo listener de change: en Android podía perder la jugadora activa.\n', 1)
+          avatar.write_text(av)
+
+          cfg = Path('supabase-config.js')
+          c = cfg.read_text()
+          c = c.replace("window.VOLLEY_ASSET_VERSION = '20260812s';", "window.VOLLEY_ASSET_VERSION = '20260812t';", 1)
+          c = c.replace("player-avatar-authoritative-20260812.js?v=20260812s", "player-avatar-authoritative-20260812.js?v=20260812t", 1)
+          cfg.write_text(c)
+
+          idx = Path('index.html')
+          i = idx.read_text()
+          i = i.replace('styles.css?v=20260812s', 'styles.css?v=20260812t')
+          i = i.replace('supabase-config.js?v=20260812s', 'supabase-config.js?v=20260812t')
+          i = i.replace('supabase-client.js?v=20260812s', 'supabase-client.js?v=20260812t')
+          i = i.replace('data.js?v=20260812s', 'data.js?v=20260812t')
+          i = i.replace('app.js?v=20260812s', 'app.js?v=20260812t')
+          idx.write_text(i)
+          PY
+      - name: Validate JavaScript and cache version
+        run: |
+          node --check app.js
+          node --check player-avatar-authoritative-20260812.js
+          python3 - <<'PY'
+          from pathlib import Path
+          app=Path('app.js').read_text()
+          av=Path('player-avatar-authoritative-20260812.js').read_text()
+          cfg=Path('supabase-config.js').read_text()
+          idx=Path('index.html').read_text()
+          assert "syncPlayerAvatarToSupabase(player, file, previousAvatar)" in app
+          assert "bindDelegatedRosterCapture();" not in av
+          assert "20260812t" in cfg
+          assert "player-avatar-authoritative-20260812.js?v=20260812t" in cfg
+          assert "app.js?v=20260812t" in idx
+          PY
+          git diff --check
+      - name: Commit and self-remove
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.js player-avatar-authoritative-20260812.js supabase-config.js index.html
+          git commit -m "Fix direct player avatar Supabase sync"
+          git rm .github/workflows/fix-player-avatar-direct-sync-20260812.yml
+          git commit -m "Remove avatar sync patch workflow"
+          git push
