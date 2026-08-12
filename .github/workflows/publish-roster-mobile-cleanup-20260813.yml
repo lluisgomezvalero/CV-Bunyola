@@ -1,0 +1,52 @@
+name: Publish roster mobile cleanup
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-roster-mobile-cleanup-20260813.yml'
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch cache and loader
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          cfg=Path('supabase-config.js')
+          text=cfg.read_text()
+          assert "window.VOLLEY_ASSET_VERSION = '20260813a';" in text
+          text=text.replace("window.VOLLEY_ASSET_VERSION = '20260813a';","window.VOLLEY_ASSET_VERSION = '20260813b';",1)
+          anchor="'roster-card-priority-20260813.js?v=20260813a',"
+          assert anchor in text
+          text=text.replace(anchor,anchor+"'roster-mobile-cleanup-20260813.js?v=20260813b',",1)
+          cfg.write_text(text)
+
+          idx=Path('index.html')
+          html=idx.read_text()
+          assert '20260813a' in html
+          idx.write_text(html.replace('20260813a','20260813b'))
+          PY
+      - name: Validate
+        run: |
+          node --check roster-mobile-cleanup-20260813.js
+          grep -q "roster-mobile-cleanup-20260813.js?v=20260813b" supabase-config.js
+          grep -q "20260813b" index.html
+          git diff --check
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase-config.js index.html
+          git commit -m "Publish roster mobile cleanup" || true
+          git push
+      - name: Remove workflow
+        run: |
+          git pull --rebase
+          git rm .github/workflows/publish-roster-mobile-cleanup-20260813.yml
+          git commit -m "Remove roster mobile cleanup workflow"
+          git push
