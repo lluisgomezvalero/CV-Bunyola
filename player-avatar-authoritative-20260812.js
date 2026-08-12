@@ -163,6 +163,7 @@ let backfillRunning=false;
 let backfillCompleted=false;
 async function backfillLocalAvatars(){
   if(backfillRunning||backfillCompleted||!isStaff())return;
+  if(window.matchMedia&&!window.matchMedia('(max-width:600px)').matches)return;
   const c=client(),s=state();if(!c||!s)return;
   backfillRunning=true;
   try{
