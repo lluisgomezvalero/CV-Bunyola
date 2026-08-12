@@ -7,18 +7,27 @@ const CLUB_ID=window.VOLLEY_SUPABASE_CONFIG?.clubId||'b0000000-0000-4000-8000-00
 let installed=false;
 let refreshing=false;
 let realtimeChannel=null;
-let bindTimer=null;
 
 function state(){return typeof appState!=='undefined'?appState:null;}
 function client(){return window.VolleySupabase?.getClient?.()||null;}
 function currentUser(){try{return typeof getCurrentUser==='function'?getCurrentUser():null;}catch(_){return null;}}
-function isStaff(){const role=String(currentUser()?.role||'').toLowerCase();return ['coach','administrator','admin'].includes(role);}
+function isStaff(){
+  try{if(typeof window.isCoachUser==='function'&&window.isCoachUser())return true;}catch(_){}
+  try{if(typeof window.isAdministratorUser==='function'&&window.isAdministratorUser())return true;}catch(_){}
+  const role=String(currentUser()?.role||'').toLowerCase();
+  return ['coach','administrator','admin'].includes(role);
+}
 function values(obj,keys){return keys.map(k=>obj?.[k]).filter(v=>v!==undefined&&v!==null&&String(v)!=='').map(String);}
 function intersects(a,b){const s=new Set(a);return b.some(v=>s.has(v));}
 function localPlayerForRemote(row){
   const s=state();if(!s)return null;
   const remoteIds=values(row,['id','legacy_id','profile_id']);
   return (s.players||[]).find(p=>intersects(values(p,['id','supabaseId','supabase_id','legacy_id','legacyId','profile_id','authId']),remoteIds))||null;
+}
+function localPlayerForActiveId(id){
+  const s=state();if(!s||id===null||id===undefined)return null;
+  const sid=String(id);
+  return (s.players||[]).find(p=>values(p,['id','supabaseId','supabase_id','legacy_id','legacyId','profile_id','authId']).includes(sid))||null;
 }
 function remoteUuidForPlayer(player){
   const ids=values(player,['supabaseId','supabase_id','id']);
@@ -46,9 +55,8 @@ function updateLocalAvatar(player,dataUrl,path){
   const s=state();
   player.avatar=dataUrl;
   player.avatarPath=path||player.avatarPath||null;
-  const users=s?.users||[];
   const playerIds=values(player,['id','legacy_id','legacyId','supabaseId','supabase_id','profile_id']);
-  const linked=users.find(u=>playerIds.includes(String(u.playerId||''))||playerIds.includes(String(u.authId||'')));
+  const linked=(s?.users||[]).find(u=>playerIds.includes(String(u.playerId||''))||playerIds.includes(String(u.authId||'')));
   if(linked)linked.avatar=dataUrl;
 }
 function refreshVisibleUi(playerId){
@@ -84,17 +92,13 @@ async function refreshRemoteAvatars(options={}){
         updateLocalAvatar(player,dataUrl,row.avatar_path);
         changed=true;
         changedPlayerId=player.id||changedPlayerId;
-      }catch(error){
-        console.warn('[PlayerAvatar] No se pudo descargar',row.avatar_path,error);
-      }
+      }catch(error){console.warn('[PlayerAvatar] No se pudo descargar',row.avatar_path,error);}
     }
     if(changed){
       try{if(typeof saveAppData==='function')saveAppData(s);}catch(_){}
       refreshVisibleUi(changedPlayerId);
     }
-  }catch(error){
-    console.error('[PlayerAvatar] refresh',error);
-  }finally{refreshing=false;}
+  }catch(error){console.error('[PlayerAvatar] refresh',error);}finally{refreshing=false;}
 }
 async function resolveRemotePlayer(player){
   const c=client();if(!c||!player)return null;
@@ -111,7 +115,7 @@ async function resolveRemotePlayer(player){
   return data||null;
 }
 async function waitForLegacyCompressedAvatar(player,before,file){
-  for(let i=0;i<50;i++){
+  for(let i=0;i<60;i++){
     const current=String(player?.avatar||'');
     if(current.startsWith('data:image/')&&current!==before)return {blob:dataUrlToBlob(current),dataUrl:current};
     await new Promise(r=>setTimeout(r,50));
@@ -119,7 +123,10 @@ async function waitForLegacyCompressedAvatar(player,before,file){
   return {blob:file,dataUrl:null};
 }
 async function uploadPlayerAvatar(player,file,beforeAvatar){
-  if(!isStaff())return;
+  if(!isStaff()){
+    console.warn('[PlayerAvatar] Se ignoró una subida porque la sesión no es de staff.');
+    return;
+  }
   const c=client();if(!c||!player||!file)return;
   try{
     const remote=await resolveRemotePlayer(player);
@@ -127,8 +134,7 @@ async function uploadPlayerAvatar(player,file,beforeAvatar){
     const prepared=await waitForLegacyCompressedAvatar(player,beforeAvatar,file);
     const blob=prepared.blob;
     if(!blob)throw new Error('No se ha podido preparar la imagen.');
-    const stamp=Date.now();
-    const path=`${CLUB_ID}/${remote.id}/avatar-${stamp}.jpg`;
+    const path=`${CLUB_ID}/${remote.id}/avatar-${Date.now()}.jpg`;
     const {error:uploadError}=await c.storage.from(BUCKET).upload(path,blob,{contentType:blob.type||'image/jpeg',cacheControl:'3600',upsert:false});
     if(uploadError)throw uploadError;
     const {data:updated,error:updateError}=await c.from('players').update({avatar_path:path,updated_at:new Date().toISOString()}).eq('id',remote.id).select('id,avatar_path').single();
@@ -150,23 +156,24 @@ async function uploadPlayerAvatar(player,file,beforeAvatar){
     try{if(typeof showToast==='function')showToast('La foto se ha cambiado en este dispositivo, pero no se pudo sincronizar: '+(error.message||error),'error');}catch(_){}
   }
 }
-function bindRosterInput(){
-  const input=document.getElementById('player-avatar-file-input');
-  if(!input||input.dataset.supabaseAvatarBound==='1')return false;
-  input.dataset.supabaseAvatarBound='1';
-  input.addEventListener('change',event=>{
-    const file=event.target?.files?.[0];
-    if(!file||!file.type?.startsWith('image/'))return;
-    let player=null;
-    try{
-      const id=typeof activePlayerIdForAvatar!=='undefined'?activePlayerIdForAvatar:null;
-      player=(state()?.players||[]).find(p=>String(p.id)===String(id));
-    }catch(_){}
-    if(!player)return;
+function bindDelegatedRosterCapture(){
+  if(document.documentElement.dataset.supabaseAvatarCaptureBound==='1')return;
+  document.documentElement.dataset.supabaseAvatarCaptureBound='1';
+  document.addEventListener('change',event=>{
+    const input=event.target;
+    if(!(input instanceof HTMLInputElement)||input.id!=='player-avatar-file-input')return;
+    const file=input.files?.[0];
+    if(!file||!String(file.type||'').startsWith('image/'))return;
+    let id=null;
+    try{id=typeof activePlayerIdForAvatar!=='undefined'?activePlayerIdForAvatar:null;}catch(_){}
+    const player=localPlayerForActiveId(id);
+    if(!player){
+      console.warn('[PlayerAvatar] No se pudo resolver la jugadora activa para sincronizar la foto.',id);
+      return;
+    }
     const before=String(player.avatar||'');
-    void uploadPlayerAvatar(player,file,before);
-  });
-  return true;
+    setTimeout(()=>void uploadPlayerAvatar(player,file,before),0);
+  },true);
 }
 function subscribeRealtime(){
   const c=client();if(!c||realtimeChannel)return;
@@ -181,18 +188,17 @@ function subscribeRealtime(){
 function install(){
   if(installed||window[FLAG])return;
   if(!window.VolleySupabase||!state()){
-    setTimeout(install,150);return;
+    setTimeout(install,120);return;
   }
   installed=true;window[FLAG]=true;
-  const bind=()=>{if(!bindRosterInput())bindTimer=setTimeout(bind,250);};
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(bind,700),{once:true});
-  else setTimeout(bind,700);
+  bindDelegatedRosterCapture();
   subscribeRealtime();
-  setTimeout(()=>void refreshRemoteAvatars(),900);
+  setTimeout(()=>void refreshRemoteAvatars(),700);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refreshRemoteAvatars();});
-  console.info('[PlayerAvatar] Supabase authoritative roster avatars active.');
+  console.info('[PlayerAvatar] Supabase authoritative roster avatars active (delegated capture).');
 }
 
 window.refreshPlayerAvatarsFromSupabase=refreshRemoteAvatars;
+window.syncPlayerAvatarToSupabase=uploadPlayerAvatar;
 setTimeout(install,0);
 })();
