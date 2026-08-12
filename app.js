@@ -5980,7 +5980,6 @@ function initDashboardMotion() {
 
   const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const revealItems = [
-    root.querySelector(".dashboard-hero"),
     ...root.querySelectorAll(".dashboard-section-heading, .dashboard-card, .dashboard-summary-card, .dashboard-quick-access .island-card")
   ].filter(Boolean);
 

@@ -9,6 +9,8 @@ let settingsCache={};
 let activeBackground={mode:'default',path:null};
 let realtimeChannel=null;
 let loadBusy=false;
+let settingsTransaction=null;
+let settingsTransactionBusy=false;
 
 const QUICK_ITEMS=[
   {target:'home-portal',label:'Inicio',icon:'house',view:'view-home-portal'},
@@ -29,13 +31,13 @@ function injectStyles(){
   style.textContent=`
     html{background:#f1f5f9;overscroll-behavior-y:none}
     body{position:relative;isolation:isolate;background:none!important;background-image:none!important;background-attachment:scroll!important;min-height:100vh}
-    body::before{content:"";position:fixed;z-index:-2;inset:0;pointer-events:none;background:
+    body::before{content:"";position:fixed;z-index:-2;left:0;right:0;top:0;bottom:auto;width:100%;height:100vh;height:100lvh;pointer-events:none;background:
       radial-gradient(circle at 12% -2%,rgba(251,191,36,.20),transparent 34%),
       radial-gradient(circle at 92% 16%,rgba(59,130,246,.10),transparent 30%),
       linear-gradient(155deg,#f8fafc 0%,#f1f5f9 54%,#fff7ed 100%);
-      background-size:cover;background-position:center;transform:translateZ(0)}
-    body::after{content:"";position:fixed;z-index:-1;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(248,250,252,.18))}
-    body.volley-shared-bg-photo::before{background-image:linear-gradient(180deg,rgba(248,250,252,.50),rgba(248,250,252,.76)),var(--volley-shared-bg-photo);background-size:cover;background-position:center center;background-repeat:no-repeat}
+      background-size:cover;background-position:center top;background-repeat:no-repeat;transform:none!important;will-change:auto}
+    body::after{content:"";position:fixed;z-index:-1;left:0;right:0;top:0;bottom:auto;width:100%;height:100vh;height:100lvh;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(248,250,252,.18));transform:none!important}
+    body.volley-shared-bg-photo::before{background-image:linear-gradient(180deg,rgba(248,250,252,.50),rgba(248,250,252,.76)),var(--volley-shared-bg-photo);background-size:cover;background-position:center top;background-repeat:no-repeat}
 
     #${BOTTOM_ID}{display:none}
     .volley-background-actions{display:flex;gap:.55rem;align-items:center;flex-wrap:wrap;margin-top:.65rem}
@@ -43,6 +45,9 @@ function injectStyles(){
     .volley-background-state{display:inline-flex;align-items:center;gap:.35rem;font-size:.74rem;font-weight:750;color:#64748b}
     .volley-background-state svg{width:15px;height:15px}
     .volley-background-admin-note{margin-top:.45rem;font-size:.72rem;color:#64748b;line-height:1.4}
+    #dashboard-hero{transform:none!important;filter:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;will-change:auto!important;contain:none!important;isolation:isolate}
+    #dashboard-hero .dashboard-hero-overlay{z-index:0!important;pointer-events:none!important}
+    #dashboard-hero .dashboard-hero-content{position:relative!important;z-index:2!important;display:flex!important}
     #dashboard-hero,#dashboard-hero .dashboard-hero-content,#dashboard-hero .dashboard-team-identity,#dashboard-hero .dashboard-welcome-block,#dashboard-hero img,#dashboard-hero h1,#dashboard-hero h2,#dashboard-hero p,#dashboard-hero span{opacity:1!important;visibility:visible!important;transform:none!important}
     #dashboard-hero.dashboard-motion-ready,#dashboard-hero.dashboard-motion-visible{opacity:1!important;transform:none!important}
 
@@ -184,7 +189,7 @@ function setStatus(text,error=false){
 }
 
 async function uploadSharedBackground(file){
-  if(!canManageBackground()) return toast('Solo el administrador puede cambiar el fondo global.','error');
+  if(!canManageBackground()) return toast('Solo el cuerpo técnico puede cambiar el fondo global.','error');
   const c=client();
   if(!c) return toast('Supabase no está disponible.','error');
   const input=document.getElementById('bg-file-upload');
@@ -204,7 +209,7 @@ async function uploadSharedBackground(file){
     }
     const signed=await signedUrlFor(newPath);
     if(signed) applyPhotoBackground(signed,newPath);
-    if(oldPath&&oldPath!==newPath){try{await c.storage.from(BUCKET).remove([oldPath]);}catch(_){} }
+    if(settingsTransaction){settingsTransaction.tempPaths.add(newPath);}
     setStatus('Fondo compartido actualizado para todo el equipo.');
     toast('Fondo actualizado para todas las cuentas');
   }catch(error){
@@ -217,7 +222,7 @@ async function uploadSharedBackground(file){
 }
 
 async function resetSharedBackground(){
-  if(!canManageBackground()) return toast('Solo el administrador puede cambiar el fondo global.','error');
+  if(!canManageBackground()) return toast('Solo el cuerpo técnico puede cambiar el fondo global.','error');
   const button=document.getElementById('btn-reset-shared-background');
   const oldPath=activeBackground?.mode==='photo'?activeBackground.path:null;
   try{
@@ -225,7 +230,7 @@ async function resetSharedBackground(){
     setStatus('Restaurando el fondo original…');
     await saveBackgroundSetting({mode:'default',path:null});
     applyDefaultBackground();
-    if(oldPath){try{await client()?.storage.from(BUCKET).remove([oldPath]);}catch(_){} }
+    // La foto anterior se conserva hasta Guardar Ajustes para permitir Cancelar.
     setStatus('Fondo original restaurado para todo el equipo.');
     toast('Fondo original restaurado para todas las cuentas');
   }catch(error){
@@ -244,6 +249,86 @@ function syncSettingsUi(){
   if(reset) reset.disabled=!admin||activeBackground.mode!=='photo';
   if(state) state.innerHTML=`<i data-lucide="${activeBackground.mode==='photo'?'image':'palette'}"></i>${activeBackground.mode==='photo'?'Foto compartida activa':'Fondo original activo'}`;
   try{window.lucide?.createIcons?.();}catch(_){}
+}
+
+
+function cloneBackground(value){
+  return {mode:value?.mode==='photo'?'photo':'default',path:value?.path||null};
+}
+async function applyBackgroundDescriptor(background){
+  const bg=cloneBackground(background);
+  if(bg.mode==='photo'&&bg.path){
+    const url=await signedUrlFor(bg.path);
+    if(url){applyPhotoBackground(url,bg.path);return;}
+  }
+  applyDefaultBackground();
+}
+function beginSettingsTransaction(){
+  if(settingsTransactionBusy) return;
+  settingsTransaction={original:cloneBackground(activeBackground),tempPaths:new Set(),committed:false};
+  setStatus('');
+}
+async function cleanupTransactionFiles(transaction,keepPath=null){
+  const c=client();
+  if(!c||!transaction) return;
+  const paths=[...transaction.tempPaths].filter(path=>path&&path!==keepPath);
+  if(paths.length){try{await c.storage.from(BUCKET).remove(paths);}catch(error){console.warn('[SharedBackground] cleanup temp',error);}}
+}
+async function commitSettingsTransaction(){
+  const transaction=settingsTransaction;
+  if(!transaction||settingsTransactionBusy) return;
+  settingsTransactionBusy=true;
+  try{
+    const current=cloneBackground(activeBackground);
+    const keepPath=current.mode==='photo'?current.path:null;
+    await cleanupTransactionFiles(transaction,keepPath);
+    const oldPath=transaction.original.mode==='photo'?transaction.original.path:null;
+    if(oldPath&&oldPath!==keepPath){try{await client()?.storage.from(BUCKET).remove([oldPath]);}catch(error){console.warn('[SharedBackground] cleanup previous',error);}}
+    transaction.committed=true;
+    settingsTransaction=null;
+  }finally{settingsTransactionBusy=false;}
+}
+async function rollbackSettingsTransaction(){
+  const transaction=settingsTransaction;
+  if(!transaction||transaction.committed||settingsTransactionBusy) return;
+  settingsTransactionBusy=true;
+  try{
+    const original=cloneBackground(transaction.original);
+    await saveBackgroundSetting(original);
+    await applyBackgroundDescriptor(original);
+    await cleanupTransactionFiles(transaction,original.mode==='photo'?original.path:null);
+    settingsTransaction=null;
+  }catch(error){
+    console.error('[SharedBackground] rollback',error);
+    toast('No se pudo restaurar el fondo anterior.','error');
+  }finally{settingsTransactionBusy=false;}
+}
+function installSettingsTransaction(){
+  const openButton=document.getElementById('btn-club-settings');
+  const modal=document.getElementById('modal-club-settings');
+  const form=document.getElementById('form-club-settings');
+  if(openButton&&openButton.dataset.bgTransactionBound!=='1'){
+    openButton.dataset.bgTransactionBound='1';
+    openButton.addEventListener('click',()=>beginSettingsTransaction(),true);
+  }
+  if(form&&form.dataset.bgTransactionBound!=='1'){
+    form.dataset.bgTransactionBound='1';
+    form.addEventListener('submit',()=>{void commitSettingsTransaction();},false);
+  }
+  if(modal&&modal.dataset.bgTransactionBound!=='1'){
+    modal.dataset.bgTransactionBound='1';
+    modal.addEventListener('click',event=>{
+      const cancel=event.target.closest('.modal-close-btn,.modal-close');
+      const backdrop=event.target===modal;
+      if((!cancel&&!backdrop)||!settingsTransaction) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      void rollbackSettingsTransaction().finally(()=>{
+        modal.classList.remove('active');
+        document.body.classList.remove('modal-open');
+      });
+    },true);
+  }
 }
 
 function installBackgroundControls(){
@@ -296,9 +381,12 @@ function init(){
   buildBottomNav();
   observeNavigation();
   installBackgroundControls();
+  installSettingsTransaction();
+  const hero=document.getElementById('dashboard-hero');
+  if(hero){hero.classList.remove('dashboard-motion-ready','dashboard-motion-visible');hero.style.removeProperty('--motion-order');}
   waitForAuthenticatedClient();
-  setTimeout(installBackgroundControls,700);
-  setTimeout(()=>{syncBottomActive();syncSettingsUi();},1200);
+  setTimeout(()=>{installBackgroundControls();installSettingsTransaction();},700);
+  setTimeout(()=>{syncBottomActive();syncSettingsUi();installSettingsTransaction();},1200);
   console.info('[VolleyCoach Shell] Fondo compartido y navegación rápida móvil activos.');
 }
 
