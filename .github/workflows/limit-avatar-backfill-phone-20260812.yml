@@ -1,0 +1,53 @@
+name: Limit avatar backfill to phone source
+on:
+  push:
+    paths:
+      - '.github/workflows/limit-avatar-backfill-phone-20260812.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Limit migration source and bump cache
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          avp=Path('player-avatar-authoritative-20260812.js')
+          av=avp.read_text()
+          old="  if(backfillRunning||backfillCompleted||!isStaff())return;\n"
+          new="  if(backfillRunning||backfillCompleted||!isStaff())return;\n  if(window.matchMedia&&!window.matchMedia('(max-width:600px)').matches)return;\n"
+          if old in av:
+              av=av.replace(old,new,1)
+          elif new not in av:
+              raise SystemExit('Backfill guard not found')
+          avp.write_text(av)
+          cfgp=Path('supabase-config.js')
+          cfg=cfgp.read_text()
+          cfg=cfg.replace("VOLLEY_ASSET_VERSION = '20260812w'","VOLLEY_ASSET_VERSION = '20260812x'",1)
+          cfg=cfg.replace('player-avatar-authoritative-20260812.js?v=20260812w','player-avatar-authoritative-20260812.js?v=20260812x',1)
+          cfgp.write_text(cfg)
+          idxp=Path('index.html')
+          idx=idxp.read_text()
+          for asset in ['styles.css','supabase-config.js','supabase-client.js','data.js','app.js']:
+              idx=idx.replace(f'{asset}?v=20260812w',f'{asset}?v=20260812x')
+          idxp.write_text(idx)
+          PY
+      - name: Validate
+        run: |
+          node --check player-avatar-authoritative-20260812.js
+          node --check supabase-config.js
+          grep -q "max-width:600px" player-avatar-authoritative-20260812.js
+          grep -q "20260812x" supabase-config.js
+          grep -q "app.js?v=20260812x" index.html
+          git diff --check
+      - name: Commit and self-remove
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add player-avatar-authoritative-20260812.js supabase-config.js index.html
+          git commit -m "Use phone as initial avatar sync source"
+          git rm .github/workflows/limit-avatar-backfill-phone-20260812.yml
+          git commit -m "Remove phone avatar migration workflow"
+          git push
