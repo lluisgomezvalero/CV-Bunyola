@@ -1,0 +1,148 @@
+name: Simplify home dashboard v1
+
+on:
+  push:
+    paths:
+      - '.github/workflows/simplify-home-dashboard-v1-20260812.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  simplify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Simplify home and integrate settings into sidebar
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          idx = Path('index.html')
+          html = idx.read_text(encoding='utf-8')
+
+          old_actions = '''          <div class="dashboard-hero-actions">
+            <div class="save-status-pill save-status-hero" data-save-status data-state="saved"><i data-lucide="check-circle-2"></i><span>Todos los cambios guardados</span></div>
+            <button id="btn-my-profile-home" class="dashboard-hero-btn" title="Ver mi perfil">
+              <img id="nav-user-avatar-home" src="assets/default_avatar.svg" class="nav-user-avatar" alt="Mi foto">
+              <span id="nav-user-name-home">Mi perfil</span>
+            </button>
+            <button id="btn-club-settings" class="dashboard-hero-icon-btn coach-only-view" title="Ajustes del club"><i data-lucide="settings"></i></button>
+            <button class="dashboard-hero-icon-btn dashboard-logout-btn" onclick="handleLogout(event)" title="Cerrar sesión"><i data-lucide="log-out"></i></button>
+          </div>'''
+          new_actions = '''          <div class="dashboard-compat-actions" hidden aria-hidden="true">
+            <button id="btn-my-profile-home" type="button" tabindex="-1">
+              <img id="nav-user-avatar-home" src="assets/default_avatar.svg" class="nav-user-avatar" alt="">
+              <span id="nav-user-name-home">Mi perfil</span>
+            </button>
+            <button id="btn-club-settings" type="button" class="coach-only-view" tabindex="-1"><i data-lucide="settings"></i></button>
+          </div>'''
+          if old_actions not in html:
+              raise SystemExit('Home hero action block not found')
+          html = html.replace(old_actions, new_actions, 1)
+
+          quick_start = html.find('      <!-- ACCESOS RÁPIDOS -->')
+          quick_end_marker = '\n    </div>\n\n    <!-- ==========================================================================\n         ISLA 1:'
+          quick_end = html.find(quick_end_marker, quick_start)
+          if quick_start < 0 or quick_end < 0:
+              raise SystemExit(f'Quick access boundaries not found: {quick_start}, {quick_end}')
+          html = html[:quick_start] + html[quick_end:]
+
+          for name in ['styles.css','supabase-config.js','supabase-client.js','data.js','app.js']:
+              html = html.replace(f'{name}?v=20260812j', f'{name}?v=20260812k')
+          idx.write_text(html, encoding='utf-8')
+
+          nav = Path('navigation-shell-20260812.js')
+          js = nav.read_text(encoding='utf-8')
+
+          old_footer = '''        <div class="volley-side-footer">
+          <button type="button" class="volley-profile-entry" data-volley-profile>
+            <img id="volley-side-avatar" src="${getProfileAvatar()}" alt="">
+            <span><strong id="volley-side-user-name">Mi perfil</strong><small id="volley-side-user-role">Cuenta del equipo</small></span>
+            <i data-lucide="chevron-right"></i>
+          </button>
+          <button type="button" class="volley-logout-entry" data-volley-logout title="Cerrar sesión" aria-label="Cerrar sesión"><i data-lucide="log-out"></i></button>
+        </div>'''
+          new_footer = '''        <div class="volley-side-footer">
+          <button type="button" class="volley-profile-entry" data-volley-profile>
+            <img id="volley-side-avatar" src="${getProfileAvatar()}" alt="">
+            <span><strong id="volley-side-user-name">Mi perfil</strong><small id="volley-side-user-role">Cuenta del equipo</small></span>
+            <i data-lucide="chevron-right"></i>
+          </button>
+          <button type="button" class="volley-settings-entry" data-volley-settings data-access="coach" title="Ajustes del club" aria-label="Ajustes del club"><i data-lucide="settings"></i></button>
+          <button type="button" class="volley-logout-entry" data-volley-logout title="Cerrar sesión" aria-label="Cerrar sesión"><i data-lucide="log-out"></i></button>
+        </div>'''
+          if old_footer not in js:
+              raise SystemExit('Sidebar footer block not found')
+          js = js.replace(old_footer, new_footer, 1)
+
+          old_logout_handler = '''      if (event.target.closest('[data-volley-logout]')) {
+        event.preventDefault();
+        closeDrawer();
+        if (typeof window.handleLogout === 'function') window.handleLogout(event);
+      }'''
+          new_logout_handler = '''      if (event.target.closest('[data-volley-settings]')) {
+        event.preventDefault();
+        closeDrawer();
+        document.getElementById('btn-club-settings')?.click();
+        return;
+      }
+      if (event.target.closest('[data-volley-logout]')) {
+        event.preventDefault();
+        closeDrawer();
+        if (typeof window.handleLogout === 'function') window.handleLogout(event);
+      }'''
+          if old_logout_handler not in js:
+              raise SystemExit('Sidebar logout handler not found')
+          js = js.replace(old_logout_handler, new_logout_handler, 1)
+
+          old_footer_css = ".volley-side-footer{display:grid;grid-template-columns:minmax(0,1fr) 42px;gap:.45rem;align-items:center;padding:.8rem;border-top:1px solid #eef2f7;background:rgba(248,250,252,.78)}"
+          new_footer_css = ".volley-side-footer{display:grid;grid-template-columns:minmax(0,1fr) 42px 42px;gap:.45rem;align-items:center;padding:.8rem;border-top:1px solid #eef2f7;background:rgba(248,250,252,.78)}"
+          if old_footer_css not in js:
+              raise SystemExit('Sidebar footer CSS not found')
+          js = js.replace(old_footer_css, new_footer_css, 1)
+
+          old_utility_css = ".volley-logout-entry{width:42px;height:42px;border:0;border-radius:12px;background:#fff;color:#64748b;display:grid;place-items:center;cursor:pointer}.volley-logout-entry:hover{background:#fef2f2;color:#b91c1c}.volley-logout-entry svg{width:18px}"
+          new_utility_css = ".volley-settings-entry,.volley-logout-entry{width:42px;height:42px;border:0;border-radius:12px;background:#fff;color:#64748b;display:grid;place-items:center;cursor:pointer}.volley-settings-entry:hover{background:#eff6ff;color:#2563eb}.volley-logout-entry:hover{background:#fef2f2;color:#b91c1c}.volley-settings-entry svg,.volley-logout-entry svg{width:18px}"
+          if old_utility_css not in js:
+              raise SystemExit('Sidebar utility CSS not found')
+          js = js.replace(old_utility_css, new_utility_css, 1)
+          nav.write_text(js, encoding='utf-8')
+
+          cfg = Path('supabase-config.js')
+          c = cfg.read_text(encoding='utf-8')
+          if "window.VOLLEY_ASSET_VERSION = '20260812j';" not in c:
+              raise SystemExit('Expected root cache j not found')
+          c = c.replace("window.VOLLEY_ASSET_VERSION = '20260812j';", "window.VOLLEY_ASSET_VERSION = '20260812k';", 1)
+          if 'navigation-shell-20260812.js?v=20260812b' not in c:
+              raise SystemExit('Navigation shell cache b not found')
+          c = c.replace('navigation-shell-20260812.js?v=20260812b', 'navigation-shell-20260812.js?v=20260812k', 1)
+          cfg.write_text(c, encoding='utf-8')
+          PY
+
+      - name: Validate simplified home
+        run: |
+          node --check navigation-shell-20260812.js
+          node --check app.js
+          grep -q 'class="dashboard-compat-actions" hidden' index.html
+          ! grep -q 'dashboard-quick-access' index.html
+          ! grep -q '>Accesos rápidos<' index.html
+          grep -q 'data-volley-settings' navigation-shell-20260812.js
+          grep -q "document.getElementById('btn-club-settings')?.click()" navigation-shell-20260812.js
+          grep -q 'function renderHomeDashboard' app.js
+          grep -q 'dashboard-card-training' app.js
+          grep -q "VOLLEY_ASSET_VERSION = '20260812k'" supabase-config.js
+          grep -q 'navigation-shell-20260812.js?v=20260812k' supabase-config.js
+          grep -q 'app.js?v=20260812k' index.html
+
+      - name: Commit and self-remove
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/simplify-home-dashboard-v1-20260812.yml
+          git add index.html navigation-shell-20260812.js supabase-config.js
+          git commit -m "Simplify home dashboard navigation"
+          git push
