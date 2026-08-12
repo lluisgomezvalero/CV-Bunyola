@@ -1,0 +1,27 @@
+name: Stabilize background hero settings
+
+on:
+  push:
+    paths:
+      - '.github/workflows/stabilize-background-hero-settings-20260812.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply fixes
+        env:
+          PATCH_B64: 'ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgphcHAgPSBQYXRoKCJhcHAuanMiKQpzID0gYXBwLnJlYWRfdGV4dChlbmNvZGluZz0idXRmLTgiKQpvbGQgPSAnJycgIGNvbnN0IHJldmVhbEl0ZW1zID0gWwogICAgcm9vdC5xdWVyeVNlbGVjdG9yKCIuZGFzaGJvYXJkLWhlcm8iKSwKICAgIC4uLnJvb3QucXVlcnlTZWxlY3RvckFsbCgiLmRhc2hib2FyZC1zZWN0aW9uLWhlYWRpbmcsIC5kYXNoYm9hcmQtY2FyZCwgLmRhc2hib2FyZC1zdW1tYXJ5LWNhcmQsIC5kYXNoYm9hcmQtcXVpY2stYWNjZXNzIC5pc2xhbmQtY2FyZCIpCiAgXS5maWx0ZXIoQm9vbGVhbik7JycnCm5ldyA9ICcnJyAgY29uc3QgcmV2ZWFsSXRlbXMgPSBbCiAgICAuLi5yb290LnF1ZXJ5U2VsZWN0b3JBbGwoIi5kYXNoYm9hcmQtc2VjdGlvbi1oZWFkaW5nLCAuZGFzaGJvYXJkLWNhcmQsIC5kYXNoYm9hcmQtc3VtbWFyeS1jYXJkLCAuZGFzaGJvYXJkLXF1aWNrLWFjY2VzcyAuaXNsYW5kLWNhcmQiKQogIF0uZmlsdGVyKEJvb2xlYW4pOycnJwppZiBvbGQgbm90IGluIHM6CiAgICByYWlzZSBTeXN0ZW1FeGl0KCJkYXNoYm9hcmQgcmV2ZWFsSXRlbXMgYmxvY2sgbm90IGZvdW5kIikKcyA9IHMucmVwbGFjZShvbGQsIG5ldywgMSkKYXBwLndyaXRlX3RleHQocywgZW5jb2Rpbmc9InV0Zi04IikKCnAgPSBQYXRoKCJhcHAtc2hlbGwtcG9saXNoLTIwMjYwODEyLmpzIikKanMgPSBwLnJlYWRfdGV4dChlbmNvZGluZz0idXRmLTgiKQoKb2xkX3ZhcnMgPSAnJydsZXQgcmVhbHRpbWVDaGFubmVsPW51bGw7CmxldCBsb2FkQnVzeT1mYWxzZTsnJycKbmV3X3ZhcnMgPSAnJydsZXQgcmVhbHRpbWVDaGFubmVsPW51bGw7CmxldCBsb2FkQnVzeT1mYWxzZTsKbGV0IHNldHRpbmdzVHJhbnNhY3Rpb249bnVsbDsKbGV0IHNldHRpbmdzVHJhbnNhY3Rpb25CdXN5PWZhbHNlOyc nJw== ' 
+        run: |
+          python - <<'PY'
+          import base64, os
+          from pathlib import Path
+          payload=os.environ['PATCH_B64'].replace("' ","")
+          # placeholder replaced below
+          PY
