@@ -19,7 +19,7 @@ const QUICK_ITEMS=[
 
 function client(){return window.VolleySupabase?.getClient?.()||null;}
 function currentUser(){try{return typeof window.getCurrentUser==='function'?window.getCurrentUser():null;}catch(_){return null;}}
-function isAdmin(){try{return typeof window.isAdministratorUser==='function'&&window.isAdministratorUser();}catch(_){return false;}}
+function canManageBackground(){try{return (typeof window.isAdministratorUser==='function'&&window.isAdministratorUser())||(typeof window.isCoachUser==='function'&&window.isCoachUser());}catch(_){return false;}}
 function toast(message,type){try{window.showToast?.(message,type);}catch(_){} }
 
 function injectStyles(){
@@ -43,6 +43,9 @@ function injectStyles(){
     .volley-background-state{display:inline-flex;align-items:center;gap:.35rem;font-size:.74rem;font-weight:750;color:#64748b}
     .volley-background-state svg{width:15px;height:15px}
     .volley-background-admin-note{margin-top:.45rem;font-size:.72rem;color:#64748b;line-height:1.4}
+    #dashboard-hero,#dashboard-hero .dashboard-hero-content,#dashboard-hero .dashboard-team-identity,#dashboard-hero .dashboard-welcome-block,#dashboard-hero img,#dashboard-hero h1,#dashboard-hero h2,#dashboard-hero p,#dashboard-hero span{opacity:1!important;visibility:visible!important;transform:none!important}
+    #dashboard-hero.dashboard-motion-ready,#dashboard-hero.dashboard-motion-visible{opacity:1!important;transform:none!important}
+
 
     @media(max-width:960px){
       .volley-mobile-bar{left:0!important;right:0!important;top:0!important;height:calc(62px + env(safe-area-inset-top,0px))!important;padding:env(safe-area-inset-top,0px) .65rem 0!important;border-radius:0 0 18px 18px!important;border-top:0!important;border-left:0!important;border-right:0!important;background:rgba(255,255,255,.96)!important;box-shadow:0 8px 24px rgba(15,23,42,.10)!important}
@@ -181,7 +184,7 @@ function setStatus(text,error=false){
 }
 
 async function uploadSharedBackground(file){
-  if(!isAdmin()) return toast('Solo el administrador puede cambiar el fondo global.','error');
+  if(!canManageBackground()) return toast('Solo el administrador puede cambiar el fondo global.','error');
   const c=client();
   if(!c) return toast('Supabase no está disponible.','error');
   const input=document.getElementById('bg-file-upload');
@@ -209,12 +212,12 @@ async function uploadSharedBackground(file){
     setStatus(error.message||'No se pudo actualizar el fondo.',true);
     toast(error.message||'No se pudo actualizar el fondo.','error');
   }finally{
-    if(input){input.disabled=!isAdmin();input.value='';}
+    if(input){input.disabled=!canManageBackground();input.value='';}
   }
 }
 
 async function resetSharedBackground(){
-  if(!isAdmin()) return toast('Solo el administrador puede cambiar el fondo global.','error');
+  if(!canManageBackground()) return toast('Solo el administrador puede cambiar el fondo global.','error');
   const button=document.getElementById('btn-reset-shared-background');
   const oldPath=activeBackground?.mode==='photo'?activeBackground.path:null;
   try{
@@ -229,14 +232,14 @@ async function resetSharedBackground(){
     console.error('[SharedBackground] reset',error);
     setStatus(error.message||'No se pudo restaurar el fondo.',true);
     toast(error.message||'No se pudo restaurar el fondo.','error');
-  }finally{if(button) button.disabled=!isAdmin();}
+  }finally{if(button) button.disabled=!canManageBackground();}
 }
 
 function syncSettingsUi(){
   const input=document.getElementById('bg-file-upload');
   const reset=document.getElementById('btn-reset-shared-background');
   const state=document.getElementById('shared-bg-state');
-  const admin=isAdmin();
+  const admin=canManageBackground();
   if(input) input.disabled=!admin;
   if(reset) reset.disabled=!admin||activeBackground.mode!=='photo';
   if(state) state.innerHTML=`<i data-lucide="${activeBackground.mode==='photo'?'image':'palette'}"></i>${activeBackground.mode==='photo'?'Foto compartida activa':'Fondo original activo'}`;
@@ -261,7 +264,7 @@ function installBackgroundControls(){
     actions.innerHTML=`<button id="btn-reset-shared-background" type="button" class="btn btn-outline btn-sm volley-background-reset"><i data-lucide="rotate-ccw"></i> Restaurar fondo original</button><span id="shared-bg-state" class="volley-background-state"></span>`;
     const note=document.createElement('p');
     note.className='volley-background-admin-note';
-    note.textContent=isAdmin()?'Este fondo se aplica automáticamente a todas las cuentas del equipo.':'El fondo es común para todo el equipo y lo gestiona el administrador.';
+    note.textContent=canManageBackground()?'Este fondo se aplica automáticamente a todas las cuentas del equipo.':'El fondo es común para todo el equipo y lo gestiona el administrador.';
     input.insertAdjacentElement('afterend',actions);
     actions.insertAdjacentElement('afterend',note);
     actions.querySelector('#btn-reset-shared-background')?.addEventListener('click',()=>void resetSharedBackground());
