@@ -53,6 +53,12 @@ function injectStyles(){
 
 
     @media(max-width:960px){
+      /* Android/Tablet: evita fallos de repintado en el drawer con blur + scroll interno. */
+      .volley-side-nav{overflow:hidden!important;background:#fff!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+      .volley-side-brand{flex:0 0 auto!important;background:#fff!important}
+      .volley-side-scroll{min-height:0!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch!important}
+      .volley-side-footer{position:relative!important;z-index:2!important;flex:0 0 auto!important;background:#f8fafc!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+      .volley-nav-overlay{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
       .volley-mobile-bar{left:0!important;right:0!important;top:0!important;height:calc(62px + env(safe-area-inset-top,0px))!important;padding:env(safe-area-inset-top,0px) .65rem 0!important;border-radius:0 0 18px 18px!important;border-top:0!important;border-left:0!important;border-right:0!important;background:rgba(255,255,255,.96)!important;box-shadow:0 8px 24px rgba(15,23,42,.10)!important}
       .volley-mobile-menu,.volley-mobile-profile{background:transparent!important}
       body.volley-nav-ready .app-portal-wrapper{padding-top:calc(76px + env(safe-area-inset-top,0px))!important;padding-bottom:calc(94px + env(safe-area-inset-bottom,0px))!important}

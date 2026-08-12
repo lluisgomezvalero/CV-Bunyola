@@ -122,7 +122,7 @@ async function waitForLegacyCompressedAvatar(player,before,file){
   }
   return {blob:file,dataUrl:null};
 }
-async function uploadPlayerAvatar(player,file,beforeAvatar){
+async function uploadPlayerAvatar(player,file,beforeAvatar,options={}){
   if(!isStaff()){
     console.warn('[PlayerAvatar] Se ignoró una subida porque la sesión no es de staff.');
     return;
@@ -131,7 +131,7 @@ async function uploadPlayerAvatar(player,file,beforeAvatar){
   try{
     const remote=await resolveRemotePlayer(player);
     if(!remote?.id)throw new Error('No se ha encontrado la jugadora en Supabase.');
-    const prepared=await waitForLegacyCompressedAvatar(player,beforeAvatar,file);
+    const prepared=options.preparedDataUrl?{blob:dataUrlToBlob(options.preparedDataUrl),dataUrl:options.preparedDataUrl}:await waitForLegacyCompressedAvatar(player,beforeAvatar,file);
     const blob=prepared.blob;
     if(!blob)throw new Error('No se ha podido preparar la imagen.');
     const path=`${CLUB_ID}/${remote.id}/avatar-${Date.now()}.jpg`;
@@ -150,11 +150,43 @@ async function uploadPlayerAvatar(player,file,beforeAvatar){
     if(remote.avatar_path&&remote.avatar_path!==path){
       c.storage.from(BUCKET).remove([remote.avatar_path]).then(({error})=>{if(error)console.warn('[PlayerAvatar] No se pudo retirar la foto anterior',error);});
     }
-    try{if(typeof showToast==='function')showToast(`Foto de ${player.name||'la jugadora'} sincronizada en todos los dispositivos.`);}catch(_){}
+    if(!options.silent){try{if(typeof showToast==='function')showToast(`Foto de ${player.name||'la jugadora'} sincronizada en todos los dispositivos.`);}catch(_){}}
+    return true;
   }catch(error){
     console.error('[PlayerAvatar] upload',error);
-    try{if(typeof showToast==='function')showToast('La foto se ha cambiado en este dispositivo, pero no se pudo sincronizar: '+(error.message||error),'error');}catch(_){}
+    if(!options.silent){try{if(typeof showToast==='function')showToast('La foto se ha cambiado en este dispositivo, pero no se pudo sincronizar: '+(error.message||error),'error');}catch(_){}}
+    return false;
   }
+}
+
+let backfillRunning=false;
+let backfillCompleted=false;
+async function backfillLocalAvatars(){
+  if(backfillRunning||backfillCompleted||!isStaff())return;
+  const c=client(),s=state();if(!c||!s)return;
+  backfillRunning=true;
+  try{
+    const {data,error}=await c.from('players').select('id,legacy_id,profile_id,avatar_path').eq('club_id',CLUB_ID).eq('active',true);
+    if(error)throw error;
+    let synced=0;
+    for(const row of data||[]){
+      if(row.avatar_path)continue;
+      const player=localPlayerForRemote(row);
+      const localData=String(player?.avatar||'');
+      if(!player||!localData.startsWith('data:image/'))continue;
+      const blob=dataUrlToBlob(localData);
+      if(!blob)continue;
+      const ok=await uploadPlayerAvatar(player,blob,localData,{silent:true,preparedDataUrl:localData});
+      if(ok)synced++;
+    }
+    backfillCompleted=true;
+    if(synced){
+      try{if(typeof showToast==='function')showToast(synced===1?'Foto de Plantilla sincronizada con Supabase.':`${synced} fotos de Plantilla sincronizadas con Supabase.`);}catch(_){}
+      await refreshRemoteAvatars({force:true});
+    }
+  }catch(error){
+    console.error('[PlayerAvatar] backfill',error);
+  }finally{backfillRunning=false;}
 }
 function bindDelegatedRosterCapture(){
   if(document.documentElement.dataset.supabaseAvatarCaptureBound==='1')return;
@@ -194,7 +226,9 @@ function install(){
   // La subida se invoca directamente desde initPlayerAvatarUploadListener.
   subscribeRealtime();
   setTimeout(()=>void refreshRemoteAvatars(),700);
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refreshRemoteAvatars();});
+  setTimeout(()=>void backfillLocalAvatars(),1800);
+  setTimeout(()=>void backfillLocalAvatars(),6000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden){void refreshRemoteAvatars();void backfillLocalAvatars();}});
   console.info('[PlayerAvatar] Supabase authoritative roster avatars active (delegated capture).');
 }
 
