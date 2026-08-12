@@ -1,0 +1,71 @@
+name: Publish app shell polish
+
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-app-shell-polish-20260812.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Register shell polish and bump cache
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          cfg=Path('supabase-config.js')
+          text=cfg.read_text(encoding='utf-8')
+          old="window.VOLLEY_ASSET_VERSION = '20260812k';"
+          new="window.VOLLEY_ASSET_VERSION = '20260812l';"
+          if old not in text:
+              raise SystemExit('Expected asset version k not found')
+          text=text.replace(old,new,1)
+          anchor="'session-header-actions-fix-20260812.js?v=20260812c']"
+          replacement="'session-header-actions-fix-20260812.js?v=20260812c','app-shell-polish-20260812.js?v=20260812l']"
+          if anchor not in text:
+              raise SystemExit('Script-list anchor not found')
+          text=text.replace(anchor,replacement,1)
+          cfg.write_text(text,encoding='utf-8')
+
+          idx=Path('index.html')
+          html=idx.read_text(encoding='utf-8')
+          count=0
+          for name in ['styles.css','supabase-config.js','supabase-client.js','data.js','app.js']:
+              oldref=f'{name}?v=20260812k'
+              newref=f'{name}?v=20260812l'
+              if oldref in html:
+                  html=html.replace(oldref,newref)
+                  count+=1
+          if count < 5:
+              raise SystemExit(f'Only bumped {count}/5 root assets')
+          idx.write_text(html,encoding='utf-8')
+          PY
+
+      - name: Validate shell polish
+        run: |
+          node --check app-shell-polish-20260812.js
+          node --check navigation-shell-20260812.js
+          node --check app.js
+          grep -q "VOLLEY_ASSET_VERSION = '20260812l'" supabase-config.js
+          grep -q "app-shell-polish-20260812.js?v=20260812l" supabase-config.js
+          grep -q "app.js?v=20260812l" index.html
+          grep -q "volley-mobile-quick-nav" app-shell-polish-20260812.js
+          grep -q "app_settings" app-shell-polish-20260812.js
+          grep -q "Restaurar fondo original" app-shell-polish-20260812.js
+
+      - name: Commit and self-remove
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/publish-app-shell-polish-20260812.yml
+          git add supabase-config.js index.html
+          git commit -m "Polish mobile shell and shared background"
+          git push
