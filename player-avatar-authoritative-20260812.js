@@ -191,7 +191,7 @@ function install(){
     setTimeout(install,120);return;
   }
   installed=true;window[FLAG]=true;
-  bindDelegatedRosterCapture();
+  // La subida se invoca directamente desde initPlayerAvatarUploadListener.
   subscribeRealtime();
   setTimeout(()=>void refreshRemoteAvatars(),700);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refreshRemoteAvatars();});

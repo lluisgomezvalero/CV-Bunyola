@@ -1029,8 +1029,15 @@ function initPlayerAvatarUploadListener() {
     const file = e.target.files[0];
     if (!file || !activePlayerIdForAvatar) return;
 
+    // Capturamos la jugadora y su foto anterior antes de comprimir.
+    // La sincronización con Supabase se dispara desde este mismo flujo,
+    // evitando depender de listeners paralelos o del orden de eventos del navegador.
+    const targetPlayerId = activePlayerIdForAvatar;
+    const playerBeforeAvatarChange = appState.players.find(p => p.id === targetPlayerId);
+    const previousAvatar = String(playerBeforeAvatarChange?.avatar || '');
+
     compressAndResizeImage(file, 400, 400, 0.85, (dataUrl) => {
-      const player = appState.players.find(p => p.id === activePlayerIdForAvatar);
+      const player = appState.players.find(p => p.id === targetPlayerId);
       if (player) {
         player.avatar = dataUrl;
         
@@ -1041,6 +1048,14 @@ function initPlayerAvatarUploadListener() {
         saveAppData(appState);
         renderRoster();
         renderNavUserProfile();
+
+        // Supabase es la copia autoritativa de las fotos de Plantilla.
+        if (typeof window.syncPlayerAvatarToSupabase === 'function') {
+          void window.syncPlayerAvatarToSupabase(player, file, previousAvatar);
+        } else {
+          console.error('[PlayerAvatar] La capa de sincronización no está disponible.');
+          showToast('La foto se ha cambiado solo en este dispositivo. Recarga e inténtalo de nuevo.', 'error');
+        }
         showToast(`¡Foto de ${player.name} actualizada con éxito!`);
 
         const modal = document.getElementById("modal-player-detail");
