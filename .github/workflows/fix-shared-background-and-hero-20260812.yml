@@ -1,0 +1,38 @@
+name: Fix shared background and hero
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-shared-background-and-hero-20260812.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch shell polish
+        run: |
+          echo 'ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgpzaGVsbCA9IFBhdGgoJ2FwcC1zaGVsbC1wb2xpc2gtMjAyNjA4MTIuanMnKQpqcyA9IHNoZWxsLnJlYWRfdGV4dChlbmNvZGluZz0ndXRmLTgnKQoKb2xkX2ZuID0gImZ1bmN0aW9uIGlzQWRtaW4oKXt0cnl7cmV0dXJuIHR5cGVvZiB3aW5kb3cuaXNBZG1pbmlzdHJhdG9yVXNlcj09PSdmdW5jdGlvbicmJndpbmRvdy5pc0FkbWluaXN0cmF0b3JVc2VyKCk7fWNhdGNoKF8pe3JldHVybiBmYWxzZTt9fSIKbmV3X2ZuID0gImZ1bmN0aW9uIGNhbk1hbmFnZUJhY2tncm91bmQoKXt0cnl7cmV0dXJuICh0eXBlb2Ygd2luZG93LmlzQWRtaW5pc3RyYXRvclVzZXI9PT0nZnVuY3Rpb24nJiZ3aW5kb3cuaXNBZG1pbmlzdHJhdG9yVXNlcigpKXx8KHR5cGVvZiB3aW5kb3cuaXNDb2FjaFVzZXI9PT0nZnVuY3Rpb24nJiZ3aW5kb3cuaXNDb2FjaFVzZXIoKSk7fWNhdGNoKF8pe3JldHVybiBmYWxzZTt9fSIKaWYgb2xkX2ZuIG5vdCBpbiBqczoKICAgIHJhaXNlIFN5c3RlbUV4aXQoJ2JhY2tncm91bmQgcm9sZSBoZWxwZXIgbm90IGZvdW5kJykKanMgPSBqcy5yZXBsYWNlKG9sZF9mbiwgbmV3X2ZuLCAxKQpqcyA9IGpzLnJlcGxhY2UoJ2lzQWRtaW4oKScsICdjYW5NYW5hZ2VCYWNrZ3JvdW5kKCknKQoKbWFya2VyID0gIiAgICAudm9sbGV5LWJhY2tncm91bmQtYWRtaW4tbm90ZXttYXJnaW4tdG9wOi40NXJlbTtmb250LXNpemU6LjcycmVtO2NvbG9yOiM2NDc0OGI7bGluZS1oZWlnaHQ6MS40fSIKaGVyb19jc3MgPSBtYXJrZXIgKyAiXG4gICAgI2Rhc2hib2FyZC1oZXJvLCNkYXNoYm9hcmQtaGVybyAuZGFzaGJvYXJkLWhlcm8tY29udGVudCwjZGFzaGJvYXJkLWhlcm8gLmRhc2hib2FyZC10ZWFtLWlkZW50aXR5LCNkYXNoYm9hcmQtaGVybyAuZGFzaGJvYXJkLXdlbGNvbWUtYmxvY2ssI2Rhc2hib2FyZC1oZXJvIGltZywjZGFzaGJvYXJkLWhlcm8gaDEsI2Rhc2hib2FyZC1oZXJvIGgyLCNkYXNoYm9hcmQtaGVybyBwLCNkYXNoYm9hcmQtaGVybyBzcGFue29wYWNpdHk6MSFpbXBvcnRhbnQ7dmlzaWJpbGl0eTp2aXNpYmxlIWltcG9ydGFudDt0cmFuc2Zvcm06bm9uZSFpbXBvcnRhbnR9XG4gICAgI2Rhc2hib2FyZC1oZXJvLmRhc2hib2FyZC1tb3Rpb24tcmVhZHksI2Rhc2hib2FyZC1oZXJvLmRhc2hib2FyZC1tb3Rpb24tdmlzaWJsZXtvcGFjaXR5OjEhaW1wb3J0YW50O3RyYW5zZm9ybTpub25lIWltcG9ydGFudH1cbiIKaWYgbWFya2VyIG5vdCBpbiBqczoKICAgIHJhaXNlIFN5c3RlbUV4aXQoJ2JhY2tncm91bmQgQ1NTIG1hcmtlciBub3QgZm91bmQnKQpqcyA9IGpzLnJlcGxhY2UobWFya2VyLCBoZXJvX2NzcywgMSkKc2hlbGwud3JpdGVfdGV4dChqcywgZW5jb2Rpbmc9J3V0Zi04JykKCmNmZyA9IFBhdGgoJ3N1cGFiYXNlLWNvbmZpZy5qcycpCmMgPSBjZmcucmVhZF90ZXh0KGVuY29kaW5nPSd1dGYtOCcpCmlmICJ3aW5kb3cuVk9MTEVZX0FTU0VUX1ZFUlNJT04gPSAnMjAyNjA4MTJsJzsiIG5vdCBpbiBjOgogICAgcmFpc2UgU3lzdGVtRXhpdCgncm9vdCBjYWNoZSBsIG5vdCBmb3VuZCcpCmMgPSBjLnJlcGxhY2UoIndpbmRvdy5WT0xMRVlfQVNTRVRfVkVSU0lPTiA9ICcyMDI2MDgxMmwnOyIsICJ3aW5kb3cuVk9MTEVZX0FTU0VUX1ZFUlNJT04gPSAnMjAyNjA4MTJtJzsiLCAxKQppZiAiYXBwLXNoZWxsLXBvbGlzaC0yMDI2MDgxMi5qcz92PTIwMjYwODEybCIgbm90IGluIGM6CiAgICByYWlzZSBTeXN0ZW1FeGl0KCdzaGVsbCBwb2xpc2ggY2FjaGUgbCBub3QgZm91bmQnKQpjID0gYy5yZXBsYWNlKCJhcHAtc2hlbGwtcG9saXNoLTIwMjYwODEyLmpzP3Y9MjAyNjA4MTJsIiwgImFwcC1zaGVsbC1wb2xpc2gtMjAyNjA4MTIuanM/dj0yMDI2MDgxMm0iLCAxKQpjZmcud3JpdGVfdGV4dChjLCBlbmNvZGluZz0ndXRmLTgnKQoKaWR4ID0gUGF0aCgnaW5kZXguaHRtbCcpCmh0bWwgPSBpZHgucmVhZF90ZXh0KGVuY29kaW5nPSd1dGYtOCcpCmZvciBuYW1lIGluIFsnc3R5bGVzLmNzcycsJ3N1cGFiYXNlLWNvbmZpZy5qcycsJ3N1cGFiYXNlLWNsaWVudC5qcycsJ2RhdGEuanMnLCdhcHAuanMnXToKICAgIGh0bWwgPSBodG1sLnJlcGxhY2UoZid7bmFtZX0/dj0yMDI2MDgxMmwnLCBmJ3tuYW1lfT92PTIwMjYwODEybScpCmlkeC53cml0ZV90ZXh0KGh0bWwsIGVuY29kaW5nPSd1dGYtOCcpCg==' | base64 -d > /tmp/patch.py
+          python /tmp/patch.py
+      - name: Validate
+        run: |
+          node --check app-shell-polish-20260812.js
+          grep -q 'canManageBackground' app-shell-polish-20260812.js
+          ! grep -q 'function isAdmin' app-shell-polish-20260812.js
+          grep -q '#dashboard-hero.dashboard-motion-ready' app-shell-polish-20260812.js
+          grep -q "VOLLEY_ASSET_VERSION = '20260812m'" supabase-config.js
+          grep -q 'app-shell-polish-20260812.js?v=20260812m' supabase-config.js
+          grep -q 'app.js?v=20260812m' index.html
+      - name: Commit and self-remove
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/fix-shared-background-and-hero-20260812.yml
+          git add app-shell-polish-20260812.js supabase-config.js index.html
+          git commit -m "Fix shared background upload and home hero"
+          git push
