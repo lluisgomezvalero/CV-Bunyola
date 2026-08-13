@@ -1,0 +1,50 @@
+name: Publish responsive layout polish
+
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-responsive-layout-polish-20260813.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch loader and root cache
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          cfg = Path('supabase-config.js')
+          text = cfg.read_text(encoding='utf-8')
+          old = "'modal-surface-clarity-20260813.js?v=20260813j'"
+          new = old + ",'responsive-layout-polish-20260813.js?v=20260813k'"
+          if 'responsive-layout-polish-20260813.js' not in text:
+              if old not in text:
+                  raise SystemExit('Expected modal surface loader not found')
+              text = text.replace(old, new)
+          text = text.replace("window.VOLLEY_ASSET_VERSION = '20260813j';", "window.VOLLEY_ASSET_VERSION = '20260813k';")
+          cfg.write_text(text, encoding='utf-8')
+
+          idx = Path('index.html')
+          html = idx.read_text(encoding='utf-8')
+          html = html.replace('20260813j', '20260813k')
+          idx.write_text(html, encoding='utf-8')
+          PY
+      - name: Validate
+        run: node --check responsive-layout-polish-20260813.js
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase-config.js index.html responsive-layout-polish-20260813.js
+          git diff --cached --quiet || git commit -m 'Enable responsive layout polish'
+          git push
+      - name: Remove workflow
+        run: |
+          rm .github/workflows/publish-responsive-layout-polish-20260813.yml
+          git add .github/workflows/publish-responsive-layout-polish-20260813.yml
+          git commit -m 'Remove responsive layout publish workflow'
+          git push
