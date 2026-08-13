@@ -63,9 +63,10 @@ function injectStyles(){
         padding-bottom:calc(94px + env(safe-area-inset-bottom,0px))!important;
       }
 
+      /* Alturas reales de navegación: no reservar una barra inferior si está oculta. */
       body.volley-global-context .modal-backdrop.active{
-        top:calc(58px + env(safe-area-inset-top,0px))!important;
-        bottom:calc(68px + env(safe-area-inset-bottom,0px))!important;
+        top:var(--volley-shell-top-h,58px)!important;
+        bottom:var(--volley-shell-bottom-h,0px)!important;
         left:0!important;right:0!important;width:auto!important;height:auto!important;min-height:0!important;
         padding:.55rem!important;align-items:center!important;justify-content:center!important;
         overflow:hidden!important;z-index:8200!important;
@@ -94,8 +95,9 @@ function injectStyles(){
         bottom:0!important;margin-bottom:0!important;padding:.7rem 0!important;
       }
 
-      body.volley-global-context:has(#modal-player-detail.active) #volley-mobile-quick-nav{display:grid!important}
-      body.volley-global-context:has(.modal-backdrop.active) .roster-mobile-add{visibility:hidden!important;pointer-events:none!important}
+      /* Evita :has() globales, que penalizan el repintado en algunos Android. */
+      body.volley-player-detail-open #volley-mobile-quick-nav{display:grid!important}
+      body.volley-modal-open-any .roster-mobile-add{visibility:hidden!important;pointer-events:none!important}
 
       body.volley-player-positions-hidden #view-roster .roster-position-pill{display:none!important}
       body.volley-player-positions-hidden #modal-player-detail .passport-identity p>span:first-of-type{display:none!important}
@@ -117,6 +119,19 @@ function syncHeader(){
   if(title&&view?.id&&TITLES[view.id])title.textContent=TITLES[view.id];
 }
 
+function syncModalState(){
+  const active=[...document.querySelectorAll('.modal-backdrop.active')];
+  document.body.classList.toggle('volley-modal-open-any',active.length>0);
+  document.body.classList.toggle('volley-player-detail-open',active.some(modal=>modal.id==='modal-player-detail'));
+  try{window.syncVolleyShellMeasure?.();}catch(_){}
+}
+function observeModals(){
+  document.querySelectorAll('.modal-backdrop').forEach(modal=>{
+    if(modal.dataset.globalContextModalObserved==='1')return;
+    modal.dataset.globalContextModalObserved='1';
+    new MutationObserver(()=>requestAnimationFrame(syncModalState)).observe(modal,{attributes:true,attributeFilter:['class']});
+  });
+}
 function observeViews(){
   document.querySelectorAll('.app-portal-wrapper>.page-view').forEach(view=>{
     if(view.dataset.globalContextObserved==='1')return;
@@ -128,17 +143,25 @@ function observeViews(){
 function install(){
   injectStyles();
   syncHeader();
+  syncModalState();
   observeViews();
+  observeModals();
+
+  /* Solo vigila hijos directos para detectar modales creados dinámicamente. */
+  if(document.body){
+    new MutationObserver(()=>{observeModals();requestAnimationFrame(syncModalState);}).observe(document.body,{childList:true});
+  }
 
   let attempts=0;
   const timer=setInterval(()=>{
     syncHeader();
     observeViews();
+    observeModals();
     attempts+=1;
     if((currentUser()&&document.getElementById('volley-mobile-title'))||attempts>40)clearInterval(timer);
   },150);
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncHeader();});
-  window.addEventListener('focus',syncHeader,{passive:true});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden){syncHeader();syncModalState();}});
+  window.addEventListener('focus',()=>{syncHeader();syncModalState();},{passive:true});
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
