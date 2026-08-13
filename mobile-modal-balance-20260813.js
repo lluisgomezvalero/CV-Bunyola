@@ -11,11 +11,10 @@ function injectStyles(){
   style.id='volley-mobile-modal-balance-css';
   style.textContent=`
     @media(max-width:960px){
-      /* Ficha de jugadora y bienestar: mismo hueco visual respecto a las dos barras. */
       body.volley-global-context #modal-player-detail.active,
       body.volley-global-context #modal-add-wellness.active{
         top:calc(var(--volley-shell-top-h,58px) + 10px)!important;
-        bottom:calc(var(--volley-shell-bottom-h,68px) + 10px)!important;
+        bottom:calc(var(--volley-shell-bottom-h,0px) + 10px)!important;
         height:auto!important;
         min-height:0!important;
         padding:0 .55rem!important;
@@ -34,7 +33,6 @@ function injectStyles(){
         min-height:0!important;
       }
 
-      /* Android: evitar repintados costosos durante el scroll del pasaporte. */
       body.volley-global-context #modal-player-detail .modal-content{
         background:#fff!important;
         backdrop-filter:none!important;
@@ -63,11 +61,13 @@ function injectStyles(){
 
 let measureFrame=0;
 let resizeObserver=null;
-function visibleHeight(element,fallback){
+function visibleHeight(element,fallback=0){
   if(!element)return fallback;
   const style=getComputedStyle(element);
-  if(style.display==='none'||style.visibility==='hidden')return 0;
-  return Math.ceil(element.getBoundingClientRect?.().height||fallback);
+  if(style.display==='none'||style.visibility==='hidden'||style.opacity==='0')return 0;
+  const rect=element.getBoundingClientRect?.();
+  if(!rect||rect.height<=0||rect.width<=0)return 0;
+  return Math.ceil(rect.height);
 }
 function measureShell(){
   measureFrame=0;
@@ -75,7 +75,7 @@ function measureShell(){
   const top=document.querySelector('.volley-mobile-bar');
   const bottom=document.getElementById('volley-mobile-quick-nav');
   const topHeight=visibleHeight(top,58);
-  const bottomHeight=visibleHeight(bottom,68);
+  const bottomHeight=visibleHeight(bottom,0);
   document.documentElement.style.setProperty('--volley-shell-top-h',`${Math.max(0,topHeight)}px`);
   document.documentElement.style.setProperty('--volley-shell-bottom-h',`${Math.max(0,bottomHeight)}px`);
 }
@@ -92,13 +92,13 @@ function observeBars(){
   if(top)resizeObserver.observe(top);
   if(bottom)resizeObserver.observe(bottom);
 }
+window.syncVolleyShellMeasure=scheduleMeasure;
 
 function install(){
   injectStyles();
   scheduleMeasure();
   setTimeout(()=>{observeBars();scheduleMeasure();},100);
   setTimeout(()=>{observeBars();scheduleMeasure();},600);
-  setTimeout(()=>{observeBars();scheduleMeasure();},1600);
 
   window.addEventListener('resize',scheduleMeasure,{passive:true});
   window.addEventListener('orientationchange',scheduleMeasure,{passive:true});
