@@ -1,0 +1,51 @@
+name: Publish match mobile and opponent fix
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'match-attendance-mobile-opponent-fix-20260813.js'
+      - '.github/workflows/publish-match-mobile-opponent-fix-20260813.yml'
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Patch loader and cache
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          cfg = Path('supabase-config.js')
+          text = cfg.read_text(encoding='utf-8')
+          text = text.replace("window.VOLLEY_ASSET_VERSION = '20260813l';", "window.VOLLEY_ASSET_VERSION = '20260813m';")
+          old = "'match-attendance-20260813.js?v=20260813l'];"
+          new = "'match-attendance-20260813.js?v=20260813l','match-attendance-mobile-opponent-fix-20260813.js?v=20260813m'];"
+          if old not in text:
+              raise SystemExit('Loader anchor not found')
+          cfg.write_text(text.replace(old, new), encoding='utf-8')
+          idx = Path('index.html')
+          index = idx.read_text(encoding='utf-8')
+          if '20260813l' not in index:
+              raise SystemExit('Index cache anchor not found')
+          idx.write_text(index.replace('20260813l', '20260813m'), encoding='utf-8')
+          PY
+      - name: Validate scripts
+        run: |
+          node --check match-attendance-mobile-opponent-fix-20260813.js
+          node --check supabase-config.js
+      - name: Commit publish changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase-config.js index.html
+          git diff --cached --quiet || git commit -m 'Enable match mobile and opponent fix'
+          git push
+      - name: Remove temporary workflow
+        run: |
+          rm .github/workflows/publish-match-mobile-opponent-fix-20260813.yml
+          git add .github/workflows/publish-match-mobile-opponent-fix-20260813.yml
+          git commit -m 'Remove match mobile opponent publish workflow'
+          git push
