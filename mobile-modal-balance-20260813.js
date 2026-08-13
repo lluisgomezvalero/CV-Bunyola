@@ -62,34 +62,49 @@ function injectStyles(){
 }
 
 let measureFrame=0;
+let resizeObserver=null;
+function visibleHeight(element,fallback){
+  if(!element)return fallback;
+  const style=getComputedStyle(element);
+  if(style.display==='none'||style.visibility==='hidden')return 0;
+  return Math.ceil(element.getBoundingClientRect?.().height||fallback);
+}
 function measureShell(){
   measureFrame=0;
   if(window.innerWidth>960)return;
   const top=document.querySelector('.volley-mobile-bar');
   const bottom=document.getElementById('volley-mobile-quick-nav');
-  const topHeight=Math.ceil(top?.getBoundingClientRect?.().height||58);
-  const bottomHeight=Math.ceil(bottom?.getBoundingClientRect?.().height||68);
-  document.documentElement.style.setProperty('--volley-shell-top-h',`${Math.max(1,topHeight)}px`);
-  document.documentElement.style.setProperty('--volley-shell-bottom-h',`${Math.max(1,bottomHeight)}px`);
+  const topHeight=visibleHeight(top,58);
+  const bottomHeight=visibleHeight(bottom,68);
+  document.documentElement.style.setProperty('--volley-shell-top-h',`${Math.max(0,topHeight)}px`);
+  document.documentElement.style.setProperty('--volley-shell-bottom-h',`${Math.max(0,bottomHeight)}px`);
 }
 function scheduleMeasure(){
   if(measureFrame)return;
   measureFrame=requestAnimationFrame(measureShell);
 }
+function observeBars(){
+  if(typeof ResizeObserver!=='function')return;
+  resizeObserver?.disconnect?.();
+  resizeObserver=new ResizeObserver(scheduleMeasure);
+  const top=document.querySelector('.volley-mobile-bar');
+  const bottom=document.getElementById('volley-mobile-quick-nav');
+  if(top)resizeObserver.observe(top);
+  if(bottom)resizeObserver.observe(bottom);
+}
 
 function install(){
   injectStyles();
   scheduleMeasure();
-  setTimeout(scheduleMeasure,100);
-  setTimeout(scheduleMeasure,500);
+  setTimeout(()=>{observeBars();scheduleMeasure();},100);
+  setTimeout(()=>{observeBars();scheduleMeasure();},600);
+  setTimeout(()=>{observeBars();scheduleMeasure();},1600);
 
   window.addEventListener('resize',scheduleMeasure,{passive:true});
   window.addEventListener('orientationchange',scheduleMeasure,{passive:true});
   window.visualViewport?.addEventListener?.('resize',scheduleMeasure,{passive:true});
-
-  const navShell=document.getElementById('volley-navigation-shell')||document.body;
-  new MutationObserver(scheduleMeasure).observe(navShell,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style']});
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)scheduleMeasure();});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden){observeBars();scheduleMeasure();}});
+  window.addEventListener('focus',scheduleMeasure,{passive:true});
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
