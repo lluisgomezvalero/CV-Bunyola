@@ -63,7 +63,6 @@ function injectStyles(){
         padding-bottom:calc(94px + env(safe-area-inset-bottom,0px))!important;
       }
 
-      /* Las ventanas emergentes ocupan solo el espacio útil entre ambas barras. */
       body.volley-global-context .modal-backdrop.active{
         top:calc(58px + env(safe-area-inset-top,0px))!important;
         bottom:calc(68px + env(safe-area-inset-bottom,0px))!important;
@@ -95,11 +94,9 @@ function injectStyles(){
         bottom:0!important;margin-bottom:0!important;padding:.7rem 0!important;
       }
 
-      /* La navegación inferior sigue visible también dentro de fichas/modales. */
       body.volley-global-context:has(#modal-player-detail.active) #volley-mobile-quick-nav{display:grid!important}
       body.volley-global-context:has(.modal-backdrop.active) .roster-mobile-add{visibility:hidden!important;pointer-events:none!important}
 
-      /* La posición es información de cuerpo técnico por ahora. */
       body.volley-player-positions-hidden #view-roster .roster-position-pill{display:none!important}
       body.volley-player-positions-hidden #modal-player-detail .passport-identity p>span:first-of-type{display:none!important}
     }
@@ -120,29 +117,28 @@ function syncHeader(){
   if(title&&view?.id&&TITLES[view.id])title.textContent=TITLES[view.id];
 }
 
+function observeViews(){
+  document.querySelectorAll('.app-portal-wrapper>.page-view').forEach(view=>{
+    if(view.dataset.globalContextObserved==='1')return;
+    view.dataset.globalContextObserved='1';
+    new MutationObserver(()=>requestAnimationFrame(syncHeader)).observe(view,{attributes:true,attributeFilter:['class']});
+  });
+}
+
 function install(){
   injectStyles();
   syncHeader();
-
-  const wrapper=document.querySelector('.app-portal-wrapper');
-  if(wrapper){
-    new MutationObserver(records=>{
-      if(records.some(r=>r.target?.classList?.contains('page-view')))requestAnimationFrame(syncHeader);
-    }).observe(wrapper,{subtree:true,attributes:true,attributeFilter:['class']});
-  }
-  const bodyObserver=new MutationObserver(records=>{
-    if(records.some(r=>r.target?.classList?.contains('modal-backdrop')))requestAnimationFrame(syncHeader);
-  });
-  bodyObserver.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class']});
+  observeViews();
 
   let attempts=0;
   const timer=setInterval(()=>{
     syncHeader();
+    observeViews();
     attempts+=1;
     if((currentUser()&&document.getElementById('volley-mobile-title'))||attempts>40)clearInterval(timer);
   },150);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncHeader();});
-  window.addEventListener('focus',syncHeader);
+  window.addEventListener('focus',syncHeader,{passive:true});
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
