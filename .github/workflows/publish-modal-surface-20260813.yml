@@ -1,0 +1,32 @@
+name: Publish modal surface clarity
+
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-modal-surface-20260813.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch loader and root cache
+        run: python .github/scripts/publish-modal-surface-20260813.py
+      - name: Validate
+        run: node --check modal-surface-clarity-20260813.js && node --check supabase-config.js
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase-config.js index.html
+          git commit -m "Enable opaque modal surface" || true
+          git push
+      - name: Remove workflow
+        run: |
+          git rm .github/workflows/publish-modal-surface-20260813.yml
+          git rm .github/scripts/publish-modal-surface-20260813.py
+          git commit -m "Remove modal surface publish workflow"
+          git push
