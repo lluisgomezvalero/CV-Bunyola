@@ -1,0 +1,89 @@
+name: Publish stable callup selection UX
+
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-callup-selection-stability-20260813.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Replace native checkbox callup interaction
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('match-callup-20260813.js')
+          text = path.read_text()
+
+          text, n = re.subn(
+              r"function preserveCallupScroll\(list,fn\)\{.*?\n\}\nfunction stabilizeCallupToggle\(input\)\{.*?\n\}\n",
+              """function setCallupRowSelected(row,selected){\n  if(!row)return;\n  const value=Boolean(selected);\n  row.dataset.selected=value?'true':'false';\n  row.setAttribute('aria-checked',value?'true':'false');\n}\nfunction selectedCallupPlayerIds(modal){\n  return new Set([...modal.querySelectorAll('[data-callup-player][data-selected=\"true\"]')].map(row=>String(row.dataset.callupPlayer||'')).filter(Boolean));\n}\n""",
+              text,
+              flags=re.S,
+          )
+          assert n == 1, f'helper replacement count={n}'
+
+          text, n = re.subn(
+              r"function ensureEditor\(\)\{.*?\n\}\n\nasync function openEditor",
+              """function ensureEditor(){\n  let modal=document.getElementById('modal-match-callup');\n  if(modal)return modal;\n  modal=document.createElement('div');\n  modal.id='modal-match-callup';\n  modal.className='modal-backdrop match-callup-modal';\n  modal.innerHTML=`<div class=\"modal-content\"><div class=\"modal-header\"><div><small>PARTIDO</small><h3 id=\"match-callup-title\">Convocatoria</h3></div><button type=\"button\" class=\"modal-close\" data-callup-close aria-label=\"Cerrar\">&times;</button></div><div class=\"modal-body\"><p class=\"match-callup-help\">Selecciona las jugadoras convocadas. Esto no cuenta como asistencia.</p><div class=\"match-callup-tools\"><button type=\"button\" class=\"btn btn-secondary btn-sm\" data-callup-all>Seleccionar todas</button><button type=\"button\" class=\"btn btn-secondary btn-sm\" data-callup-none>Limpiar</button></div><div id=\"match-callup-list\" class=\"match-callup-list\"></div><div class=\"match-callup-savebar\"><button type=\"button\" class=\"btn btn-primary\" data-callup-save><i data-lucide=\"save\"></i> Guardar convocatoria</button></div></div></div>`;\n  document.body.appendChild(modal);\n  modal.querySelector('[data-callup-close]').addEventListener('click',()=>closeEditor(true));\n  modal.addEventListener('click',e=>{if(e.target===modal)closeEditor(true);});\n  modal.querySelector('[data-callup-all]').addEventListener('click',()=>{\n    modal.querySelectorAll('[data-callup-player]').forEach(row=>setCallupRowSelected(row,true));\n  });\n  modal.querySelector('[data-callup-none]').addEventListener('click',()=>{\n    modal.querySelectorAll('[data-callup-player]').forEach(row=>setCallupRowSelected(row,false));\n  });\n  const list=modal.querySelector('#match-callup-list');\n  list.addEventListener('click',e=>{\n    const row=e.target.closest('[data-callup-player]');\n    if(!row||!list.contains(row))return;\n    e.preventDefault();\n    const scrollTop=list.scrollTop;\n    setCallupRowSelected(row,row.dataset.selected!=='true');\n    list.scrollTop=scrollTop;\n    requestAnimationFrame(()=>{list.scrollTop=scrollTop;});\n  });\n  modal.querySelector('[data-callup-save]').addEventListener('click',saveEditor);\n  return modal;\n}\n\nasync function openEditor""",
+              text,
+              flags=re.S,
+          )
+          assert n == 1, f'ensureEditor replacement count={n}'
+
+          old_row = "list.innerHTML=players.map(p=>`<label class=\"match-callup-player\"><input type=\"checkbox\" data-callup-player value=\"${esc(p.id)}\" ${selected.has(String(p.id))?'checked':''}><span class=\"match-callup-player-number\">${p.number!=null?`#${esc(p.number)}`:'—'}</span><strong>${esc(p.name)}</strong><i data-lucide=\"check\"></i></label>`).join('')||'<div class=\"match-callup-loading\">No hay jugadoras activas.</div>';"
+          new_row = "list.innerHTML=players.map(p=>{const isSelected=selected.has(String(p.id));return `<div class=\"match-callup-player\" role=\"checkbox\" aria-checked=\"${isSelected?'true':'false'}\" data-callup-player=\"${esc(p.id)}\" data-selected=\"${isSelected?'true':'false'}\"><span class=\"match-callup-player-number\">${p.number!=null?`#${esc(p.number)}`:'—'}</span><span class=\"match-callup-player-name\"><strong>${esc(p.name)}</strong><span class=\"match-callup-selected-tick\" aria-hidden=\"true\">✓</span></span></div>`;}).join('')||'<div class=\"match-callup-loading\">No hay jugadoras activas.</div>';"
+          assert old_row in text, 'old row markup not found'
+          text = text.replace(old_row, new_row, 1)
+
+          old_selected = "const selected=new Set([...modal.querySelectorAll('input[data-callup-player]:checked')].map(i=>String(i.value)));"
+          new_selected = "const selected=selectedCallupPlayerIds(modal);"
+          assert old_selected in text, 'old save selector not found'
+          text = text.replace(old_selected, new_selected, 1)
+
+          old_css = ".match-callup-player{display:grid;grid-template-columns:48px minmax(0,1fr) 28px;align-items:center;gap:.65rem;min-height:52px;padding:.72rem .8rem;border:1px solid #e2e8f0;border-radius:13px;background:#fff;cursor:pointer;box-sizing:border-box;flex:0 0 auto}.match-callup-player input{position:fixed!important;left:-10000px!important;top:0!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important}.match-callup-player-number{font-weight:900;color:#b45309}.match-callup-player strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#0f172a}.match-callup-player i{width:24px;height:24px;border-radius:8px;border:2px solid #cbd5e1;color:transparent;padding:3px;box-sizing:border-box}.match-callup-player:has(input:checked){border-color:#f59e0b;background:#fff7ed}.match-callup-player:has(input:checked) i{background:#f59e0b;border-color:#f59e0b;color:#fff}"
+          new_css = ".match-callup-player{display:grid;grid-template-columns:48px minmax(0,1fr);align-items:center;gap:.65rem;min-height:52px;padding:.72rem .8rem;border:1px solid #e2e8f0;border-radius:13px;background:#fff;cursor:pointer;box-sizing:border-box;flex:0 0 auto;user-select:none;-webkit-user-select:none;touch-action:pan-y}.match-callup-player-number{font-weight:900;color:#b45309}.match-callup-player-name{display:flex;align-items:center;gap:.42rem;min-width:0}.match-callup-player strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#0f172a}.match-callup-selected-tick{display:none;flex:0 0 auto;color:#16a34a;font-size:1.05rem;font-weight:950;line-height:1}.match-callup-player[data-selected=\"true\"]{border-color:#f59e0b;background:#fff7ed}.match-callup-player[data-selected=\"true\"] .match-callup-selected-tick{display:inline-flex}"
+          assert old_css in text, 'old selection CSS not found'
+          text = text.replace(old_css, new_css, 1)
+
+          path.write_text(text)
+
+          config = Path('supabase-config.js')
+          cfg = config.read_text()
+          cfg = cfg.replace("window.VOLLEY_ASSET_VERSION = '20260813r';", "window.VOLLEY_ASSET_VERSION = '20260813s';")
+          cfg = cfg.replace("match-callup-20260813.js?v=20260813r", "match-callup-20260813.js?v=20260813s")
+          config.write_text(cfg)
+
+          index = Path('index.html')
+          html = index.read_text().replace('20260813r', '20260813s')
+          index.write_text(html)
+          PY
+
+      - name: Validate JavaScript
+        run: |
+          node --check match-callup-20260813.js
+          node --check supabase-config.js
+
+      - name: Commit selection UX fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add match-callup-20260813.js supabase-config.js index.html
+          git commit -m "Fix callup selection scroll and tick UX"
+          git push
+
+      - name: Remove workflow
+        run: |
+          git rm .github/workflows/publish-callup-selection-stability-20260813.yml
+          git commit -m "Remove callup selection publish workflow"
+          git push
