@@ -11,9 +11,6 @@ function injectStyles(){
   style.id='volley-responsive-layout-polish-css';
   style.textContent=`
     @media(max-width:960px){
-      /* La superficie limpia ocupa todo el hueco real entre las dos barras.
-         El margen visual de 10px pasa a ser padding interior, por lo que nunca
-         se ve la pantalla anterior por arriba o por abajo. */
       body.volley-global-context #modal-player-detail.active,
       body.volley-global-context #modal-add-wellness.active{
         top:var(--volley-shell-top-h,58px)!important;
@@ -42,7 +39,6 @@ function injectStyles(){
     }
 
     @media(min-width:961px){
-      /* Aprovechar mejor pantallas de escritorio sin pegar el contenido a los bordes. */
       body.volley-nav-ready .app-portal-wrapper>.page-view{
         width:100%!important;
         max-width:1600px!important;
@@ -65,7 +61,10 @@ function syncPassportLabels(){
 function install(){
   injectStyles();
   syncPassportLabels();
-  new MutationObserver(()=>requestAnimationFrame(syncPassportLabels)).observe(document.body,{subtree:true,childList:true});
+  const modal=document.getElementById('modal-player-detail');
+  if(modal){
+    new MutationObserver(()=>requestAnimationFrame(syncPassportLabels)).observe(modal,{subtree:true,childList:true});
+  }
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
