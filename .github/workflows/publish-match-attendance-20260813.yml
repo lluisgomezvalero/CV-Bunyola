@@ -1,0 +1,41 @@
+name: Publish match attendance block
+on:
+  push:
+    paths:
+      - 'match-attendance-20260813.js'
+      - '.github/workflows/publish-match-attendance-20260813.yml'
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch loader and cache
+        shell: python
+        run: |
+          from pathlib import Path
+          config = Path('supabase-config.js')
+          text = config.read_text(encoding='utf-8')
+          text = text.replace("window.VOLLEY_ASSET_VERSION = '20260813k';", "window.VOLLEY_ASSET_VERSION = '20260813l';")
+          needle = "'responsive-layout-polish-20260813.js?v=20260813k'"
+          if "match-attendance-20260813.js" not in text:
+              text = text.replace(needle, needle + ",'match-attendance-20260813.js?v=20260813l'")
+          config.write_text(text, encoding='utf-8')
+          index = Path('index.html')
+          html = index.read_text(encoding='utf-8').replace('?v=20260813k','?v=20260813l')
+          index.write_text(html, encoding='utf-8')
+      - name: Validate
+        run: node --check match-attendance-20260813.js
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase-config.js index.html
+          git diff --cached --quiet || git commit -m "Enable match attendance block"
+          git push
+      - name: Remove workflow
+        run: |
+          git rm .github/workflows/publish-match-attendance-20260813.yml
+          git commit -m "Remove match attendance publish workflow"
+          git push
