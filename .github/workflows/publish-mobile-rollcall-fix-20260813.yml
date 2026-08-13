@@ -1,0 +1,56 @@
+name: Publish mobile roll-call viewport fix
+
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-mobile-rollcall-fix-20260813.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Bump mobile shell caches
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          config = Path('supabase-config.js')
+          text = config.read_text()
+          text = text.replace("window.VOLLEY_ASSET_VERSION = '20260813o';", "window.VOLLEY_ASSET_VERSION = '20260813p';")
+          text = text.replace("global-context-shell-20260813.js?v=20260813n", "global-context-shell-20260813.js?v=20260813p")
+          text = text.replace("mobile-modal-balance-20260813.js?v=20260813n", "mobile-modal-balance-20260813.js?v=20260813p")
+          text = text.replace("match-attendance-mobile-opponent-fix-20260813.js?v=20260813n", "match-attendance-mobile-opponent-fix-20260813.js?v=20260813p")
+          config.write_text(text)
+
+          index = Path('index.html')
+          html = index.read_text().replace('20260813o', '20260813p')
+          index.write_text(html)
+          PY
+
+      - name: Validate JavaScript
+        run: |
+          node --check global-context-shell-20260813.js
+          node --check mobile-modal-balance-20260813.js
+          node --check match-attendance-mobile-opponent-fix-20260813.js
+          node --check supabase-config.js
+
+      - name: Commit publish
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase-config.js index.html
+          git commit -m "Publish mobile roll-call viewport fix" || true
+          git push
+
+      - name: Remove workflow
+        run: |
+          git rm .github/workflows/publish-mobile-rollcall-fix-20260813.yml
+          git commit -m "Remove mobile roll-call publish workflow"
+          git push
