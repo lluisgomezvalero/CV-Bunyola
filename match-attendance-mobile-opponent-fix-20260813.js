@@ -12,7 +12,11 @@ function state(){try{return typeof appState!=='undefined'?appState:null;}catch(_
 function installRollCallViewportGuard(){
   const modal=document.getElementById('modal-verify-attendance');
   if(!modal)return;
-  const sync=()=>document.body.classList.toggle('volley-rollcall-open',modal.classList.contains('active'));
+  const sync=()=>{
+    const open=modal.classList.contains('active');
+    document.body.classList.toggle('volley-rollcall-open',open);
+    requestAnimationFrame(()=>window.syncVolleyShellMeasure?.());
+  };
   sync();
   const observer=new MutationObserver(sync);
   observer.observe(modal,{attributes:true,attributeFilter:['class']});
@@ -80,34 +84,78 @@ function injectStyles(){
   style.textContent=`
     @media(max-width:960px){
       body.volley-rollcall-open #volley-mobile-quick-nav{display:none!important}
-      body.volley-rollcall-open #modal-verify-attendance.active{
-        bottom:10px!important;
-        padding-bottom:0!important;
-        align-items:flex-start!important;
-        padding-top:10px!important;
+
+      /* Pasar lista usa todo el espacio real hasta la parte inferior del viewport. */
+      #modal-verify-attendance.active{
+        top:var(--volley-shell-top-h,58px)!important;
+        bottom:0!important;
+        left:0!important;
+        right:0!important;
+        width:auto!important;
+        height:auto!important;
+        padding:10px!important;
+        align-items:stretch!important;
+        justify-content:center!important;
+        background:rgba(15,23,42,.72)!important;
+        backdrop-filter:none!important;
+        -webkit-backdrop-filter:none!important;
+        overflow:hidden!important;
       }
-      body.volley-rollcall-open #modal-verify-attendance .modal-content{
+      #modal-verify-attendance.active .modal-content{
+        width:min(100%,580px)!important;
         height:100%!important;
         max-height:100%!important;
+        min-height:0!important;
+        margin:0 auto!important;
+        border-radius:18px!important;
         overflow:hidden!important;
+        display:flex!important;
+        flex-direction:column!important;
         overscroll-behavior:contain!important;
       }
-      body.volley-rollcall-open #modal-verify-attendance .modal-body{
-        padding-bottom:0!important;
+      #modal-verify-attendance.active .modal-header{flex:0 0 auto!important}
+      #modal-verify-attendance.active .modal-body{
+        flex:1 1 auto!important;
+        min-height:0!important;
+        overflow:hidden!important;
+        display:flex!important;
+        flex-direction:column!important;
+        padding:.75rem .85rem 0!important;
+      }
+      #modal-verify-attendance.active #form-verify-attendance{
+        flex:1 1 auto!important;
+        min-height:0!important;
+        display:flex!important;
+        flex-direction:column!important;
         overflow:hidden!important;
       }
-      body.volley-rollcall-open #verify-attendance-list-container{
+      #modal-verify-attendance.active #verify-attendance-list-container{
         flex:1 1 auto!important;
         min-height:0!important;
         max-height:none!important;
         overflow-y:auto!important;
         overscroll-behavior:contain!important;
-        -webkit-overflow-scrolling:touch;
+        -webkit-overflow-scrolling:touch!important;
+        padding-right:.35rem!important;
+        padding-bottom:.75rem!important;
       }
-      body.volley-rollcall-open #form-verify-attendance>div:last-child{
+      /* Los botones ocupan espacio propio y no se superponen sobre la última jugadora. */
+      #modal-verify-attendance.active #form-verify-attendance>div:last-child{
+        position:static!important;
         flex:0 0 auto!important;
-        margin-bottom:0!important;
-        padding-bottom:10px!important;
+        margin:0 -.85rem!important;
+        padding:10px .85rem!important;
+        background:#fff!important;
+        border-top:1px solid var(--border-subtle,#e2e8f0)!important;
+        box-shadow:none!important;
+        gap:.6rem!important;
+      }
+      #modal-verify-attendance.active #form-verify-attendance>div:last-child .btn{
+        flex:1 1 0!important;
+        min-width:0!important;
+        min-height:44px!important;
+        white-space:normal!important;
+        line-height:1.15!important;
       }
     }
   `;
