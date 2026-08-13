@@ -1,0 +1,49 @@
+name: Publish mobile shell performance fix
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-mobile-shell-performance-20260813.yml'
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch cache versions
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('supabase-config.js')
+          s=p.read_text()
+          s=s.replace("window.VOLLEY_ASSET_VERSION = '20260813m';","window.VOLLEY_ASSET_VERSION = '20260813n';")
+          s=s.replace('global-context-shell-20260813.js?v=20260813h','global-context-shell-20260813.js?v=20260813n')
+          s=s.replace('mobile-modal-balance-20260813.js?v=20260813i','mobile-modal-balance-20260813.js?v=20260813n')
+          s=s.replace('responsive-layout-polish-20260813.js?v=20260813k','responsive-layout-polish-20260813.js?v=20260813n')
+          s=s.replace('match-attendance-mobile-opponent-fix-20260813.js?v=20260813m','match-attendance-mobile-opponent-fix-20260813.js?v=20260813n')
+          p.write_text(s)
+          p=Path('index.html')
+          s=p.read_text().replace('20260813m','20260813n')
+          p.write_text(s)
+          PY
+      - name: Validate
+        run: |
+          node --check global-context-shell-20260813.js
+          node --check mobile-modal-balance-20260813.js
+          node --check responsive-layout-polish-20260813.js
+          node --check match-attendance-mobile-opponent-fix-20260813.js
+          node --check supabase-config.js
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html supabase-config.js
+          git commit -m 'Publish mobile shell performance fix' || true
+          git push
+      - name: Remove workflow
+        run: |
+          git pull --rebase
+          git rm .github/workflows/publish-mobile-shell-performance-20260813.yml
+          git commit -m 'Remove mobile shell performance workflow'
+          git push
