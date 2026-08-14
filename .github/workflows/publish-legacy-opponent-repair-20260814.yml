@@ -1,0 +1,56 @@
+name: Publish legacy opponent repair
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-legacy-opponent-repair-20260814.yml'
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Refresh app cache and load repair
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          cfg=Path('supabase-config.js')
+          text=cfg.read_text()
+          text=text.replace("window.VOLLEY_ASSET_VERSION = '20260814o';", "window.VOLLEY_ASSET_VERSION = '20260814p';")
+          old="'match-opponent-persistence-20260814.js?v=20260814o'"
+          new="'match-opponent-persistence-20260814.js?v=20260814p','match-opponent-legacy-repair-20260814.js?v=20260814p'"
+          if 'match-opponent-legacy-repair-20260814.js' not in text:
+              text=text.replace(old,new)
+          else:
+              text=text.replace('match-opponent-legacy-repair-20260814.js?v=20260814o','match-opponent-legacy-repair-20260814.js?v=20260814p')
+              text=text.replace('match-opponent-persistence-20260814.js?v=20260814o','match-opponent-persistence-20260814.js?v=20260814p')
+          cfg.write_text(text)
+          idx=Path('index.html')
+          html=idx.read_text()
+          html=html.replace('supabase-config.js?v=20260814o','supabase-config.js?v=20260814p')
+          html=html.replace('supabase-client.js?v=20260814o','supabase-client.js?v=20260814p')
+          html=html.replace('data.js?v=20260814o','data.js?v=20260814p')
+          html=html.replace('app.js?v=20260814o','app.js?v=20260814p')
+          idx.write_text(html)
+          PY
+      - name: Validate JavaScript
+        run: |
+          node --check match-opponent-persistence-20260814.js
+          node --check match-opponent-legacy-repair-20260814.js
+          node --check supabase-config.js
+      - name: Commit publish
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase-config.js index.html
+          git commit -m "Publish legacy opponent repair" || true
+          git push
+      - name: Remove workflow
+        run: |
+          git pull --rebase
+          git rm .github/workflows/publish-legacy-opponent-repair-20260814.yml
+          git commit -m "Remove temporary legacy opponent workflow"
+          git push
