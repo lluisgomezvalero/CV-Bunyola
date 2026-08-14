@@ -140,9 +140,7 @@ function decorateCoach(view,root){
   const save=document.getElementById('save-scouting-plan');
   if(save){
     save.classList.add('game-plan-save-draft');
-    const text=[...save.childNodes].find(node=>node.nodeType===Node.TEXT_NODE);
-    if(text)text.textContent=' Guardar borrador';
-    else if(!save.querySelector('span'))save.insertAdjacentHTML('beforeend','<span>Guardar borrador</span>');
+    save.innerHTML='<i data-lucide="save"></i><span>Guardar borrador</span>';
   }
   const bar=root.querySelector('.scouting-publish-bar');
   if(bar){
