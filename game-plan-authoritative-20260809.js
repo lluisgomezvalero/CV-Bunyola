@@ -23,7 +23,7 @@ function activeMatchId(){
 }
 function localEvent(id){
   const sid=String(id??'');
-  return (state()?.events||[]).find(e=>[e.id,e.legacy_id,e.legacyId].filter(Boolean).map(String).includes(sid))||null;
+  return (state()?.events||[]).find(e=>[e.id,e.supabaseId,e.supabase_id,e.legacy_id,e.legacyId].filter(Boolean).map(String).includes(sid))||null;
 }
 function currentRecord(){
   try{return typeof getActiveScoutingRecord==='function'?getActiveScoutingRecord():null}catch(_){return null}
@@ -63,26 +63,23 @@ async function plansForEvent(eid){
   return data||[];
 }
 
-function choosePlan(plans,record){
+function matchingPlan(plans,record){
   const version=currentVersion(record);
-  if(version){
-    const exact=plans.find(p=>sameMoment(p.payload?.publicationVersion,version)||sameMoment(p.published_at,version));
-    if(exact)return exact;
-  }
-  return plans[0]||null;
+  if(!version)return null;
+  return plans.find(p=>sameMoment(p.payload?.publicationVersion,version)||sameMoment(p.published_at,version))||null;
 }
 
 async function ensurePublication(eid,record){
   if(!record?.publishedPlan||record.status!=='published')return null;
   const c=db();
   const plans=await plansForEvent(eid);
-  const existing=choosePlan(plans,record);
+  const existing=matchingPlan(plans,record);
   const version=currentVersion(record);
-  if(existing&&(sameMoment(existing.payload?.publicationVersion,version)||sameMoment(existing.published_at,version)))return existing;
+  if(existing)return existing;
 
   const identity=await window.VolleySupabase?.getIdentity?.();
   const profile=identity?.data?.profile;
-  if(!profile?.id||!profile.club_id)return existing||null;
+  if(!profile?.id||!profile.club_id)return plans[0]||null;
   const ev=localEvent(activeMatchId());
   const nextVersion=Math.max(0,...plans.map(p=>Number(p.version)||0))+1;
   const payload={plan:record.publishedPlan,publicationVersion:version||new Date().toISOString(),localPublishedAt:record.publishedAt||null};
@@ -96,7 +93,7 @@ async function ensurePublication(eid,record){
     published_at:record.publishedAt||new Date().toISOString(),
     created_by:profile.id
   }).select('id,event_id,version,status,payload,published_at').single();
-  if(error){console.warn('[GamePlanAuthoritative] publish',error);return existing||null;}
+  if(error){console.warn('[GamePlanAuthoritative] publish',error);return plans[0]||null;}
   return data;
 }
 
@@ -118,7 +115,7 @@ async function recordPlayerRead(eid,plan,record){
       game_plan_id:plan.id,
       event_id:eid,
       player_id:pid,
-      publication_version:String(currentVersion(record)||plan.payload?.publicationVersion||plan.published_at||''),
+      publication_version:String(plan.payload?.publicationVersion||plan.published_at||currentVersion(record)||''),
       read_at:new Date().toISOString()
     });
     if(error&&error.code!=='23505'){console.warn('[GamePlanAuthoritative] read insert',error);return;}
@@ -134,7 +131,7 @@ async function playerMapping(){
   for(const row of data||[]){
     const username=String(row.profiles?.username||'').toLowerCase();
     const p=(st.players||[]).find(x=>
-      String(x.supabaseId||'')===String(row.id)||
+      String(x.supabaseId||x.supabase_id||'')===String(row.id)||
       String(x.legacy_id||x.legacyId||x.id||'')===String(row.legacy_id||'')||
       (username&&String(x.username||'').toLowerCase()===username)
     );
@@ -147,23 +144,22 @@ async function hydrateCoachReads(eid,plan,record){
   if(!plan?.id||!record)return;
   const c=db();
   const map=await playerMapping();
+  // Las lecturas pertenecen estrictamente a la publicación vigente.
+  // Una republicación comienza con su propio seguimiento limpio.
   const {data,error}=await c.from('game_plan_reads')
     .select('id,game_plan_id,event_id,player_id,publication_version,read_at')
-    .or(`game_plan_id.eq.${plan.id},event_id.eq.${eid}`)
+    .eq('game_plan_id',plan.id)
     .order('read_at',{ascending:true});
   if(error){console.warn('[GamePlanAuthoritative] coach reads',error);return;}
 
-  const publishedAt=Date.parse(plan.published_at||'')||0;
   const firstByPlayer=new Map();
   for(const row of data||[]){
-    const readAt=Date.parse(row.read_at||'')||0;
-    if(publishedAt&&readAt<publishedAt)continue;
     const key=String(row.player_id||'');
     if(!key||firstByPlayer.has(key))continue;
     firstByPlayer.set(key,row);
   }
 
-  const version=currentVersion(record)||plan.payload?.publicationVersion||plan.published_at||null;
+  const version=plan.payload?.publicationVersion||plan.published_at||currentVersion(record)||null;
   const receipts={};
   for(const [remoteId,row] of firstByPlayer){
     const p=map.get(remoteId);
@@ -173,7 +169,7 @@ async function hydrateCoachReads(eid,plan,record){
   const mid=activeMatchId();
   if(mid&&state()?.matchScouting)state().matchScouting[mid]=record;
 
-  const signature=JSON.stringify(Object.entries(receipts).sort());
+  const signature=`${plan.id}|${JSON.stringify(Object.entries(receipts).sort())}`;
   if(signature===lastCoachSignature)return;
   lastCoachSignature=signature;
   try{saveAppData(state())}catch(_){}
@@ -197,14 +193,19 @@ async function hydratePublishedRecord(mid,plan){
   const st=state(); if(!st||!mid||!plan?.payload?.plan)return currentRecord();
   st.matchScouting=st.matchScouting||{};
   let record=st.matchScouting[mid]||currentRecord()||{};
+  const oldVersion=currentVersion(record);
+  const newVersion=plan.payload?.publicationVersion||plan.published_at;
+  const publicationChanged=!sameMoment(oldVersion,newVersion);
   const wasPublished=record.status==='published'&&!!record.publishedPlan;
   record.status='published';
   record.publishedPlan=plan.payload.plan;
   record.publishedAt=plan.published_at;
-  record.publicationVersion=plan.payload?.publicationVersion||plan.published_at;
-  record.readReceipts=record.readReceipts&&typeof record.readReceipts==='object'?record.readReceipts:{};
+  record.publicationVersion=newVersion;
+  // Nunca arrastrar confirmaciones de una publicación anterior.
+  if(publicationChanged)record.readReceipts={};
+  else record.readReceipts=record.readReceipts&&typeof record.readReceipts==='object'?record.readReceipts:{};
   st.matchScouting[mid]=record;
-  if(!wasPublished&&!rendering&&typeof renderTactics==='function'){
+  if((!wasPublished||publicationChanged)&&!rendering&&typeof renderTactics==='function'){
     rendering=true;
     try{renderTactics()}catch(_){}
     finally{setTimeout(()=>{rendering=false;},0);}
@@ -221,7 +222,9 @@ async function tick(){
     const eid=await eventUuid(mid); if(!eid)return;
     let record=currentRecord();
     const plans=await plansForEvent(eid);
-    const plan=choosePlan(plans,record);
+    // Supabase es autoritativo: siempre hidratar la publicación más reciente.
+    // Una copia local antigua nunca puede fijar al usuario en una versión previa.
+    const plan=plans[0]||null;
     if(!plan)return;
     record=await hydratePublishedRecord(mid,plan);
     if(!record||record.status!=='published')return;
