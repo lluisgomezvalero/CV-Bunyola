@@ -1,0 +1,30 @@
+name: Publish mobile game plan overflow fix
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-game-plan-mobile-overflow-fix-20260814.yml'
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Refresh page cache version
+        run: sed -i 's/20260814d/20260814e/g' index.html
+      - name: Validate JavaScript
+        run: node --check game-plan-mobile-overflow-fix-20260814.js
+      - name: Commit publish
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet || git commit -m "Refresh mobile game plan overflow fix"
+          git push
+      - name: Remove workflow
+        run: |
+          git rm .github/workflows/publish-game-plan-mobile-overflow-fix-20260814.yml
+          git commit -m "Remove temporary mobile game plan overflow workflow"
+          git push
