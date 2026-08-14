@@ -1,0 +1,62 @@
+name: Publish game plan card polish
+
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-game-plan-card-polish-20260814.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Refresh asset versions
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('supabase-config.js')
+          s = p.read_text()
+          s = s.replace("window.VOLLEY_ASSET_VERSION = '20260814g';", "window.VOLLEY_ASSET_VERSION = '20260814h';")
+          needle = "'game-plan-direction-input-fix-20260814.js?v=20260814g'"
+          replacement = needle + ", 'game-plan-card-polish-20260814.js?v=20260814h'"
+          if 'game-plan-card-polish-20260814.js' not in s:
+              s = s.replace(needle, replacement)
+          p.write_text(s)
+
+          p = Path('index.html')
+          s = p.read_text()
+          for asset in ('supabase-config.js','supabase-client.js','data.js','app.js'):
+              s = s.replace(f'{asset}?v=20260814g', f'{asset}?v=20260814h')
+          p.write_text(s)
+          PY
+
+      - name: Validate JavaScript
+        run: |
+          node --check game-plan-card-polish-20260814.js
+          node --check game-plan-direction-input-fix-20260814.js
+          node --check supabase-config.js
+
+      - name: Commit publish
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase-config.js index.html
+          git diff --cached --quiet || git commit -m 'Publish game plan card polish'
+          git push
+
+      - name: Remove workflow
+        shell: bash
+        run: |
+          git pull --rebase
+          git rm .github/workflows/publish-game-plan-card-polish-20260814.yml
+          git commit -m 'Remove temporary game plan card polish workflow'
+          git push
