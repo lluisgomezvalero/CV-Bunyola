@@ -8,6 +8,7 @@ window[FLAG]=true;
 const MATCH_TYPES=new Set(['Partido','Amistoso']);
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 let ownPlayerIdCache=undefined;
+let ownPlayerCacheUser='';
 let refreshToken=0;
 
 function app(){try{return typeof appState!=='undefined'?appState:null;}catch(_){return null;}}
@@ -15,7 +16,6 @@ function db(){try{return window.VolleySupabase?.getClient?.()||null;}catch(_){re
 function currentUser(){try{return typeof window.getCurrentUser==='function'?window.getCurrentUser():null;}catch(_){return null;}}
 function isStaff(){try{return Boolean((typeof window.isCoachUser==='function'&&window.isCoachUser())||(typeof window.isAdministratorUser==='function'&&window.isAdministratorUser()));}catch(_){return false;}}
 function isPlayer(){return currentUser()?.role==='player'&&!isStaff();}
-function esc(v){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
 function eventKey(evt){return String(evt?.supabaseId||evt?.supabase_id||evt?.id||evt?.legacyId||evt?.legacy_id||'');}
 
 function currentMonthMatches(){
@@ -34,6 +34,18 @@ function currentMonthMatches(){
   });
 }
 
+function upcomingMatch(){
+  try{
+    if(typeof window.getUpcomingMatchEvent==='function')return window.getUpcomingMatchEvent();
+    if(typeof getUpcomingMatchEvent==='function')return getUpcomingMatchEvent();
+  }catch(_){}
+  const now=new Date();
+  return (app()?.events||[]).filter(evt=>MATCH_TYPES.has(evt?.type)).map(evt=>{
+    const time=String(evt.time||'18:00').match(/\d{1,2}:\d{2}/)?.[0]||'18:00';
+    return {evt,date:new Date(`${evt.date}T${time}:00`)};
+  }).filter(x=>!Number.isNaN(x.date.getTime())&&x.date>=now).sort((a,b)=>a.date-b.date)[0]?.evt||null;
+}
+
 async function resolveEventUuid(evt){
   if(!evt)return null;
   for(const value of [evt.supabaseId,evt.supabase_id,evt.id])if(UUID_RE.test(String(value||'')))return String(value);
@@ -46,6 +58,9 @@ async function resolveEventUuid(evt){
 }
 
 async function ownPlayerId(){
+  const u=currentUser();
+  const cacheUser=String(u?.id||u?.authId||u?.username||'');
+  if(cacheUser!==ownPlayerCacheUser){ownPlayerCacheUser=cacheUser;ownPlayerIdCache=undefined;}
   if(ownPlayerIdCache!==undefined)return ownPlayerIdCache;
   ownPlayerIdCache=null;
   if(!isPlayer())return null;
@@ -54,7 +69,6 @@ async function ownPlayerId(){
     const id=result?.data?.player?.id;
     if(UUID_RE.test(String(id||''))){ownPlayerIdCache=String(id);return ownPlayerIdCache;}
   }catch(_){}
-  const u=currentUser();
   if(UUID_RE.test(String(u?.supabasePlayerId||'')))ownPlayerIdCache=String(u.supabasePlayerId);
   return ownPlayerIdCache;
 }
@@ -121,6 +135,24 @@ function applyDesktopChipStatus(chip,status){
   dot.textContent=status.kind==='called'?'✓':status.kind==='not-called'?'–':status.kind==='pending'?'?':String(status.text.match(/^\d+/)?.[0]||'•');
 }
 
+function applyDashboardStatus(card,status){
+  if(!card||!status)return;
+  let badge=card.querySelector('[data-dashboard-callup-status]');
+  if(!badge){
+    badge=document.createElement('div');
+    badge.dataset.dashboardCallupStatus='1';
+    badge.className='dashboard-callup-status';
+    const meta=card.querySelector('.dashboard-match-meta');
+    const versus=card.querySelector('.dashboard-versus');
+    if(meta)meta.insertAdjacentElement('afterend',badge);
+    else if(versus)versus.insertAdjacentElement('afterend',badge);
+    else card.appendChild(badge);
+  }
+  badge.className=`dashboard-callup-status is-${status.kind}`;
+  badge.innerHTML=`<span class="dashboard-callup-status-dot" aria-hidden="true"></span><strong>${status.text}</strong>`;
+  card.dataset.callupStatus=status.kind;
+}
+
 function findDesktopEventForChip(chip,events){
   const parent=chip.closest('.gcal-events-list');
   const date=String(parent?.id||'').replace(/^events-date-/,'');
@@ -140,14 +172,12 @@ async function decorateCalendar(){
   try{
     const statuses=await loadStatuses(events);
     if(token!==refreshToken)return;
-
     const mobileCards=[...document.querySelectorAll('#gcal-agenda-view .agenda-card.match-card')];
     mobileCards.forEach((card,index)=>{
       const evt=events[index];
       const status=evt&&statuses.get(eventKey(evt));
       if(status)applyMobileCardStatus(card,status);
     });
-
     const desktopChips=[...document.querySelectorAll('.gcal-event-chip.chip-match')];
     desktopChips.forEach(chip=>{
       const evt=findDesktopEventForChip(chip,events);
@@ -155,7 +185,20 @@ async function decorateCalendar(){
       if(status)applyDesktopChipStatus(chip,status);
     });
   }catch(error){
-    console.warn('[MatchCallupCardStatus] No se pudo cargar el estado de convocatoria.',error);
+    console.warn('[MatchCallupCardStatus] No se pudo cargar el estado de convocatoria del calendario.',error);
+  }
+}
+
+async function decorateDashboard(){
+  const evt=upcomingMatch();
+  const card=document.querySelector('#home-dashboard .dashboard-card-match');
+  if(!evt||!card)return;
+  try{
+    const statuses=await loadStatuses([evt]);
+    const status=statuses.get(eventKey(evt));
+    if(status)applyDashboardStatus(card,status);
+  }catch(error){
+    console.warn('[MatchCallupCardStatus] No se pudo cargar el estado de convocatoria de Inicio.',error);
   }
 }
 
@@ -179,6 +222,32 @@ function wrapCalendarRenderer(){
   },100);
 }
 
+function wrapDashboardRenderer(){
+  let attempts=0;
+  const timer=setInterval(()=>{
+    attempts++;
+    if(typeof window.renderHomeDashboard==='function'&&!window.renderHomeDashboard.__callupCardStatusWrapped){
+      const base=window.renderHomeDashboard;
+      const wrapped=function(){
+        const result=base.apply(this,arguments);
+        requestAnimationFrame(()=>void decorateDashboard());
+        setTimeout(()=>void decorateDashboard(),120);
+        return result;
+      };
+      wrapped.__callupCardStatusWrapped=true;
+      window.renderHomeDashboard=wrapped;
+      clearInterval(timer);
+      setTimeout(()=>void decorateDashboard(),0);
+    } else if(attempts>80)clearInterval(timer);
+  },100);
+}
+
+function refreshAll(){
+  void decorateCalendar();
+  void decorateDashboard();
+}
+window.refreshMatchCallupCardStatus=refreshAll;
+
 function injectStyles(){
   if(document.getElementById('volley-callup-card-status-css'))return;
   const style=document.createElement('style');
@@ -191,7 +260,13 @@ function injectStyles(){
     .calendar-callup-status.is-coach{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
     .calendar-callup-dot{display:inline-grid;place-items:center;flex:0 0 auto;min-width:18px;height:18px;margin-left:auto;padding:0 4px;border-radius:999px;font-size:.58rem;font-weight:950;line-height:1}
     .calendar-callup-dot.is-called{background:#dcfce7;color:#166534}.calendar-callup-dot.is-not-called{background:#e2e8f0;color:#64748b}.calendar-callup-dot.is-pending{background:#fef3c7;color:#92400e}.calendar-callup-dot.is-coach{background:#dbeafe;color:#1d4ed8}
-    @media(max-width:960px){.calendar-callup-status{font-size:.72rem;padding:.3rem .55rem;margin-top:.42rem}.agenda-card.match-card .agenda-event-copy{min-width:0}}
+    .dashboard-callup-status{display:flex;align-items:center;justify-content:center;gap:.45rem;width:max-content;max-width:100%;margin:.72rem auto .18rem;padding:.4rem .68rem;border-radius:999px;font-size:.76rem;line-height:1.1;border:1px solid transparent}
+    .dashboard-callup-status strong{font-size:inherit;font-weight:900}.dashboard-callup-status-dot{width:7px;height:7px;border-radius:999px;flex:0 0 auto}
+    .dashboard-callup-status.is-called{background:#ecfdf5;color:#166534;border-color:#bbf7d0}.dashboard-callup-status.is-called .dashboard-callup-status-dot{background:#16a34a}
+    .dashboard-callup-status.is-not-called{background:#f8fafc;color:#475569;border-color:#e2e8f0}.dashboard-callup-status.is-not-called .dashboard-callup-status-dot{background:#94a3b8}
+    .dashboard-callup-status.is-pending{background:#fffbeb;color:#92400e;border-color:#fde68a}.dashboard-callup-status.is-pending .dashboard-callup-status-dot{background:#f59e0b}
+    .dashboard-callup-status.is-coach{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}.dashboard-callup-status.is-coach .dashboard-callup-status-dot{background:#3b82f6}
+    @media(max-width:960px){.calendar-callup-status{font-size:.72rem;padding:.3rem .55rem;margin-top:.42rem}.agenda-card.match-card .agenda-event-copy{min-width:0}.dashboard-callup-status{font-size:.78rem;padding:.42rem .72rem;margin-top:.68rem}}
   `;
   document.head.appendChild(style);
 }
@@ -199,13 +274,15 @@ function injectStyles(){
 function install(){
   injectStyles();
   wrapCalendarRenderer();
+  wrapDashboardRenderer();
   document.addEventListener('click',event=>{
     if(event.target.closest('[data-callup-save]')){
-      setTimeout(()=>void decorateCalendar(),500);
-      setTimeout(()=>void decorateCalendar(),1400);
+      setTimeout(refreshAll,500);
+      setTimeout(refreshAll,1400);
     }
   });
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(()=>void decorateCalendar(),100);});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(refreshAll,100);});
+  setTimeout(refreshAll,250);
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
