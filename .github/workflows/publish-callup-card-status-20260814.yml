@@ -1,0 +1,49 @@
+name: Publish callup card status cache refresh
+
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-callup-card-status-20260814.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Refresh page cache version
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          text = p.read_text()
+          text = text.replace('supabase-config.js?v=20260813p', 'supabase-config.js?v=20260814a')
+          text = text.replace('supabase-client.js?v=20260813p', 'supabase-client.js?v=20260814a')
+          text = text.replace('data.js?v=20260813p', 'data.js?v=20260814a')
+          text = text.replace('app.js?v=20260813p', 'app.js?v=20260814a')
+          p.write_text(text)
+          PY
+
+      - name: Validate JavaScript
+        run: |
+          node --check match-callup-card-status-20260814.js
+          node --check supabase-config.js
+
+      - name: Commit publish
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Publish match callup card status" || true
+          git push
+
+      - name: Remove workflow
+        run: |
+          git rm .github/workflows/publish-callup-card-status-20260814.yml
+          git commit -m "Remove callup card status publish workflow"
+          git push
