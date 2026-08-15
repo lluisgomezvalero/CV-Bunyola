@@ -1,0 +1,53 @@
+name: Publish relevance-first player plan
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-game-plan-player-relevance-20260815.yml'
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Load relevance layer and refresh cache
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          cfg=Path('supabase-config.js')
+          text=cfg.read_text()
+          text=re.sub(r"window\.VOLLEY_ASSET_VERSION = '[^']+';", "window.VOLLEY_ASSET_VERSION = '20260815d';", text, count=1)
+          marker="'game-plan-render-transaction-20260815.js?v=20260815c'"
+          addition=marker+",'game-plan-player-relevance-20260815.js?v=20260815d'"
+          if 'game-plan-player-relevance-20260815.js' not in text:
+              if marker not in text:
+                  raise SystemExit('Config tail marker not found')
+              text=text.replace(marker,addition,1)
+          cfg.write_text(text)
+
+          idx=Path('index.html')
+          html=idx.read_text()
+          for name in ['supabase-config.js','supabase-client.js','data.js','app.js']:
+              html=re.sub(rf'({re.escape(name)}\?v=)[^"\']+', rf'\g<1>20260815d', html)
+          idx.write_text(html)
+          PY
+      - name: Validate JavaScript
+        run: |
+          node --check game-plan-player-relevance-20260815.js
+          node --check supabase-config.js
+      - name: Commit publish
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase-config.js index.html
+          git diff --cached --quiet || git commit -m "Publish relevance-first player plan"
+          git push
+      - name: Remove workflow
+        run: |
+          git pull --rebase
+          git rm .github/workflows/publish-game-plan-player-relevance-20260815.yml
+          git commit -m "Remove temporary player relevance workflow"
+          git push
