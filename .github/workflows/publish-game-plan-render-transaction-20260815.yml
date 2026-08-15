@@ -1,0 +1,49 @@
+name: Publish game plan render transaction
+on:
+  push:
+    paths:
+      - 'game-plan-render-transaction-20260815.js'
+      - '.github/workflows/publish-game-plan-render-transaction-20260815.yml'
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Load transaction layer and refresh cache
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('supabase-config.js')
+          s=p.read_text()
+          s=s.replace("window.VOLLEY_ASSET_VERSION = '20260815b';", "window.VOLLEY_ASSET_VERSION = '20260815c';")
+          anchor="'game-plan-player-preview-bridge-20260815.js?v=20260815b'"
+          addition=anchor+",'game-plan-render-transaction-20260815.js?v=20260815c'"
+          if "game-plan-render-transaction-20260815.js" not in s:
+              s=s.replace(anchor, addition)
+          p.write_text(s)
+          i=Path('index.html')
+          t=i.read_text()
+          t=t.replace('20260815b','20260815c')
+          i.write_text(t)
+          PY
+      - name: Validate JavaScript
+        run: |
+          node --check game-plan-render-transaction-20260815.js
+          node --check supabase-config.js
+      - name: Commit publish
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase-config.js index.html
+          git diff --cached --quiet || git commit -m "Publish stable game plan render transaction"
+          git push
+      - name: Remove workflow
+        run: |
+          git rm .github/workflows/publish-game-plan-render-transaction-20260815.yml
+          git commit -m "Remove temporary game plan render workflow"
+          git push
