@@ -214,16 +214,6 @@ function install(){
     }else if(tries>160)clearInterval(timer);
   },100);
 
-  // Comprobación de recuperación muy ligera: no renderiza la app ni toca Supabase.
-  // Solo reconstruye las pestañas si otra ruta dejó visible la rejilla antigua.
-  setInterval(()=>{
-    try{
-      const sec=section();
-      if(!sec||!playerLike())return;
-      if(sec.querySelector('.player-attack-modern')&&!sec.querySelector('.attack-cards-grid'))return;
-      apply();
-    }catch(error){console.warn('[PlayerAttackAuthoritative] recovery',error);}
-  },1100);
 
   window.addEventListener('pageshow',schedule);
   window.addEventListener('focus',schedule);
