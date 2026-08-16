@@ -215,7 +215,7 @@ async function hydratePublishedRecord(mid,plan){
 }
 
 async function tick(){
-  if(ticking)return;
+  if(ticking||document.hidden)return;
   const c=db(),mid=activeMatchId();
   if(!c||!mid)return;
   ticking=true;
@@ -281,7 +281,7 @@ function install(){
     wrapPublish();
     subscribe();
     void tick();
-    setInterval(()=>{wrapPublish();void tick();},2000);
+    setInterval(()=>{wrapPublish();void tick();},15000);
     console.info('[GamePlanAuthoritative] Lecturas y publicación conectadas a Supabase.');
   };
   // Se instala después de los hotfixes para no ser reemplazado por ellos.
