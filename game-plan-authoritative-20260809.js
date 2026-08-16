@@ -12,6 +12,7 @@ let publishWrapped=false;
 let readsChannel=null;
 let lastPlayerReadKey='';
 let lastCoachSignature='';
+const lastHydratedRemoteByMatch=new Map();
 
 const db=()=>window.VolleySupabase?.getClient?.()||null;
 const state=()=>typeof appState!=='undefined'?appState:null;
@@ -226,7 +227,18 @@ async function tick(){
     // Una copia local antigua nunca puede fijar al usuario en una versión previa.
     const plan=plans[0]||null;
     if(!plan)return;
-    record=await hydratePublishedRecord(mid,plan);
+
+    // No rehidratar la misma publicación en cada polling de 2 s.
+    // También evita que una publicación remota anterior pise el estado local
+    // mientras se está publicando una nueva.
+    const remoteKey=`${plan.id}|${plan.updated_at||plan.published_at||''}`;
+    const alreadyHydrated=lastHydratedRemoteByMatch.get(String(mid))===remoteKey;
+    if(!alreadyHydrated||!record?.publishedPlan||record.status!=='published'){
+      record=await hydratePublishedRecord(mid,plan);
+      lastHydratedRemoteByMatch.set(String(mid),remoteKey);
+    }else{
+      record=currentRecord();
+    }
     if(!record||record.status!=='published')return;
     if(isCoach())await hydrateCoachReads(eid,plan,record);
     else if(user()?.role==='player')await recordPlayerRead(eid,plan,record);
