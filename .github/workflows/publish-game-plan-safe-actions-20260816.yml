@@ -1,0 +1,53 @@
+name: Publish CSS-only game plan actions
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-game-plan-safe-actions-20260816.yml'
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Load safe actions CSS and refresh cache
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p=Path('index.html')
+          s=p.read_text()
+          link='  <link rel="stylesheet" href="game-plan-actions-safe-20260816.css?v=20260816c">\n'
+          if 'game-plan-actions-safe-20260816.css' not in s:
+              anchor='  <link rel="stylesheet" href="styles.css?v=20260813s">\n'
+              if anchor not in s:
+                  raise SystemExit('styles.css anchor not found')
+              s=s.replace(anchor, anchor+link, 1)
+          s=s.replace('20260816b','20260816c')
+          p.write_text(s)
+
+          p=Path('supabase-config.js')
+          s=p.read_text()
+          s=s.replace("window.VOLLEY_ASSET_VERSION = '20260816b';", "window.VOLLEY_ASSET_VERSION = '20260816c';")
+          p.write_text(s)
+          PY
+      - name: Validate safe publish
+        run: |
+          node --check supabase-config.js
+          grep -q "game-plan-actions-safe-20260816.css?v=20260816c" index.html
+          grep -q "VOLLEY_ASSET_VERSION = '20260816c'" supabase-config.js
+          ! grep -q "game-plan-action-bar-authoritative-20260816.js" supabase-config.js
+          grep -q "coach-compact-save" game-plan-actions-safe-20260816.css
+      - name: Commit publish
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html supabase-config.js game-plan-actions-safe-20260816.css
+          git diff --cached --quiet || git commit -m "Publish CSS-only stable game plan actions"
+          git push
+      - name: Remove workflow
+        run: |
+          git pull --rebase
+          git rm .github/workflows/publish-game-plan-safe-actions-20260816.yml
+          git commit -m "Remove temporary safe actions workflow"
+          git push
