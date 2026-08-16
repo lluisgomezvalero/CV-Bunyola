@@ -23,7 +23,23 @@ function directionKeys(key){
   catch(_){return [];}
 }
 
-function syncOne(key,persist=true){
+function redrawCourt(key,attacker){
+  if(!attacker||typeof window.renderSingleAttackCourt!=='function')return;
+  const nameInput=document.getElementById(`attacker-name-${key}`);
+  const card=nameInput?.closest('.attack-scout-card');
+  const current=card?.querySelector('.attack-card-court');
+  if(!card||!current)return;
+  try{
+    const host=document.createElement('div');
+    host.innerHTML=window.renderSingleAttackCourt(key,attacker,KEYS.indexOf(key));
+    const fresh=host.firstElementChild;
+    if(fresh)current.replaceWith(fresh);
+  }catch(error){
+    console.warn('[GamePlanAttackLiveDraft] redraw court',error);
+  }
+}
+
+function syncOne(key,persist=true,redraw=false){
   if(!coachEditing()||!KEYS.includes(key))return false;
   const rec=currentRecord();
   const attacker=rec?.draftPlan?.attackers?.[key];
@@ -48,12 +64,14 @@ function syncOne(key,persist=true){
       if(persist&&typeof saveAppData==='function')saveAppData(appState);
     }
   }catch(error){console.warn('[GamePlanAttackLiveDraft] persist',error);}
+
+  if(redraw)requestAnimationFrame(()=>redrawCourt(key,attacker));
   return true;
 }
 
 function syncAll(){
   let changed=false;
-  KEYS.forEach(key=>{if(syncOne(key,false))changed=true;});
+  KEYS.forEach(key=>{if(syncOne(key,false,false))changed=true;});
   if(!changed)return;
   try{if(typeof saveAppData==='function'&&typeof appState!=='undefined')saveAppData(appState);}catch(error){console.warn('[GamePlanAttackLiveDraft] save',error);}
 }
@@ -70,6 +88,11 @@ function keyFromTarget(target){
   return m?m[1]:null;
 }
 
+function affectsCourt(target){
+  const id=String(target?.id||'');
+  return /^attacker-(z4a|z4b|z2|z3a|z3b)-/.test(id)||/^attacker-tip-zone-(z4a|z4b|z2|z3a|z3b)$/.test(id);
+}
+
 function bind(){
   const root=document.getElementById('scouting-interactive-root');
   if(!root||root.dataset.attackLiveDraftBound==='1')return false;
@@ -77,12 +100,12 @@ function bind(){
 
   root.addEventListener('change',event=>{
     const key=keyFromTarget(event.target);
-    if(key)syncOne(key,true);
+    if(key)syncOne(key,true,affectsCourt(event.target));
   });
 
   root.addEventListener('blur',event=>{
     const key=keyFromTarget(event.target);
-    if(key)syncOne(key,true);
+    if(key)syncOne(key,true,false);
   },true);
 
   // Guardar todas las tarjetas antes de que la capa de pestañas cambie la activa.
