@@ -1,0 +1,207 @@
+/* Player game-plan attack view — CSS only, no runtime hooks */
+#view-tactics.game-plan-player-canonical .attack-module-section,
+#view-tactics.game-plan-preview-canonical .attack-module-section{
+  overflow:hidden;
+}
+
+#view-tactics.game-plan-player-canonical .attack-module-section .scout-section-head,
+#view-tactics.game-plan-preview-canonical .attack-module-section .scout-section-head{
+  margin-bottom:.55rem!important;
+}
+
+#view-tactics.game-plan-player-canonical .attack-module-section .scout-section-head h3,
+#view-tactics.game-plan-preview-canonical .attack-module-section .scout-section-head h3{
+  font-size:1.05rem!important;
+  line-height:1.15!important;
+}
+
+#view-tactics.game-plan-player-canonical .attack-module-section .scout-section-head p,
+#view-tactics.game-plan-preview-canonical .attack-module-section .scout-section-head p{
+  margin-top:.18rem!important;
+  font-size:.73rem!important;
+  line-height:1.35!important;
+  color:#64748b!important;
+}
+
+#view-tactics.game-plan-player-canonical .attack-cards-grid,
+#view-tactics.game-plan-preview-canonical .attack-cards-grid{
+  gap:.78rem!important;
+}
+
+#view-tactics.game-plan-player-canonical .attack-scout-card,
+#view-tactics.game-plan-preview-canonical .attack-scout-card{
+  min-width:0!important;
+  overflow:hidden!important;
+  border:1px solid #dbe3ee!important;
+  border-radius:16px!important;
+  background:#fff!important;
+  box-shadow:0 7px 20px rgba(15,23,42,.07)!important;
+}
+
+#view-tactics.game-plan-player-canonical .attack-scout-card-head,
+#view-tactics.game-plan-preview-canonical .attack-scout-card-head{
+  margin:0!important;
+  padding:.72rem .78rem!important;
+  border:0!important;
+  border-radius:15px 15px 0 0!important;
+  background:#111827!important;
+  color:#fff!important;
+}
+
+#view-tactics.game-plan-player-canonical .attack-scout-card-head>div,
+#view-tactics.game-plan-preview-canonical .attack-scout-card-head>div{
+  min-width:0!important;
+  width:100%!important;
+}
+
+#view-tactics.game-plan-player-canonical .attack-scout-card-head .attack-role,
+#view-tactics.game-plan-preview-canonical .attack-scout-card-head .attack-role{
+  display:block!important;
+  margin-bottom:.18rem!important;
+  color:#fbbf24!important;
+  font-size:.65rem!important;
+  font-weight:900!important;
+  line-height:1.05!important;
+  letter-spacing:.055em!important;
+  text-transform:uppercase!important;
+}
+
+#view-tactics.game-plan-player-canonical .attack-scout-card-head h4,
+#view-tactics.game-plan-preview-canonical .attack-scout-card-head h4{
+  margin:0!important;
+  color:#fff!important;
+  font-size:.94rem!important;
+  font-weight:900!important;
+  line-height:1.15!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+
+#view-tactics.game-plan-player-canonical .attack-tendency-summary,
+#view-tactics.game-plan-preview-canonical .attack-tendency-summary{
+  margin:.68rem .68rem .58rem!important;
+  padding:.58rem .62rem!important;
+  border:1px solid #dbeafe!important;
+  border-radius:12px!important;
+  background:#f8fbff!important;
+  gap:.36rem!important;
+}
+
+#view-tactics.game-plan-player-canonical .attack-tendency-summary>strong,
+#view-tactics.game-plan-preview-canonical .attack-tendency-summary>strong{
+  font-size:.62rem!important;
+  color:#2563eb!important;
+  letter-spacing:.065em!important;
+}
+
+#view-tactics.game-plan-player-canonical .attack-tendency-summary>div,
+#view-tactics.game-plan-preview-canonical .attack-tendency-summary>div{
+  gap:.32rem!important;
+}
+
+#view-tactics.game-plan-player-canonical .attack-tendency-summary span,
+#view-tactics.game-plan-preview-canonical .attack-tendency-summary span{
+  min-height:25px!important;
+  padding:.26rem .46rem!important;
+  font-size:.67rem!important;
+}
+
+#view-tactics.game-plan-player-canonical .attack-card-court,
+#view-tactics.game-plan-preview-canonical .attack-card-court{
+  margin:.15rem .68rem .72rem!important;
+  width:auto!important;
+  max-width:none!important;
+  border-radius:13px!important;
+  overflow:hidden!important;
+}
+
+#view-tactics.game-plan-player-canonical .attack-contact span,
+#view-tactics.game-plan-preview-canonical .attack-contact span{
+  min-width:28px!important;
+  height:28px!important;
+  padding:0 .28rem!important;
+  display:grid!important;
+  place-items:center!important;
+  border-radius:999px!important;
+  font-size:.62rem!important;
+  font-weight:950!important;
+  box-shadow:0 2px 7px rgba(15,23,42,.18)!important;
+}
+
+/* The tendency chips already contain the same information; avoid duplicate copy below the court. */
+#view-tactics.game-plan-player-canonical .player-attack-legend,
+#view-tactics.game-plan-preview-canonical .player-attack-legend{
+  display:none!important;
+}
+
+#view-tactics.game-plan-player-canonical .game-plan-swipe-hint,
+#view-tactics.game-plan-preview-canonical .game-plan-swipe-hint{
+  color:#64748b!important;
+  font-size:.66rem!important;
+}
+
+@media(min-width:721px){
+  #view-tactics.game-plan-player-canonical .attack-cards-grid,
+  #view-tactics.game-plan-preview-canonical .attack-cards-grid{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    overflow:visible!important;
+  }
+  #view-tactics.game-plan-player-canonical .attack-cards-grid.one-card,
+  #view-tactics.game-plan-preview-canonical .attack-cards-grid.one-card{
+    grid-template-columns:minmax(0,560px)!important;
+    justify-content:center!important;
+  }
+}
+
+@media(max-width:720px){
+  #view-tactics.game-plan-player-canonical .attack-module-section,
+  #view-tactics.game-plan-preview-canonical .attack-module-section{
+    margin-left:-.02rem!important;
+    margin-right:-.02rem!important;
+  }
+
+  #view-tactics.game-plan-player-canonical .attack-cards-grid,
+  #view-tactics.game-plan-preview-canonical .attack-cards-grid{
+    display:flex!important;
+    grid-template-columns:none!important;
+    width:100%!important;
+    max-width:100%!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    scroll-snap-type:x mandatory!important;
+    scroll-padding-left:.04rem!important;
+    overscroll-behavior-inline:contain!important;
+    -webkit-overflow-scrolling:touch!important;
+    padding:.05rem .02rem .45rem!important;
+    scrollbar-width:none!important;
+  }
+
+  #view-tactics.game-plan-player-canonical .attack-cards-grid::-webkit-scrollbar,
+  #view-tactics.game-plan-preview-canonical .attack-cards-grid::-webkit-scrollbar{
+    display:none!important;
+  }
+
+  #view-tactics.game-plan-player-canonical .attack-scout-card,
+  #view-tactics.game-plan-preview-canonical .attack-scout-card{
+    flex:0 0 min(86vw,390px)!important;
+    width:min(86vw,390px)!important;
+    max-width:min(86vw,390px)!important;
+    scroll-snap-align:start!important;
+    scroll-snap-stop:always!important;
+  }
+
+  #view-tactics.game-plan-player-canonical .attack-cards-grid.one-card .attack-scout-card,
+  #view-tactics.game-plan-preview-canonical .attack-cards-grid.one-card .attack-scout-card{
+    flex-basis:100%!important;
+    width:100%!important;
+    max-width:100%!important;
+  }
+
+  #view-tactics.game-plan-player-canonical .game-plan-swipe-hint,
+  #view-tactics.game-plan-preview-canonical .game-plan-swipe-hint{
+    display:flex!important;
+    margin:-.1rem 0 .45rem!important;
+  }
+}
