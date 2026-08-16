@@ -1,0 +1,71 @@
+name: Consolidate game plan editor visuals
+on:
+  push:
+    paths:
+      - '.github/workflows/consolidate-game-plan-editor-visuals-20260816.yml'
+permissions:
+  contents: write
+jobs:
+  consolidate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Switch to consolidated editor visuals
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          cfg=Path('supabase-config.js')
+          text=cfg.read_text()
+          text=re.sub(r"window\.VOLLEY_ASSET_VERSION = '[^']+';", "window.VOLLEY_ASSET_VERSION = '20260816s';", text, count=1)
+          old=[
+            r"\s*'game-plan-direction-input-fix-20260814\.js\?v=[^']+',\n",
+            r"\s*'game-plan-card-polish-20260814\.js\?v=[^']+',\n",
+            r"\s*'game-plan-final-label-fix-20260814\.js\?v=[^']+',\n",
+            r"\s*'game-plan-court-line-fix-20260814\.js\?v=[^']+',\n",
+            r"\s*'game-plan-mobile-width-fix-20260814\.js\?v=[^']+',\n",
+          ]
+          marker=re.search(old[0], text)
+          if not marker:
+              raise SystemExit('direction-input loader entry not found')
+          start,end=marker.span()
+          text=text[:start]+"\n  'game-plan-editor-visuals-20260816.js?v=20260816s',\n"+text[end:]
+          for pattern in old[1:]:
+              text,n=re.subn(pattern,'\n',text,count=1)
+              if n!=1:
+                  raise SystemExit(f'loader entry not found: {pattern}')
+          cfg.write_text(text)
+
+          idx=Path('index.html')
+          html=idx.read_text()
+          html,n=re.subn(r'supabase-config\.js\?v=[0-9A-Za-z]+','supabase-config.js?v=20260816s',html,count=1)
+          if n!=1:
+              raise SystemExit('index supabase-config reference not found')
+          idx.write_text(html)
+          PY
+      - name: Validate consolidated module
+        run: |
+          node --check game-plan-editor-visuals-20260816.js
+          node --check game-plan-attack-live-draft-20260816.js
+          grep -q "game-plan-editor-visuals-20260816.js?v=20260816s" supabase-config.js
+          ! grep -q "game-plan-direction-input-fix-20260814.js" supabase-config.js
+          ! grep -q "game-plan-card-polish-20260814.js" supabase-config.js
+          ! grep -q "game-plan-final-label-fix-20260814.js" supabase-config.js
+          ! grep -q "game-plan-court-line-fix-20260814.js" supabase-config.js
+          ! grep -q "game-plan-mobile-width-fix-20260814.js" supabase-config.js
+          grep -q "game-plan-coach-attack-tabs-20260816.js?v=20260816q" supabase-config.js
+          grep -q "game-plan-attack-live-draft-20260816.js?v=20260816r" supabase-config.js
+          grep -q "supabase-config.js?v=20260816s" index.html
+      - name: Commit consolidation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase-config.js index.html
+          git commit -m "Consolidate game plan editor visual layers"
+          git push
+      - name: Remove workflow
+        run: |
+          git pull --rebase
+          git rm .github/workflows/consolidate-game-plan-editor-visuals-20260816.yml
+          git commit -m "Remove temporary editor visuals consolidation workflow"
+          git push
