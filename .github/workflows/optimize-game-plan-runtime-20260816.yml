@@ -1,0 +1,79 @@
+name: Optimize game plan runtime
+on:
+  push:
+    paths:
+      - '.github/workflows/optimize-game-plan-runtime-20260816.yml'
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reduce fallback polling and format loader
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          auth = Path('game-plan-authoritative-20260809.js')
+          js = auth.read_text()
+          old_tick = "async function tick(){\n  if(ticking)return;"
+          new_tick = "async function tick(){\n  if(ticking||document.hidden)return;"
+          if old_tick not in js:
+              raise SystemExit('tick guard not found')
+          js = js.replace(old_tick, new_tick, 1)
+          old_interval = "setInterval(()=>{wrapPublish();void tick();},2000);"
+          new_interval = "setInterval(()=>{wrapPublish();void tick();},15000);"
+          if old_interval not in js:
+              raise SystemExit('2s polling interval not found')
+          js = js.replace(old_interval, new_interval, 1)
+          auth.write_text(js)
+
+          cfg = Path('supabase-config.js')
+          text = cfg.read_text()
+          text = text.replace(
+              'game-plan-authoritative-20260809.js?v=20260816i',
+              'game-plan-authoritative-20260809.js?v=20260816n',
+              1,
+          )
+          text = re.sub(r"window\.VOLLEY_ASSET_VERSION = '[^']+';", "window.VOLLEY_ASSET_VERSION = '20260816n';", text, count=1)
+
+          match = re.search(r"const scripts=\[(.*?)\];scripts\.forEach", text, flags=re.S)
+          if not match:
+              raise SystemExit('runtime scripts array not found')
+          entries = re.findall(r"'([^']+)'", match.group(1))
+          if len(entries) < 20:
+              raise SystemExit('unexpectedly short runtime loader')
+          formatted = "const scripts=[\n" + "\n".join(f"  '{entry}'," for entry in entries) + "\n];scripts.forEach"
+          text = text[:match.start()] + formatted + text[match.end():]
+          cfg.write_text(text)
+
+          idx = Path('index.html')
+          html = idx.read_text()
+          for name in ['supabase-config.js','supabase-client.js','data.js','app.js']:
+              html = re.sub(re.escape(name) + r'\?v=[^"\']+', name + '?v=20260816n', html)
+          idx.write_text(html)
+          PY
+      - name: Validate optimized runtime
+        run: |
+          node --check game-plan-authoritative-20260809.js
+          node --check supabase-config.js
+          grep -q "VOLLEY_ASSET_VERSION = '20260816n'" supabase-config.js
+          grep -q "game-plan-authoritative-20260809.js?v=20260816n" supabase-config.js
+          grep -q "},15000);" game-plan-authoritative-20260809.js
+          grep -q "if(ticking||document.hidden)return;" game-plan-authoritative-20260809.js
+          ! grep -q "},2000);" game-plan-authoritative-20260809.js
+      - name: Commit optimization
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add game-plan-authoritative-20260809.js supabase-config.js index.html
+          git diff --cached --quiet || git commit -m "Reduce game plan polling and format runtime loader"
+          git push
+      - name: Remove workflow
+        run: |
+          git pull --rebase
+          git rm .github/workflows/optimize-game-plan-runtime-20260816.yml
+          git commit -m "Remove temporary game plan runtime optimization workflow"
+          git push
