@@ -13,7 +13,6 @@ function playerLike(){return !coach()||preview();}
 function plan(){try{return typeof getActiveScoutingPlan==='function'?getActiveScoutingPlan():null;}catch(_){return null;}}
 function state(value){const n=Math.max(0,Number(value)||0);if(n>=75)return 'primary';if(n>0)return 'frequent';return 'none';}
 function label(s){return s==='primary'?'Principal':s==='frequent'?'Frecuente':'';}
-function hasData(p){return ZONES.some(z=>state(p?.servePct?.[`z${z}`])!=='none');}
 function section(){
   const root=document.getElementById('scouting-interactive-root');
   const legacy=root?.querySelector('.serve-heat-volleyball-wrap');
@@ -43,11 +42,6 @@ function decorate(){
   if(!p||!sec)return;
   const legacy=sec.querySelector('.serve-heat-volleyball-wrap');
   let board=sec.querySelector('.player-rival-serve-board');
-  if(!hasData(p)){
-    board?.remove();
-    if(legacy)legacy.style.display='';
-    return;
-  }
   const heading=sec.querySelector('.scout-section-head h3');
   const desc=sec.querySelector('.scout-section-head p');
   if(heading)heading.textContent='Saque rival';
