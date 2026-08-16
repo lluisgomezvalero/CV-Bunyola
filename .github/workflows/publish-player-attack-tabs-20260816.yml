@@ -1,0 +1,47 @@
+name: Publish player attack tabs recovery
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-player-attack-tabs-20260816.yml'
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate renderer
+        run: |
+          node --check game-plan-player-attack-authoritative-20260816.js
+          grep -q "playerAttackRenderer='20260816j'" game-plan-player-attack-authoritative-20260816.js
+      - name: Refresh cache version
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('supabase-config.js')
+          s=p.read_text()
+          s=re.sub(r"game-plan-player-attack-authoritative-20260816\.js\?v=[^']+","game-plan-player-attack-authoritative-20260816.js?v=20260816j",s,count=1)
+          s=re.sub(r"window\.VOLLEY_ASSET_VERSION = '[^']+';","window.VOLLEY_ASSET_VERSION = '20260816j';",s,count=1)
+          p.write_text(s)
+          p=Path('index.html')
+          s=p.read_text()
+          for name in ['supabase-config.js','supabase-client.js','data.js','app.js']:
+              s=re.sub(rf'{re.escape(name)}\?v=[^\"\']+',f'{name}?v=20260816j',s)
+          p.write_text(s)
+          PY
+          node --check supabase-config.js
+          grep -q "game-plan-player-attack-authoritative-20260816.js?v=20260816j" supabase-config.js
+      - name: Commit publish
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase-config.js index.html
+          git diff --cached --quiet || git commit -m "Publish player attack tabs recovery 20260816j"
+          git push
+      - name: Remove workflow
+        run: |
+          git pull --rebase
+          git rm .github/workflows/publish-player-attack-tabs-20260816.yml
+          git commit -m "Remove temporary player attack tabs workflow"
+          git push
