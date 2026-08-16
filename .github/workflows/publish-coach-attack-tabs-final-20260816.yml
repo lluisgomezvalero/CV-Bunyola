@@ -13,7 +13,9 @@ jobs:
       - name: Load final coach tabs and refresh cache
         run: |
           python -c "from pathlib import Path; import re; p=Path('supabase-config.js'); s=p.read_text(); s=re.sub(r\"window\\.VOLLEY_ASSET_VERSION = '[^']+';\",\"window.VOLLEY_ASSET_VERSION = '20260816k';\",s,count=1); marker=\"'game-plan-safe-save-20260816.js?v=20260816h'\"; add=marker+\",'game-plan-coach-attack-tabs-final-20260816.js?v=20260816k'\"; s=s.replace(marker,add,1) if 'game-plan-coach-attack-tabs-final-20260816.js' not in s else s; p.write_text(s)"
-          python -c "from pathlib import Path; import re; p=Path('index.html'); s=p.read_text(); [None for name in ['supabase-config.js','supabase-client.js','data.js','app.js'] if not (s:=re.sub(re.escape(name)+r'\\?v=[^\\\"\\\']+',name+'?v=20260816k',s))]; p.write_text(s)"
+          for name in supabase-config.js supabase-client.js data.js app.js; do
+            sed -E -i "s#${name}\\?v=[^\"']+#${name}?v=20260816k#g" index.html
+          done
       - name: Validate JavaScript and load order
         run: |
           node --check game-plan-coach-attack-tabs-final-20260816.js
