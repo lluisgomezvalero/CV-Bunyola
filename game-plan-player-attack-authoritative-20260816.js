@@ -37,7 +37,7 @@ function plan(){
   if(!coach())return rec.status==='published'?(rec.publishedPlan||null):null;
   return null;
 }
-function esc(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[ch]));}
+function esc(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
 function configured(p,key){
   const a=p?.attackers?.[key];
   return Boolean(a?.visibleToPlayers)&&Array.isArray(a?.directions)&&a.directions.length>0;
@@ -97,7 +97,7 @@ function build(sec,p,courts){
   sec.classList.remove('game-plan-player-section-hidden');
   sec.dataset.playerRelevance='visible';
   sec.classList.add('player-attack-authoritative');
-  sec.dataset.playerAttackRenderer='20260816g';
+  sec.dataset.playerAttackRenderer='20260816j';
 
   const heading=sec.querySelector('.scout-section-head h3');
   const desc=sec.querySelector('.scout-section-head p');
@@ -144,8 +144,11 @@ function apply(){
   if(!sec||!playerLike())return;
   const p=plan();
   if(!p||!configuredKeys(p).length)return;
+
+  // Si la capa moderna ya es la única visible, no tocar el DOM.
+  if(sec.querySelector('.player-attack-modern')&&!sec.querySelector('.attack-cards-grid'))return;
+
   const courts=captureCourts(sec,p);
-  if(sec.dataset.playerAttackRenderer==='20260816g'&&sec.querySelector('.player-attack-modern')&&!sec.querySelector('.attack-cards-grid'))return;
   build(sec,p,courts);
 }
 function schedule(){requestAnimationFrame(()=>requestAnimationFrame(apply));setTimeout(apply,90);setTimeout(apply,260);}
@@ -210,6 +213,21 @@ function install(){
       schedule();
     }else if(tries>160)clearInterval(timer);
   },100);
+
+  // Comprobación de recuperación muy ligera: no renderiza la app ni toca Supabase.
+  // Solo reconstruye las pestañas si otra ruta dejó visible la rejilla antigua.
+  setInterval(()=>{
+    try{
+      const sec=section();
+      if(!sec||!playerLike())return;
+      if(sec.querySelector('.player-attack-modern')&&!sec.querySelector('.attack-cards-grid'))return;
+      apply();
+    }catch(error){console.warn('[PlayerAttackAuthoritative] recovery',error);}
+  },1100);
+
+  window.addEventListener('pageshow',schedule);
+  window.addEventListener('focus',schedule);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)schedule();});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
 else install();
