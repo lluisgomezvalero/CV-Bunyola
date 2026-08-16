@@ -1,0 +1,106 @@
+/*
+ * Plan de juego — acciones estables, CSS only.
+ * No crea botones, no observa el DOM y no envuelve funciones.
+ * Mantiene las acciones nativas del render y neutraliza el botón Guardar proxy
+ * que la antigua capa compacta puede insertar tras el primer paint.
+ */
+
+/* Nunca mostrar el Guardar clonado por game-plan-coach-top-compact. */
+html body #view-tactics #scouting-interactive-root .scouting-publish-actions .coach-compact-save{
+  display:none!important;
+}
+
+/* Recuperar el Guardar original de la app en edición. */
+html body #view-tactics.coach-top-compact #scouting-plan-content > .scouting-save-row,
+html body #view-tactics.game-plan-coach #scouting-plan-content > .scouting-save-row{
+  display:flex!important;
+  justify-content:flex-end!important;
+  margin-top:.75rem!important;
+}
+html body #view-tactics #scouting-plan-content > .scouting-save-row #save-scouting-plan{
+  min-height:42px!important;
+  border-radius:11px!important;
+  padding:.58rem .85rem!important;
+  font-size:.76rem!important;
+}
+/* En vista previa el render base oculta Guardar; no reservar espacio para su fila. */
+html body #view-tactics.game-plan-preview-canonical #scouting-plan-content > .scouting-save-row{
+  display:none!important;
+}
+
+@media(max-width:720px){
+  /* La barra es compacta desde el PRIMER paint, sin esperar decoradores JS. */
+  html body #view-tactics #scouting-interactive-root .scouting-publish-bar{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:.5rem!important;
+    width:100%!important;
+    max-width:none!important;
+    padding:.58rem!important;
+    border-radius:14px!important;
+    box-sizing:border-box!important;
+  }
+  html body #view-tactics #scouting-interactive-root .scouting-publish-actions,
+  html body #view-tactics #scouting-interactive-root .scouting-publish-actions.coach-compact-actions{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:.42rem!important;
+    width:100%!important;
+    min-width:0!important;
+  }
+  html body #view-tactics #scouting-interactive-root .scouting-publish-actions > button{
+    width:100%!important;
+    min-width:0!important;
+    min-height:44px!important;
+    margin:0!important;
+    padding:.42rem .38rem!important;
+    border-radius:10px!important;
+    justify-content:center!important;
+    gap:.32rem!important;
+    font-size:.69rem!important;
+    line-height:1.08!important;
+    white-space:normal!important;
+    text-align:center!important;
+    box-shadow:none!important;
+    box-sizing:border-box!important;
+  }
+  html body #view-tactics #scouting-interactive-root .scouting-publish-actions > button svg{
+    width:17px!important;
+    height:17px!important;
+    flex:0 0 auto!important;
+  }
+
+  /* Orden fijo usando las clases NATIVAS del render, no clases añadidas después. */
+  html body #view-tactics #scouting-interactive-root .scouting-publish-actions > .btn-primary{
+    order:1!important;
+    grid-column:1/-1!important;
+    background:linear-gradient(135deg,#fbbf24,#ea8a00)!important;
+    color:#111827!important;
+    border-color:#f59e0b!important;
+  }
+  html body #view-tactics #scouting-interactive-root .scouting-publish-actions > .btn-outline:not(.danger-soft):not(.coach-compact-save){
+    order:2!important;
+  }
+  html body #view-tactics #scouting-interactive-root .scouting-publish-actions > .danger-soft{
+    order:3!important;
+    background:#fffafa!important;
+    color:#b91c1c!important;
+    border-color:#fecaca!important;
+    opacity:1!important;
+  }
+  /* Vista previa: el único botón ocupa toda la fila. */
+  html body #view-tactics #scouting-interactive-root .scouting-publish-actions > button:only-child{
+    order:1!important;
+    grid-column:1/-1!important;
+  }
+
+  html body #view-tactics.coach-top-compact #scouting-plan-content > .scouting-save-row,
+  html body #view-tactics.game-plan-coach #scouting-plan-content > .scouting-save-row{
+    justify-content:stretch!important;
+    margin-top:.6rem!important;
+  }
+  html body #view-tactics #scouting-plan-content > .scouting-save-row #save-scouting-plan{
+    width:100%!important;
+    min-height:44px!important;
+  }
+}
