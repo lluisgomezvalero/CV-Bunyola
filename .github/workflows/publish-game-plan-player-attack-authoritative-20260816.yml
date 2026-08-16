@@ -1,0 +1,46 @@
+name: Publish authoritative player attack view
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-game-plan-player-attack-authoritative-20260816.yml'
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refresh player attack renderer and cache
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('supabase-config.js')
+          s=p.read_text()
+          s=s.replace("window.VOLLEY_ASSET_VERSION = '20260816e';", "window.VOLLEY_ASSET_VERSION = '20260816f';")
+          s=s.replace("game-plan-player-attack-tabs-20260816.js?v=20260816d", "game-plan-player-attack-tabs-20260816.js?v=20260816f")
+          p.write_text(s)
+
+          p=Path('index.html')
+          s=p.read_text()
+          s=s.replace('20260816e','20260816f')
+          p.write_text(s)
+          PY
+      - name: Validate JavaScript
+        run: |
+          node --check game-plan-player-attack-tabs-20260816.js
+          node --check supabase-config.js
+          grep -q "VOLLEY_ASSET_VERSION = '20260816f'" supabase-config.js
+          grep -q "game-plan-player-attack-tabs-20260816.js?v=20260816f" supabase-config.js
+      - name: Commit publish
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase-config.js index.html game-plan-player-attack-tabs-20260816.js
+          git diff --cached --quiet || git commit -m "Publish authoritative player attack view"
+          git push
+      - name: Remove workflow
+        run: |
+          git pull --rebase
+          git rm .github/workflows/publish-game-plan-player-attack-authoritative-20260816.yml
+          git commit -m "Remove temporary player attack publish workflow"
+          git push
