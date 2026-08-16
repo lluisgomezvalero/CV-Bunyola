@@ -3,7 +3,7 @@
  * La publishable key es segura en el navegador SIEMPRE que las tablas tengan RLS.
  * Nunca pongas aquí la service_role ni una secret key.
  */
-window.VOLLEY_ASSET_VERSION = '20260816r';
+window.VOLLEY_ASSET_VERSION = '20260816s';
 window.VOLLEY_SUPABASE_CONFIG = Object.freeze({
   url: 'https://zpvlkdjdfnvamfcjihyt.supabase.co',
   publishableKey: 'sb_publishable_seL2H6gAGBrUDR0O1vhJDA_Y9d7Ky-u',
@@ -68,13 +68,9 @@ html:not(.attendance-ready) .btn-rsvp-no{visibility:hidden!important;pointer-eve
   'match-callup-20260813.js?v=20260813s',
   'match-callup-player-view-20260813.js?v=20260813q',
   'match-callup-card-status-20260814.js?v=20260814b',
-  'game-plan-direction-input-fix-20260814.js?v=20260814g',
-  'game-plan-card-polish-20260814.js?v=20260814h',
-  'game-plan-final-label-fix-20260814.js?v=20260814i',
-  'game-plan-court-line-fix-20260814.js?v=20260814j',
+  'game-plan-editor-visuals-20260816.js?v=20260816s',
   'game-plan-coach-board-20260814.js?v=20260814k',
   'game-plan-coach-top-compact-20260814.js?v=20260814l',
-  'game-plan-mobile-width-fix-20260814.js?v=20260814m',
   'game-plan-opponent-hero-fix-20260814.js?v=20260814n',
   'match-opponent-persistence-20260814.js?v=20260814p',
   'match-opponent-legacy-repair-20260814.js?v=20260814p',
