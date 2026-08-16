@@ -13,12 +13,13 @@ const META={
   z3a:{short:'C1',role:'Central 1'},
   z3b:{short:'C2',role:'Central 2'}
 };
+const DIR={line:'Línea',long:'Diagonal larga',medium:'Diagonal media',short:'Diagonal corta',tip:'Finta',attack5:'Ataque a Z5',attack1:'Ataque a Z1'};
 const activeByMatch=new Map();
+const courtCacheByMatch=new Map();
 
 function coach(){try{return typeof isCoachUser==='function'&&isCoachUser();}catch(_){return false;}}
 function preview(){try{return typeof scoutingPreviewMode!=='undefined'&&Boolean(scoutingPreviewMode);}catch(_){return false;}}
 function playerLike(){return !coach()||preview();}
-function mobile(){return window.matchMedia('(max-width:720px)').matches;}
 function matchKey(){
   try{return String((typeof activeScoutingMatchId!=='undefined'&&activeScoutingMatchId)||document.getElementById('scouting-match-select')?.value||'default');}
   catch(_){return 'default';}
@@ -31,112 +32,131 @@ function plan(){
   if(!coach())return rec.status==='published'?(rec.publishedPlan||null):null;
   return null;
 }
-function visibleKeys(p){
-  return ORDER.filter(key=>{
-    const a=p?.attackers?.[key];
-    return Boolean(a?.visibleToPlayers)&&Array.isArray(a?.directions)&&a.directions.length>0;
-  });
+function esc(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+function configured(p,key){
+  const a=p?.attackers?.[key];
+  return Boolean(a?.visibleToPlayers)&&Array.isArray(a?.directions)&&a.directions.length>0;
 }
+function visibleKeys(p){return ORDER.filter(key=>configured(p,key));}
 function section(){return document.querySelector('#scouting-interactive-root .attack-module-section');}
-function clearPlayerState(sec){
-  if(!sec)return;
-  sec.classList.remove('player-attack-tabbed-mobile');
+function directionLabel(dir,a){return dir==='tip'?`Finta · Z${Number(a?.tipZone||8)}`:(DIR[dir]||String(dir||''));}
+
+function captureCourts(sec,p){
+  const keys=visibleKeys(p);
+  const cards=[...sec.querySelectorAll('.attack-cards-grid .attack-scout-card')];
+  if(!keys.length||!cards.length)return courtCacheByMatch.get(matchKey())||new Map();
+  const map=new Map(courtCacheByMatch.get(matchKey())||[]);
+  cards.slice(0,keys.length).forEach((card,index)=>{
+    const court=card.querySelector('.attack-card-court')||card.querySelector('.attack-court')||card.querySelector('[class*="attack-court"]');
+    if(court)map.set(keys[index],court.outerHTML);
+  });
+  courtCacheByMatch.set(matchKey(),map);
+  return map;
+}
+
+function renderPanel(host,p,key,courts){
+  const a=p?.attackers?.[key]||{};
+  const meta=META[key];
+  const has=configured(p,key);
+  const name=String(a.name||'').trim();
+  const title=name||meta.role;
+  const dirs=Array.isArray(a.directions)?a.directions:[];
+  const chips=dirs.map(d=>`<span>${esc(directionLabel(d,a))}</span>`).join('');
+  const court=courts.get(key)||'';
+
+  host.innerHTML=`
+    <article class="player-attack-modern-card ${has?'is-configured':'is-empty'}">
+      <header class="player-attack-modern-head">
+        <div><small>${esc(meta.short)}</small><strong>${esc(title)}</strong></div>
+        <span class="player-attack-modern-state">${has?'Publicado':'Sin datos'}</span>
+      </header>
+      ${has?`
+        <div class="player-attack-modern-tendencies">
+          <small>Tendencia de ataque</small>
+          <div>${chips}</div>
+        </div>
+        <div class="player-attack-modern-court">${court||'<div class="player-attack-court-pending">Pista no disponible. Vuelve a abrir el plan.</div>'}</div>
+      `:`
+        <div class="player-attack-modern-empty">
+          <i data-lucide="eye-off"></i>
+          <div><strong>Sin tendencia publicada</strong><span>El entrenador todavía no ha publicado indicaciones para ${esc(meta.short)}.</span></div>
+        </div>
+      `}
+    </article>`;
+  try{window.lucide?.createIcons?.();}catch(_){}
+}
+
+function build(sec,p,courts){
+  const configuredKeys=visibleKeys(p);
+  if(!configuredKeys.length)return;
+
+  sec.hidden=false;
+  sec.classList.remove('game-plan-player-section-hidden');
+  sec.dataset.playerRelevance='visible';
+  sec.classList.add('player-attack-authoritative');
+
+  const heading=sec.querySelector('.scout-section-head h3');
+  const desc=sec.querySelector('.scout-section-head p');
+  if(heading)heading.textContent='Preferencias de ataque rival';
+  if(desc)desc.textContent='Cambia de atacante para consultar las tendencias publicadas.';
+
+  sec.querySelector('.game-plan-swipe-hint')?.remove();
   sec.querySelector('.player-attack-tabs')?.remove();
-  sec.querySelectorAll('.attack-scout-card').forEach(card=>{
-    card.removeAttribute('data-player-attack-key');
-    card.removeAttribute('data-player-attack-active');
-  });
-}
-function setActive(sec,cards,keys,requested){
-  const active=keys.includes(requested)?requested:keys[0];
-  if(!active)return;
-  activeByMatch.set(matchKey(),active);
-  sec.querySelectorAll('[data-player-attack-tab]').forEach(btn=>{
-    const selected=btn.dataset.playerAttackTab===active;
-    btn.classList.toggle('is-active',selected);
-    btn.setAttribute('aria-selected',selected?'true':'false');
-    btn.tabIndex=selected?0:-1;
-  });
-  cards.forEach((card,index)=>{
-    const key=keys[index];
-    card.dataset.playerAttackKey=key||'';
-    card.dataset.playerAttackActive=key===active?'1':'0';
-  });
-}
-function ensureTabs(sec,cards,keys){
-  let tabs=sec.querySelector('.player-attack-tabs');
-  if(!tabs){
-    tabs=document.createElement('div');
-    tabs.className='player-attack-tabs';
-    tabs.setAttribute('role','tablist');
-    tabs.setAttribute('aria-label','Atacantes rivales');
-    const head=sec.querySelector('.scout-section-head');
-    if(head)head.insertAdjacentElement('afterend',tabs);
-    else sec.prepend(tabs);
-  }
-  const signature=keys.join('|');
-  if(tabs.dataset.signature!==signature){
-    tabs.innerHTML=keys.map(key=>`<button type="button" role="tab" data-player-attack-tab="${key}" aria-label="${META[key].role}">${META[key].short}</button>`).join('');
-    tabs.dataset.signature=signature;
-  }
-  if(tabs.dataset.bound!=='1'){
-    tabs.dataset.bound='1';
-    tabs.addEventListener('click',event=>{
-      const btn=event.target.closest('[data-player-attack-tab]');
-      if(!btn)return;
-      setActive(sec,cards,keys,btn.dataset.playerAttackTab);
+  sec.querySelector('.attack-cards-grid')?.remove();
+  sec.querySelector('.player-plan-empty')?.remove();
+  sec.querySelector('.player-attack-modern')?.remove();
+
+  const shell=document.createElement('div');
+  shell.className='player-attack-modern';
+  shell.innerHTML=`
+    <div class="player-attack-modern-tabs" role="tablist" aria-label="Atacantes rivales">
+      ${ORDER.map(key=>`<button type="button" role="tab" data-player-attack-modern-tab="${key}" class="${configured(p,key)?'has-data':'is-empty'}">${META[key].short}${configured(p,key)?'<b>✓</b>':''}</button>`).join('')}
+    </div>
+    <div class="player-attack-modern-panel"></div>`;
+  sec.appendChild(shell);
+
+  const panel=shell.querySelector('.player-attack-modern-panel');
+  let active=activeByMatch.get(matchKey());
+  if(!ORDER.includes(active))active=configuredKeys[0]||ORDER[0];
+
+  const activate=key=>{
+    activeByMatch.set(matchKey(),key);
+    shell.querySelectorAll('[data-player-attack-modern-tab]').forEach(btn=>{
+      const selected=btn.dataset.playerAttackModernTab===key;
+      btn.classList.toggle('is-active',selected);
+      btn.setAttribute('aria-selected',selected?'true':'false');
+      btn.tabIndex=selected?0:-1;
     });
-  }
-  return tabs;
+    renderPanel(panel,p,key,courts);
+  };
+
+  shell.querySelector('.player-attack-modern-tabs').addEventListener('click',event=>{
+    const btn=event.target.closest('[data-player-attack-modern-tab]');
+    if(btn)activate(btn.dataset.playerAttackModernTab);
+  });
+  activate(active);
 }
+
 function apply(){
   const sec=section();
-  if(!sec)return;
-  if(!playerLike()){
-    clearPlayerState(sec);
-    return;
-  }
+  if(!sec||!playerLike())return;
   const p=plan();
   if(!p)return;
   const keys=visibleKeys(p);
-  const cards=[...sec.querySelectorAll('.attack-scout-card')].slice(0,keys.length);
-  if(!keys.length||!cards.length){
-    clearPlayerState(sec);
-    return;
-  }
-
-  cards.forEach((card,index)=>{
-    const key=keys[index];
-    card.dataset.playerAttackKey=key;
-    const role=card.querySelector('.attack-role');
-    if(role&&META[key])role.textContent=META[key].role;
-  });
-
-  const tabs=ensureTabs(sec,cards,keys);
-  const enabled=mobile()&&keys.length>1;
-  tabs.hidden=!enabled;
-  sec.classList.toggle('player-attack-tabbed-mobile',enabled);
-
-  if(!enabled){
-    cards.forEach(card=>card.removeAttribute('data-player-attack-active'));
-    return;
-  }
-  const saved=activeByMatch.get(matchKey());
-  setActive(sec,cards,keys,saved||keys[0]);
+  if(!keys.length)return;
+  const courts=captureCourts(sec,p);
+  if(sec.querySelector('.player-attack-modern')&&!sec.querySelector('.attack-cards-grid'))return;
+  build(sec,p,courts);
 }
 function schedule(){
   requestAnimationFrame(()=>requestAnimationFrame(apply));
-  setTimeout(apply,130);
+  setTimeout(apply,140);
 }
 function wrapRender(){
   const base=window.renderTactics;
   if(typeof base!=='function')return false;
   if(base.__playerAttackTabs20260816)return true;
-  const wrapped=function(){
-    const out=base.apply(this,arguments);
-    schedule();
-    return out;
-  };
+  const wrapped=function(){const out=base.apply(this,arguments);schedule();return out;};
   wrapped.__playerAttackTabs20260816=true;
   window.renderTactics=wrapped;
   try{renderTactics=wrapped;}catch(_){}
@@ -147,74 +167,37 @@ function injectStyles(){
   const style=document.createElement('style');
   style.id='game-plan-player-attack-tabs-20260816-css';
   style.textContent=`
-.player-attack-tabs{display:none}
+#view-tactics .player-attack-authoritative .player-attack-modern{display:grid;gap:.7rem;width:100%;min-width:0}
+#view-tactics .player-attack-modern-tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.32rem;width:100%;padding:.3rem;border:1px solid #dbe2ea;border-radius:13px;background:#eef2f6;box-sizing:border-box}
+#view-tactics .player-attack-modern-tabs button{position:relative;display:flex;align-items:center;justify-content:center;gap:.2rem;min-width:0;min-height:42px;padding:.42rem .2rem;border:1px solid transparent;border-radius:9px;background:transparent;color:#94a3b8;font-size:.72rem;font-weight:900;box-shadow:none}
+#view-tactics .player-attack-modern-tabs button.has-data{color:#334155}
+#view-tactics .player-attack-modern-tabs button b{display:grid;place-items:center;width:14px;height:14px;border-radius:50%;background:#dcfce7;color:#15803d;font-size:.56rem}
+#view-tactics .player-attack-modern-tabs button.is-active{border-color:#cbd5e1;background:#fff;color:#0f172a;box-shadow:0 2px 7px rgba(15,23,42,.08)}
+#view-tactics .player-attack-modern-tabs button.is-active:after{content:'';position:absolute;left:27%;right:27%;bottom:3px;height:2px;border-radius:99px;background:#d97706}
+#view-tactics .player-attack-modern-card{overflow:hidden;border:1px solid #dbe3ee;border-radius:16px;background:#fff;box-shadow:0 6px 18px rgba(15,23,42,.06)}
+#view-tactics .player-attack-modern-head{display:flex;align-items:center;justify-content:space-between;gap:.7rem;padding:.78rem .85rem;background:#0f172a;color:#fff}
+#view-tactics .player-attack-modern-head>div{display:grid;gap:.08rem;min-width:0}
+#view-tactics .player-attack-modern-head small{color:#fbbf24;font-size:.62rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+#view-tactics .player-attack-modern-head strong{overflow:hidden;color:#fff;font-size:1rem;font-weight:900;line-height:1.15;text-overflow:ellipsis;white-space:nowrap}
+#view-tactics .player-attack-modern-state{flex:0 0 auto;padding:.28rem .45rem;border-radius:999px;background:rgba(255,255,255,.12);font-size:.6rem;font-weight:850;color:#e2e8f0}
+#view-tactics .player-attack-modern-tendencies{display:grid;gap:.4rem;margin:.7rem .72rem 0;padding:.6rem .65rem;border:1px solid #dbeafe;border-radius:12px;background:#f8fbff}
+#view-tactics .player-attack-modern-tendencies>small{color:#2563eb;font-size:.61rem;font-weight:900;letter-spacing:.07em;text-transform:uppercase}
+#view-tactics .player-attack-modern-tendencies>div{display:flex;flex-wrap:wrap;gap:.36rem}
+#view-tactics .player-attack-modern-tendencies span{display:inline-flex;align-items:center;min-height:26px;padding:.27rem .48rem;border-radius:999px;background:#eaf2ff;color:#1e3a8a;font-size:.68rem;font-weight:850}
+#view-tactics .player-attack-modern-court{padding:.7rem;min-width:0;overflow:hidden}
+#view-tactics .player-attack-modern-court>*{max-width:100%!important;box-sizing:border-box!important;margin-left:auto!important;margin-right:auto!important}
+#view-tactics .player-attack-modern-empty{display:flex;align-items:center;gap:.65rem;padding:1.1rem .9rem;color:#64748b;background:#f8fafc}
+#view-tactics .player-attack-modern-empty svg{width:20px;height:20px;flex:0 0 auto;color:#94a3b8}
+#view-tactics .player-attack-modern-empty>div{display:grid;gap:.08rem}
+#view-tactics .player-attack-modern-empty strong{font-size:.78rem;color:#334155}
+#view-tactics .player-attack-modern-empty span{font-size:.69rem;line-height:1.35}
+#view-tactics .player-attack-court-pending{padding:1rem;border-radius:12px;background:#f8fafc;color:#64748b;text-align:center;font-size:.72rem;font-weight:700}
 @media(max-width:720px){
-  #view-tactics.game-plan-player .player-attack-tabs:not([hidden]),
-  #view-tactics.game-plan-preview-canonical .player-attack-tabs:not([hidden]){
-    display:grid!important;
-    grid-auto-flow:column;
-    grid-auto-columns:minmax(54px,1fr);
-    gap:.32rem;
-    width:100%;
-    margin:-.05rem 0 .65rem;
-    padding:.3rem;
-    overflow-x:auto;
-    scrollbar-width:none;
-    border:1px solid #dbe2ea;
-    border-radius:13px;
-    background:#eef2f6;
-    box-sizing:border-box;
-  }
-  #view-tactics .player-attack-tabs::-webkit-scrollbar{display:none}
-  #view-tactics .player-attack-tabs button{
-    position:relative;
-    min-width:54px;
-    min-height:40px;
-    padding:.42rem .35rem;
-    border:1px solid transparent;
-    border-radius:9px;
-    background:transparent;
-    color:#64748b;
-    font-size:.73rem;
-    font-weight:900;
-    letter-spacing:.025em;
-    box-shadow:none;
-  }
-  #view-tactics .player-attack-tabs button.is-active{
-    border-color:#cbd5e1;
-    background:#fff;
-    color:#0f172a;
-    box-shadow:0 2px 7px rgba(15,23,42,.08);
-  }
-  #view-tactics .player-attack-tabs button.is-active::after{
-    content:'';
-    position:absolute;
-    left:28%;right:28%;bottom:3px;
-    height:2px;
-    border-radius:99px;
-    background:#d97706;
-  }
-  #view-tactics .player-attack-tabbed-mobile .attack-cards-grid{
-    display:block!important;
-    width:100%!important;
-    max-width:100%!important;
-    min-width:0!important;
-    overflow:visible!important;
-    padding:0!important;
-    margin:0!important;
-  }
-  #view-tactics .player-attack-tabbed-mobile .attack-scout-card[data-player-attack-active="0"]{display:none!important}
-  #view-tactics .player-attack-tabbed-mobile .attack-scout-card[data-player-attack-active="1"]{
-    display:block!important;
-    width:100%!important;
-    max-width:100%!important;
-    min-width:0!important;
-    margin:0!important;
-  }
-  #view-tactics.game-plan-player .attack-scout-card .attack-role,
-  #view-tactics.game-plan-preview-canonical .attack-scout-card .attack-role{
-    letter-spacing:.055em;
-  }
+  #view-tactics .player-attack-modern-tabs{gap:.25rem;padding:.26rem}
+  #view-tactics .player-attack-modern-tabs button{min-height:40px;font-size:.69rem;padding:.38rem .12rem}
+  #view-tactics .player-attack-modern-tabs button b{width:12px;height:12px;font-size:.5rem}
+  #view-tactics .player-attack-modern-head{padding:.72rem .76rem}
+  #view-tactics .player-attack-modern-court{padding:.62rem}
 }
 `;
   document.head.appendChild(style);
@@ -224,13 +207,12 @@ function install(){
   let tries=0;
   const timer=setInterval(()=>{
     tries++;
-    const ready=wrapRender();
-    if(ready){clearInterval(timer);schedule();}
-    else if(tries>120)clearInterval(timer);
+    if(wrapRender()){
+      clearInterval(timer);
+      schedule();
+    }else if(tries>120)clearInterval(timer);
   },100);
-  window.matchMedia('(max-width:720px)').addEventListener?.('change',schedule);
 }
-
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
 else install();
 })();
