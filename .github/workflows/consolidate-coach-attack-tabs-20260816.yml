@@ -1,0 +1,54 @@
+name: Consolidate coach attack tabs
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/consolidate-coach-attack-tabs-20260816.yml'
+permissions:
+  contents: write
+jobs:
+  consolidate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Switch to consolidated tabs module
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          cfg=Path('supabase-config.js')
+          text=cfg.read_text()
+          text=text.replace("window.VOLLEY_ASSET_VERSION = '20260816p';", "window.VOLLEY_ASSET_VERSION = '20260816q';")
+          old1="  'game-plan-attack-tabs-20260814.js?v=20260816o',\n"
+          old2="  'game-plan-coach-attack-tabs-final-20260816.js?v=20260816k',\n"
+          anchor="  'game-plan-player-rival-serve-20260816.js?v=20260816p',\n"
+          assert old1 in text and old2 in text and anchor in text
+          text=text.replace(old1,'').replace(old2,'')
+          text=text.replace(anchor,"  'game-plan-coach-attack-tabs-20260816.js?v=20260816q',\n"+anchor)
+          cfg.write_text(text)
+
+          idx=Path('index.html')
+          html=idx.read_text()
+          for name in ['supabase-config.js','supabase-client.js','data.js','app.js']:
+              html=html.replace(f'{name}?v=20260816p',f'{name}?v=20260816q')
+          idx.write_text(html)
+          PY
+      - name: Validate consolidated runtime
+        run: |
+          node --check game-plan-coach-attack-tabs-20260816.js
+          node --check supabase-config.js
+          grep -q "game-plan-coach-attack-tabs-20260816.js?v=20260816q" supabase-config.js
+          ! grep -q "game-plan-attack-tabs-20260814.js?v=" supabase-config.js
+          ! grep -q "game-plan-coach-attack-tabs-final-20260816.js?v=" supabase-config.js
+          grep -q "supabase-config.js?v=20260816q" index.html
+      - name: Commit consolidation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase-config.js index.html game-plan-coach-attack-tabs-20260816.js
+          git commit -m "Consolidate coach attack tabs runtime"
+          git push
+      - name: Remove workflow
+        run: |
+          git rm .github/workflows/consolidate-coach-attack-tabs-20260816.yml
+          git commit -m "Remove temporary coach tabs consolidation workflow"
+          git push
