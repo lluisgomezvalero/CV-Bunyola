@@ -7,6 +7,7 @@ window.__gamePlanSyncInstalled=true;
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 let installing=false;
 let ticking=false;
+let rerunRequested=false;
 let rendering=false;
 let publishWrapped=false;
 let readsChannel=null;
@@ -215,7 +216,8 @@ async function hydratePublishedRecord(mid,plan){
 }
 
 async function tick(){
-  if(ticking||document.hidden)return;
+  if(document.hidden)return;
+  if(ticking){rerunRequested=true;return;}
   const c=db(),mid=activeMatchId();
   if(!c||!mid)return;
   ticking=true;
@@ -243,7 +245,13 @@ async function tick(){
     if(isCoach())await hydrateCoachReads(eid,plan,record);
     else if(user()?.role==='player')await recordPlayerRead(eid,plan,record);
   }catch(error){console.warn('[GamePlanAuthoritative] tick',error);}
-  finally{ticking=false;}
+  finally{
+    ticking=false;
+    if(rerunRequested){
+      rerunRequested=false;
+      setTimeout(()=>{void tick();},0);
+    }
+  }
 }
 
 function wrapPublish(){

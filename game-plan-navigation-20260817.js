@@ -178,6 +178,7 @@ function emptyCurrentState(){
 function afterRender(){
   decorateHeader();
   if(mode==='current'&&!currentWeekMatch())emptyCurrentState();
+  try{window.refreshCoachAttackTabs?.();}catch(_){}
   try{window.lucide?.createIcons?.();}catch(_){}
 }
 function wrapRender(){

@@ -131,6 +131,7 @@ function schedule(){
   requestAnimationFrame(()=>requestAnimationFrame(decorate));
   window.setTimeout(decorate,80);
 }
+window.refreshCoachAttackTabs=schedule;
 function bindRoot(){
   const root=document.getElementById('scouting-interactive-root');
   if(!root||rootBound)return false;
