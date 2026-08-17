@@ -8,9 +8,9 @@ window[FLAG]=true;
 const MODEL_VERSION=2;
 const ATTACK_ORDER=['z4a','z4b','z2','z3a','z3b'];
 const ATTACK_META={
-  z4a:{short:'AR1',role:'Atacante receptora 1',origin:[17,8],dirs:['line','long','medium','short','tip']},
-  z4b:{short:'AR2',role:'Atacante receptora 2',origin:[17,8],dirs:['line','long','medium','short','tip']},
-  z2:{short:'OP',role:'Opuesta',origin:[83,8],dirs:['line','long','medium','short','tip']},
+  z4a:{short:'AR1',role:'Atacante receptora 1',origin:[83,8],dirs:['line','long','medium','short','tip']},
+  z4b:{short:'AR2',role:'Atacante receptora 2',origin:[83,8],dirs:['line','long','medium','short','tip']},
+  z2:{short:'OP',role:'Opuesta',origin:[17,8],dirs:['line','long','medium','short','tip']},
   z3a:{short:'C1',role:'Central 1',origin:[46,8],dirs:['attack5','attack1','tip']},
   z3b:{short:'C2',role:'Central 2',origin:[54,8],dirs:['attack5','attack1','tip']}
 };
