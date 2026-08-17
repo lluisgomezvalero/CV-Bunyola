@@ -6,6 +6,7 @@ if(window[FLAG])return;
 window[FLAG]=true;
 
 const ROW_SELECT='id,event_id,club_id,team_id,status,visible_metrics,payload,published_at,created_by,created_at,updated_at';
+const DEFAULT_VISIBLE=['recPerfectPct','recErrorPct','attackEfficiencyPct','attackErrors','aces','serveErrors','bloqueos'];
 const rowByEvent=new Map();
 const remoteIdByLocal=new Map();
 let baseRenderStats=null;
@@ -181,7 +182,7 @@ async function quickPublish(matchId){
   try{
     await fetchRows();applyCoachRows();
     const match=matches().find(m=>String(m.id)===String(matchId));if(!match?.stats)throw new Error('No hay una estadística guardada para publicar.');
-    const visible=Array.isArray(match.stats.visibleToPlayers)?match.stats.visibleToPlayers:[];
+    const visible=Array.isArray(match.stats.visibleToPlayers)?match.stats.visibleToPlayers:[...DEFAULT_VISIBLE];
     await persist(match,match.stats,'published',visible);
     toast('Estadística publicada para las jugadoras.');await renderAuthoritative();
   }catch(error){console.error('[MatchStats] publish',error);toast(error?.message||'No se ha podido publicar.','error');}
@@ -194,7 +195,7 @@ async function archive(matchId){
   try{
     await fetchRows();applyCoachRows();
     const match=matches().find(m=>String(m.id)===String(matchId));if(!match?.stats)throw new Error('No hay una estadística guardada.');
-    const visible=Array.isArray(match.stats.visibleToPlayers)?match.stats.visibleToPlayers:[];
+    const visible=Array.isArray(match.stats.visibleToPlayers)?match.stats.visibleToPlayers:[...DEFAULT_VISIBLE];
     await persist(match,match.stats,'archived',visible);
     toast('Estadística archivada.');await renderAuthoritative();
   }catch(error){console.error('[MatchStats] archive',error);toast(error?.message||'No se ha podido archivar.','error');}
