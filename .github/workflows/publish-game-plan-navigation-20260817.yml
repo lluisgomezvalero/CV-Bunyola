@@ -1,0 +1,67 @@
+name: Publish game plan temporal navigation
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-game-plan-navigation-20260817.yml'
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wire temporal navigation and immediate refresh
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          auth=Path('game-plan-authoritative-20260809.js')
+          text=auth.read_text()
+          marker='\ninstall();\n})();'
+          export="\nwindow.refreshGamePlanAuthoritative=()=>{void tick();};\n"
+          if 'refreshGamePlanAuthoritative' not in text:
+              if marker not in text:
+                  raise SystemExit('authoritative install marker not found')
+              text=text.replace(marker, export+marker)
+          auth.write_text(text)
+
+          cfg=Path('supabase-config.js')
+          c=cfg.read_text()
+          c=re.sub(r"window\.VOLLEY_ASSET_VERSION = '[^']+';", "window.VOLLEY_ASSET_VERSION = '20260817a';", c, count=1)
+          c=re.sub(r"game-plan-authoritative-20260809\.js\?v=[^']+", "game-plan-authoritative-20260809.js?v=20260817a", c)
+          nav="  'game-plan-navigation-20260817.js?v=20260817a',\n"
+          if 'game-plan-navigation-20260817.js' not in c:
+              anchor="  'game-plan-coach-shell-20260816.js?v=20260816t',\n"
+              if anchor not in c:
+                  raise SystemExit('coach shell anchor not found')
+              c=c.replace(anchor, anchor+nav)
+          cfg.write_text(c)
+
+          idx=Path('index.html')
+          h=idx.read_text()
+          h=re.sub(r'supabase-config\.js\?v=[^"\']+', 'supabase-config.js?v=20260817a', h)
+          idx.write_text(h)
+          PY
+      - name: Validate
+        run: |
+          node --check game-plan-navigation-20260817.js
+          node --check game-plan-authoritative-20260809.js
+          node --check game-plan-coach-shell-20260816.js
+          grep -q "refreshGamePlanAuthoritative" game-plan-authoritative-20260809.js
+          grep -q "game-plan-navigation-20260817.js?v=20260817a" supabase-config.js
+          grep -q "game-plan-authoritative-20260809.js?v=20260817a" supabase-config.js
+          grep -q "supabase-config.js?v=20260817a" index.html
+      - name: Commit publish
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add game-plan-authoritative-20260809.js supabase-config.js index.html
+          git commit -m "Publish week-aware game plan navigation"
+          git push
+      - name: Remove workflow
+        run: |
+          git pull --rebase
+          git rm .github/workflows/publish-game-plan-navigation-20260817.yml
+          git commit -m "Remove temporary game plan navigation workflow"
+          git push
