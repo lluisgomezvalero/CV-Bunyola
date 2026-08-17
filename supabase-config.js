@@ -3,7 +3,7 @@
  * La publishable key es segura en el navegador SIEMPRE que las tablas tengan RLS.
  * Nunca pongas aquí la service_role ni una secret key.
  */
-window.VOLLEY_ASSET_VERSION = '20260816t';
+window.VOLLEY_ASSET_VERSION = '20260817a';
 window.VOLLEY_SUPABASE_CONFIG = Object.freeze({
   url: 'https://zpvlkdjdfnvamfcjihyt.supabase.co',
   publishableKey: 'sb_publishable_seL2H6gAGBrUDR0O1vhJDA_Y9d7Ky-u',
@@ -19,7 +19,7 @@ html:not(.attendance-ready) .btn-rsvp-yes,
 html:not(.attendance-ready) .btn-rsvp-no{visibility:hidden!important;pointer-events:none!important}
 `;document.head.appendChild(style);}})();
 (function loadVolleySyncPatches(){const scripts=[
-  'game-plan-authoritative-20260809.js?v=20260816n',
+  'game-plan-authoritative-20260809.js?v=20260817a',
   'game-plan-ux-20260814.js?v=20260814d',
   'game-plan-mobile-overflow-fix-20260814.js?v=20260814e',
   'game-plan-visual-simplify-20260814.js?v=20260814f',
@@ -70,6 +70,7 @@ html:not(.attendance-ready) .btn-rsvp-no{visibility:hidden!important;pointer-eve
   'match-callup-card-status-20260814.js?v=20260814b',
   'game-plan-editor-visuals-20260816.js?v=20260816s',
   'game-plan-coach-shell-20260816.js?v=20260816t',
+  'game-plan-navigation-20260817.js?v=20260817a',
   'match-opponent-persistence-20260814.js?v=20260814p',
   'match-opponent-legacy-repair-20260814.js?v=20260814p',
   'game-plan-serve-touch-board-20260814.js?v=20260814s',

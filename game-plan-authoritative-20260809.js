@@ -288,5 +288,7 @@ function install(){
   setTimeout(wait,1800);
 }
 
+window.refreshGamePlanAuthoritative=()=>{void tick();};
+
 install();
 })();
