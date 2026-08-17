@@ -1,0 +1,77 @@
+name: Finalize game plan stability
+on:
+  push:
+    paths:
+      - '.github/workflows/finalize-game-plan-stability-20260817.yml'
+jobs:
+  stabilize:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wire lifecycle and fix mobile attack header
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          cfg=Path('supabase-config.js')
+          s=cfg.read_text()
+          s=re.sub(r"window\.VOLLEY_ASSET_VERSION = '[^']+';", "window.VOLLEY_ASSET_VERSION = '20260817c';", s)
+          lifecycle="  'game-plan-state-lifecycle-20260817.js?v=20260817c',\n"
+          if 'game-plan-state-lifecycle-20260817.js' not in s:
+              needle="  'game-plan-player-rival-serve-20260816.js?v=20260816p',\n  'game-plan-navigation-20260817.js?v=20260817b',"
+              repl="  'game-plan-player-rival-serve-20260816.js?v=20260816p',\n"+lifecycle+"  'game-plan-navigation-20260817.js?v=20260817c',"
+              if needle not in s:
+                  raise SystemExit('navigation tail not found')
+              s=s.replace(needle,repl)
+          else:
+              s=re.sub(r"game-plan-state-lifecycle-20260817\.js\?v=[^']+", "game-plan-state-lifecycle-20260817.js?v=20260817c", s)
+              s=re.sub(r"game-plan-navigation-20260817\.js\?v=[^']+", "game-plan-navigation-20260817.js?v=20260817c", s)
+          s=re.sub(r"game-plan-editor-visuals-20260816\.js\?v=[^']+", "game-plan-editor-visuals-20260816.js?v=20260817c", s)
+          cfg.write_text(s)
+
+          p=Path('game-plan-editor-visuals-20260816.js')
+          t=p.read_text()
+          old="#view-tactics.coach-board-mode.coach-top-compact .attack-scout-card-head{width:calc(100% + 1.2rem)!important;max-width:none!important;min-width:calc(100% + 1.2rem)!important;margin:-.6rem -.6rem .6rem!important;box-sizing:border-box!important;align-self:stretch!important}"
+          new="#view-tactics.coach-board-mode.coach-top-compact .attack-scout-card-head{width:100%!important;max-width:100%!important;min-width:0!important;margin:0 0 .6rem!important;box-sizing:border-box!important;align-self:stretch!important;border-radius:12px!important;overflow:hidden!important}"
+          if old not in t:
+              raise SystemExit('mobile attack head rule not found')
+          t=t.replace(old,new)
+          p.write_text(t)
+
+          # Bump core asset refs in index if present, without relying on the previous letter.
+          idx=Path('index.html')
+          x=idx.read_text()
+          x=re.sub(r"(supabase-config\.js\?v=)[A-Za-z0-9]+", r"\g<1>20260817c", x)
+          idx.write_text(x)
+          PY
+      - name: Validate JavaScript and loader order
+        run: |
+          node --check game-plan-state-lifecycle-20260817.js
+          node --check game-plan-editor-visuals-20260816.js
+          node --check game-plan-navigation-20260817.js
+          node --check game-plan-authoritative-20260809.js
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('supabase-config.js').read_text()
+          assert "VOLLEY_ASSET_VERSION = '20260817c'" in s
+          assert 'game-plan-state-lifecycle-20260817.js?v=20260817c' in s
+          assert s.index('game-plan-state-lifecycle-20260817.js') < s.index('game-plan-navigation-20260817.js')
+          assert 'game-plan-editor-visuals-20260816.js?v=20260817c' in s
+          t=Path('game-plan-editor-visuals-20260816.js').read_text()
+          assert 'width:100%!important;max-width:100%!important;min-width:0!important;margin:0 0 .6rem!important' in t
+          PY
+      - name: Commit stability changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase-config.js index.html game-plan-editor-visuals-20260816.js game-plan-state-lifecycle-20260817.js
+          git commit -m "Stabilize existing game plan lifecycle" || true
+          git push
+      - name: Remove workflow
+        run: |
+          git rm .github/workflows/finalize-game-plan-stability-20260817.yml
+          git commit -m "Remove temporary game plan stability workflow"
+          git push
