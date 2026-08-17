@@ -1,0 +1,66 @@
+name: Publish authoritative match stats
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-authoritative-match-stats-20260817.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Update loader and cache
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('supabase-config.js')
+          s=p.read_text()
+          s=s.replace("window.VOLLEY_ASSET_VERSION = '20260817g';", "window.VOLLEY_ASSET_VERSION = '20260817h';")
+          marker="  'game-plan-canonical-20260817.js?v=20260817g',"
+          line="  'match-statistics-authoritative-20260817.js?v=20260817h',"
+          if line not in s:
+              if marker not in s: raise SystemExit('game plan loader marker missing')
+              s=s.replace(marker, line+'\n'+marker)
+          p.write_text(s)
+
+          p=Path('index.html')
+          s=p.read_text()
+          import re
+          s,n=re.subn(r'supabase-config\.js\?v=[A-Za-z0-9_-]+', 'supabase-config.js?v=20260817h', s)
+          if n!=1: raise SystemExit(f'expected one supabase-config reference, got {n}')
+          p.write_text(s)
+          PY
+      - name: Validate
+        run: |
+          set -euo pipefail
+          node --check match-statistics-authoritative-20260817.js
+          node --check game-plan-canonical-20260817.js
+          grep -F "match-statistics-authoritative-20260817.js?v=20260817h" supabase-config.js
+          grep -F "game-plan-canonical-20260817.js?v=20260817g" supabase-config.js
+          grep -F "supabase-config.js?v=20260817h" index.html
+          test -f supabase/20260817152000_secure_match_statistics_publication.sql
+      - name: Commit publish
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase-config.js index.html match-statistics-authoritative-20260817.js supabase/20260817152000_secure_match_statistics_publication.sql
+          if ! git diff --cached --quiet; then
+            git commit -m "Enable authoritative match statistics"
+            git push
+          fi
+      - name: Remove temporary workflow
+        run: |
+          set -euo pipefail
+          git pull --rebase
+          git rm .github/workflows/publish-authoritative-match-stats-20260817.yml
+          git commit -m "Remove temporary match stats publish workflow"
+          git push
