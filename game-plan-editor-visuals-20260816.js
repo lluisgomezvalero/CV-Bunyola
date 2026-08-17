@@ -204,7 +204,7 @@ function injectStyles(){
 #view-tactics.coach-board-mode.coach-top-compact #scouting-interactive-root.coach-board-root.coach-top-compact-root{width:100%!important;max-width:100%!important;padding:.35rem!important;box-sizing:border-box!important}
 #view-tactics.coach-board-mode.coach-top-compact .scout-section{width:100%!important;max-width:100%!important;padding:.62rem!important;box-sizing:border-box!important}
 #view-tactics.coach-board-mode.coach-top-compact .attack-scout-card{width:100%!important;max-width:100%!important;padding:.6rem!important;box-sizing:border-box!important}
-#view-tactics.coach-board-mode.coach-top-compact .attack-scout-card-head{width:calc(100% + 1.2rem)!important;max-width:none!important;min-width:calc(100% + 1.2rem)!important;margin:-.6rem -.6rem .6rem!important;box-sizing:border-box!important;align-self:stretch!important}
+#view-tactics.coach-board-mode.coach-top-compact .attack-scout-card-head{width:100%!important;max-width:100%!important;min-width:0!important;margin:0 0 .6rem!important;box-sizing:border-box!important;align-self:stretch!important;border-radius:12px!important;overflow:hidden!important}
 #view-tactics.coach-board-mode.coach-top-compact .attack-direction-options{padding:.48rem!important}
 #view-tactics.coach-board-mode.coach-top-compact .coach-compact-publish-bar,#view-tactics.coach-board-mode.coach-top-compact .coach-compact-read-tracker{width:100%!important;max-width:100%!important;box-sizing:border-box!important}
 }`;document.head.appendChild(style);

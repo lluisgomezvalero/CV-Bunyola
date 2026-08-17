@@ -3,7 +3,7 @@
  * La publishable key es segura en el navegador SIEMPRE que las tablas tengan RLS.
  * Nunca pongas aquí la service_role ni una secret key.
  */
-window.VOLLEY_ASSET_VERSION = '20260817b';
+window.VOLLEY_ASSET_VERSION = '20260817c';
 window.VOLLEY_SUPABASE_CONFIG = Object.freeze({
   url: 'https://zpvlkdjdfnvamfcjihyt.supabase.co',
   publishableKey: 'sb_publishable_seL2H6gAGBrUDR0O1vhJDA_Y9d7Ky-u',
@@ -68,7 +68,7 @@ html:not(.attendance-ready) .btn-rsvp-no{visibility:hidden!important;pointer-eve
   'match-callup-20260813.js?v=20260813s',
   'match-callup-player-view-20260813.js?v=20260813q',
   'match-callup-card-status-20260814.js?v=20260814b',
-  'game-plan-editor-visuals-20260816.js?v=20260816s',
+  'game-plan-editor-visuals-20260816.js?v=20260817c',
   'game-plan-coach-shell-20260816.js?v=20260816t',
   'match-opponent-persistence-20260814.js?v=20260814p',
   'match-opponent-legacy-repair-20260814.js?v=20260814p',
@@ -84,5 +84,6 @@ html:not(.attendance-ready) .btn-rsvp-no{visibility:hidden!important;pointer-eve
   'game-plan-safe-save-20260816.js?v=20260816h',
   'game-plan-coach-attack-tabs-20260816.js?v=20260817b',
   'game-plan-player-rival-serve-20260816.js?v=20260816p',
-  'game-plan-navigation-20260817.js?v=20260817b',
+  'game-plan-state-lifecycle-20260817.js?v=20260817c',
+  'game-plan-navigation-20260817.js?v=20260817c',
 ];scripts.forEach(src=>{if(document.querySelector(`script[src^="${src.split('?')[0]}"]`))return;const script=document.createElement('script');script.src=src;script.async=false;document.head.appendChild(script);});})();
