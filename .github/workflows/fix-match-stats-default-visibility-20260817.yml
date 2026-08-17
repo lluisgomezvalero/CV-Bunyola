@@ -1,0 +1,64 @@
+name: Fix match stats default visibility
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-match-stats-default-visibility-20260817.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply compatibility fix
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('match-statistics-authoritative-20260817.js')
+          s=p.read_text()
+          marker="const ROW_SELECT='id,event_id,club_id,team_id,status,visible_metrics,payload,published_at,created_by,created_at,updated_at';"
+          insert=marker+"\nconst DEFAULT_VISIBLE=['recPerfectPct','recErrorPct','attackEfficiencyPct','attackErrors','aces','serveErrors','bloqueos'];"
+          if 'const DEFAULT_VISIBLE=' not in s:
+              if marker not in s: raise SystemExit('ROW_SELECT marker missing')
+              s=s.replace(marker,insert)
+          s=s.replace("Array.isArray(match.stats.visibleToPlayers)?match.stats.visibleToPlayers:[]", "Array.isArray(match.stats.visibleToPlayers)?match.stats.visibleToPlayers:[...DEFAULT_VISIBLE]")
+          p.write_text(s)
+
+          p=Path('supabase-config.js');s=p.read_text()
+          s=s.replace("window.VOLLEY_ASSET_VERSION = '20260817h';", "window.VOLLEY_ASSET_VERSION = '20260817i';")
+          s=s.replace("match-statistics-authoritative-20260817.js?v=20260817h", "match-statistics-authoritative-20260817.js?v=20260817i")
+          p.write_text(s)
+
+          p=Path('index.html');s=p.read_text();import re
+          s,n=re.subn(r'supabase-config\.js\?v=[A-Za-z0-9_-]+','supabase-config.js?v=20260817i',s)
+          if n!=1: raise SystemExit(f'expected one config reference, got {n}')
+          p.write_text(s)
+          PY
+      - name: Validate
+        run: |
+          node --check match-statistics-authoritative-20260817.js
+          grep -F "match-statistics-authoritative-20260817.js?v=20260817i" supabase-config.js
+          grep -F "supabase-config.js?v=20260817i" index.html
+      - name: Commit fix
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add match-statistics-authoritative-20260817.js supabase-config.js index.html
+          if ! git diff --cached --quiet; then
+            git commit -m "Preserve default player stats visibility"
+            git push
+          fi
+      - name: Remove temporary workflow
+        run: |
+          git pull --rebase
+          git rm .github/workflows/fix-match-stats-default-visibility-20260817.yml
+          git commit -m "Remove temporary match stats compatibility workflow"
+          git push
