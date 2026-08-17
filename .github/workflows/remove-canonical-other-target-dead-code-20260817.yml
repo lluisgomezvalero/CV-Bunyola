@@ -1,0 +1,52 @@
+name: Remove obsolete other target logic
+on:
+  push:
+    paths:
+      - '.github/workflows/remove-canonical-other-target-dead-code-20260817.yml'
+permissions:
+  contents: write
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove obsolete target logic
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('game-plan-canonical-20260817.js')
+          s=p.read_text()
+          s=s.replace("  const known=opts.find(([k,v])=>target===v||target===k);\n",'',1)
+          s=s.replace("  if(target.hasAttribute('data-gp2-target-input')){ui.draft.servePlayerTarget=String(target.value||'').trim();setDirty();return true;}\n",'',1)
+          s=s.replace("    if(t.closest?.('[data-gp2-target-other]')&&coach()){ui.draft.servePlayerTarget='';setDirty();renderCoach();setTimeout(()=>document.querySelector('[data-gp2-target-input]')?.focus(),0);return;}\n",'',1)
+          s=re.sub(r"\.gp2-target-input\{[^}]*\}","",s,count=1)
+          p.write_text(s)
+
+          cfg=Path('supabase-config.js'); c=cfg.read_text()
+          c=re.sub(r"window\.VOLLEY_ASSET_VERSION = '[^']+';","window.VOLLEY_ASSET_VERSION = '20260817g';",c,count=1)
+          c=re.sub(r"game-plan-canonical-20260817\.js\?v=[^'\"]+","game-plan-canonical-20260817.js?v=20260817g",c,count=1)
+          cfg.write_text(c)
+          idx=Path('index.html'); h=idx.read_text()
+          h=re.sub(r"supabase-config\.js\?v=[^\"]+","supabase-config.js?v=20260817g",h,count=1)
+          idx.write_text(h)
+          PY
+      - name: Validate
+        run: |
+          node --check game-plan-canonical-20260817.js
+          ! grep -q "data-gp2-target-other" game-plan-canonical-20260817.js
+          ! grep -q "data-gp2-target-input" game-plan-canonical-20260817.js
+          ! grep -q "const known=opts" game-plan-canonical-20260817.js
+          grep -q "20260817g" supabase-config.js
+      - name: Commit cleanup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add game-plan-canonical-20260817.js supabase-config.js index.html
+          git commit -m "Remove obsolete other serve target logic"
+          git push
+      - name: Remove workflow
+        run: |
+          git rm .github/workflows/remove-canonical-other-target-dead-code-20260817.yml
+          git commit -m "Remove temporary target cleanup workflow"
+          git push
