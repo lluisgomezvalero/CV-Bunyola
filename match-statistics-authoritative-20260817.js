@@ -11,6 +11,7 @@ const rowByEvent=new Map();
 const remoteIdByLocal=new Map();
 let baseRenderStats=null;
 let baseOpenPlayerMatchStats=null;
+let baseOpenMatchStatsModal=null;
 let installed=false;
 let renderSeq=0;
 let busy=false;
@@ -132,6 +133,7 @@ function statsFromForm(match){
     attackEfficiencyPct:formNumber('stats-attack-efficiency',{percent:true}),
     attackErrors:formNumber('stats-attack-errors',{integer:true}),
     serveErrors:formNumber('stats-serve-errors',{integer:true}),
+    bloqueos:formNumber('stats-bloqueos',{integer:true}),
     ownErrors:formNumber('stats-own-errors',{integer:true}),
     opponentErrors:formNumber('stats-opponent-errors',{integer:true})
   };
@@ -201,6 +203,14 @@ async function archive(matchId){
   }catch(error){console.error('[MatchStats] archive',error);toast(error?.message||'No se ha podido archivar.','error');}
   finally{busy=false;}
 }
+
+function openCoachModalWithBlocks(matchId){
+  baseOpenMatchStatsModal?.(matchId);
+  const match=matches().find(m=>String(m.id)===String(matchId));
+  const input=document.getElementById('stats-bloqueos');
+  if(input)input.value=match?.stats?.bloqueos??'';
+}
+
 async function openPlayerSafe(matchId){
   try{
     await fetchRows();
@@ -227,10 +237,12 @@ function install(){
     tries++;
     const renderFn=window.renderStats||(typeof renderStats==='function'?renderStats:null);
     const playerFn=window.openPlayerMatchStats||(typeof openPlayerMatchStats==='function'?openPlayerMatchStats:null);
-    if(typeof renderFn==='function'&&typeof playerFn==='function'){
-      clearInterval(timer);installed=true;baseRenderStats=renderFn;baseOpenPlayerMatchStats=playerFn;
+    const coachModalFn=window.openMatchStatsModal||(typeof openMatchStatsModal==='function'?openMatchStatsModal:null);
+    if(typeof renderFn==='function'&&typeof playerFn==='function'&&typeof coachModalFn==='function'){
+      clearInterval(timer);installed=true;baseRenderStats=renderFn;baseOpenPlayerMatchStats=playerFn;baseOpenMatchStatsModal=coachModalFn;
       window.renderStats=renderAuthoritative;try{renderStats=renderAuthoritative;}catch(_){}
       window.openPlayerMatchStats=function(id){void openPlayerSafe(id);};try{openPlayerMatchStats=window.openPlayerMatchStats;}catch(_){}
+      window.openMatchStatsModal=openCoachModalWithBlocks;try{openMatchStatsModal=openCoachModalWithBlocks;}catch(_){}
       window.quickPublishMatchStats=function(id){void quickPublish(id);};
       window.archiveMatchStats=function(id){void archive(id);};
       bindFormCapture();

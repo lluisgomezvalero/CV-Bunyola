@@ -859,10 +859,16 @@
           </div>
           <div class="form-row">
             <div class="form-group">
+              <label for="stats-bloqueos">Bloqueos punto</label>
+              <input type="number" id="stats-bloqueos" class="form-control" required min="0" step="1" placeholder="Ej. 4">
+            </div>
+            <div class="form-group">
               <label for="stats-own-errors">Errores nuestros</label>
               <input type="number" id="stats-own-errors" class="form-control" required min="0" step="1" placeholder="Sin recepción ni defensa">
               <small class="form-help">Errores propios que conceden punto, excluyendo recepción y defensa.</small>
             </div>
+          </div>
+          <div class="form-row">
             <div class="form-group">
               <label for="stats-opponent-errors">Errores del rival</label>
               <input type="number" id="stats-opponent-errors" class="form-control" required min="0" step="1" placeholder="Sin recepción ni defensa">
@@ -1509,7 +1515,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js?v=20260817i"></script>
+    <script src="supabase-config.js?v=20260817j"></script>
     <script src="supabase-client.js?v=20260816q"></script>
     <script src="data.js?v=20260816q"></script>
     <script src="app.js?v=20260816q"></script>
