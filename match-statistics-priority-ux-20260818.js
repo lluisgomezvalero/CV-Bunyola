@@ -50,6 +50,7 @@ function ensureStyles(){
     #stats-matches-list .publication-badge,#stats-matches-list .badge{flex:0 0 auto!important;margin:0!important;white-space:nowrap!important}
     #stats-matches-list .match-stat-body{min-width:0!important}
     #stats-matches-list .stats-card-actions{margin-top:.75rem!important;padding-top:.75rem!important;border-top:1px solid #f1f5f9!important}
+    #stats-filter-empty{padding:1rem;border:1px dashed #cbd5e1;border-radius:13px;background:#f8fafc;color:#64748b;text-align:center;font-size:.8rem;line-height:1.35}
 
     @media(max-width:760px){
       #coach-stats-charts{grid-template-columns:1fr!important;gap:.85rem!important}
@@ -106,6 +107,14 @@ function polishChartHeader(canvasId,label){
   heading.appendChild(text);
 }
 
+function publicationStatusFromCard(card){
+  const badge=card?.querySelector('.publication-badge');
+  if(badge?.classList.contains('is-draft'))return 'draft';
+  if(badge?.classList.contains('is-published'))return 'published';
+  if(badge?.classList.contains('is-archived'))return 'archived';
+  return 'empty';
+}
+
 function polishSeasonList(){
   const list=document.getElementById('stats-matches-list');
   const card=list?.closest('.card');
@@ -115,6 +124,24 @@ function polishSeasonList(){
   const help=document.getElementById('stats-list-help');
   if(title)title.textContent='🏐 Jornadas y estadísticas';
   if(help)help.textContent='Consulta, edita y publica los datos de cada partido de liga.';
+
+  list.querySelector('#stats-filter-empty')?.remove();
+  const filter=window.__statsPublicationFilter||'all';
+  let visibleCount=0;
+  list.querySelectorAll('.match-stat-card').forEach(matchCard=>{
+    const round=matchCard.querySelector('.match-round-badge');
+    if(round&&round.textContent.trim()==='Jornada ?')round.textContent='Partido';
+    const visible=filter==='all'||publicationStatusFromCard(matchCard)===filter;
+    matchCard.hidden=!visible;
+    if(visible)visibleCount++;
+  });
+  if(filter!=='all'&&visibleCount===0){
+    const empty=document.createElement('div');
+    empty.id='stats-filter-empty';
+    const labels={draft:'borrador',published:'publicada',archived:'archivada'};
+    empty.textContent=`No hay estadísticas ${labels[filter]||''}s en este momento.`;
+    list.appendChild(empty);
+  }
 }
 
 function applyUx(){
