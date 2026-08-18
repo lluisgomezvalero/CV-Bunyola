@@ -28,6 +28,18 @@ function ensureStyles(){
     #coach-stats-summary .stats-summary-icon{flex:0 0 1.35rem!important;width:1.35rem!important;text-align:center!important;font-size:1rem!important;line-height:1!important}
     #coach-stats-summary .stats-summary-item>div{min-width:0!important}
     #coach-stats-summary .stats-summary-item>div>span{line-height:1.15!important}
+    #coach-stats-charts{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:1rem!important;margin-bottom:1.35rem!important}
+    #coach-stats-charts .card{margin:0!important;min-width:0!important;border-radius:18px!important}
+    #coach-stats-charts .card-header{margin-bottom:.65rem!important;align-items:flex-start!important}
+    #coach-stats-charts .card-header h3{display:flex!important;align-items:flex-start!important;gap:.45rem!important;margin:0!important;font-size:1rem!important;line-height:1.22!important;color:#0f172a!important}
+    #coach-stats-charts .card-header h3 i{flex:0 0 auto!important;width:18px!important;height:18px!important;margin-top:.05rem!important}
+    #coach-stats-charts .card-header h3 span{min-width:0!important}
+    @media(max-width:760px){
+      #coach-stats-charts{grid-template-columns:1fr!important;gap:.85rem!important}
+      #coach-stats-charts .card{padding:1rem!important}
+      #coach-stats-charts .card-header h3{font-size:.96rem!important;line-height:1.2!important}
+      #coach-stats-charts .card>div[style*="height"]{height:220px!important}
+    }
     @media(max-width:560px){
       #stats-priority-block{padding:.85rem .72rem}
       #stats-priority-block .stats-priority-heading{align-items:flex-start;flex-direction:column;gap:.1rem}
@@ -52,6 +64,17 @@ function setCardIcon(valueId,iconText){
   const item=document.getElementById(valueId)?.closest('.stats-summary-item');
   const icon=item?.querySelector('.stats-summary-icon');
   if(icon)icon.textContent=iconText;
+}
+
+function polishChartHeader(canvasId,label){
+  const canvas=document.getElementById(canvasId);
+  const heading=canvas?.closest('.card')?.querySelector('.card-header h3');
+  if(!heading)return;
+  const icon=heading.querySelector('i');
+  Array.from(heading.childNodes).forEach(node=>{if(node!==icon)node.remove();});
+  const text=document.createElement('span');
+  text.textContent=label;
+  heading.appendChild(text);
 }
 
 function applyUx(){
@@ -96,6 +119,9 @@ function applyUx(){
     if(icon)icon.textContent=iconText;
     if(item.parentNode!==grid)grid.appendChild(item);
   });
+
+  polishChartHeader('chart-global-reception-error','Error en recepción (=)');
+  polishChartHeader('chart-global-reception-perfect','Recepción perfecta (# +)');
 }
 
 function install(){
