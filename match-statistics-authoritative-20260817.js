@@ -6,7 +6,7 @@ if(window[FLAG])return;
 window[FLAG]=true;
 
 const ROW_SELECT='id,event_id,club_id,team_id,status,visible_metrics,payload,published_at,created_by,created_at,updated_at';
-const DEFAULT_VISIBLE=['recPerfectPct','recErrorPct','attackEfficiencyPct','attackErrors','aces','serveErrors','bloqueos'];
+const DEFAULT_VISIBLE=['recPerfectPct','recExclamPct','recErrorPct','recTotal','attackEfficiencyPct','attackErrors','attackTotal','aces','serveErrors','serveTotal','bloqueos','blockTotal'];
 const rowByEvent=new Map();
 const remoteIdByLocal=new Map();
 let baseRenderStats=null;
@@ -110,12 +110,16 @@ function paintLoading(){
 }
 async function renderAuthoritative(){
   const seq=++renderSeq;paintLoading();
-  try{await fetchRows();if(seq!==renderSeq)return;
-    if(coach()){applyCoachRows();baseRenderStats?.();}
-    else withPlayerSafeRows(()=>baseRenderStats?.());
+  try{
+    await fetchRows();if(seq!==renderSeq)return;
+    if(coach()){
+      applyCoachRows();baseRenderStats?.();setTimeout(()=>window.enhanceCoachMatchStatistics?.(),0);
+    }else{
+      withPlayerSafeRows(()=>baseRenderStats?.());
+    }
   }catch(error){
     console.error('[MatchStats] load',error);
-    if(coach())baseRenderStats?.();
+    if(coach()){baseRenderStats?.();setTimeout(()=>window.enhanceCoachMatchStatistics?.(),0);}
     else withPlayerSafeRows(()=>baseRenderStats?.());
   }
 }
@@ -127,13 +131,18 @@ function formNumber(id,{integer=false,percent=false}={}){
 function statsFromForm(match){
   return {
     ...(clone(match?.stats)||{}),
-    recErrorPct:formNumber('stats-rec-error-pct',{percent:true}),
     recPerfectPct:formNumber('stats-rec-perfect-pct',{percent:true}),
-    aces:formNumber('stats-aces',{integer:true}),
+    recExclamPct:formNumber('stats-rec-exclam-pct',{percent:true}),
+    recErrorPct:formNumber('stats-rec-error-pct',{percent:true}),
+    recTotal:formNumber('stats-rec-total',{integer:true}),
     attackEfficiencyPct:formNumber('stats-attack-efficiency',{percent:true}),
     attackErrors:formNumber('stats-attack-errors',{integer:true}),
+    attackTotal:formNumber('stats-attack-total',{integer:true}),
+    aces:formNumber('stats-aces',{integer:true}),
     serveErrors:formNumber('stats-serve-errors',{integer:true}),
+    serveTotal:formNumber('stats-serve-total',{integer:true}),
     bloqueos:formNumber('stats-bloqueos',{integer:true}),
+    blockTotal:formNumber('stats-block-total',{integer:true}),
     ownErrors:formNumber('stats-own-errors',{integer:true}),
     opponentErrors:formNumber('stats-opponent-errors',{integer:true})
   };
@@ -209,6 +218,7 @@ function openCoachModalWithBlocks(matchId){
   const match=matches().find(m=>String(m.id)===String(matchId));
   const input=document.getElementById('stats-bloqueos');
   if(input)input.value=match?.stats?.bloqueos??'';
+  window.hydrateExtendedMatchStatsForm?.(matchId,match?.stats||{});
 }
 
 async function openPlayerSafe(matchId){
@@ -219,7 +229,10 @@ async function openPlayerSafe(matchId){
     const row=rid?rowByEvent.get(rid):null;if(!row)return;
     const oldStats=match.stats,oldStatus=match.status;
     match.stats=statsFromRow(row);match.status='Finalizado';
-    try{baseOpenPlayerMatchStats?.(matchId);}finally{match.stats=oldStats;match.status=oldStatus;}
+    try{
+      baseOpenPlayerMatchStats?.(matchId);
+      window.enhancePlayerMatchStatsModal?.(matchId,match.stats);
+    }finally{match.stats=oldStats;match.status=oldStatus;}
   }catch(error){console.error('[MatchStats] player detail',error);}
 }
 function bindFormCapture(){
