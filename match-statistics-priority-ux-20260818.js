@@ -25,6 +25,9 @@ function ensureStyles(){
     #stats-priority-grid span:not(.stats-summary-icon){display:block!important;width:100%!important;max-width:100%!important;min-width:0!important;font-size:.72rem!important;line-height:1.18!important;white-space:normal!important;overflow:visible!important;overflow-wrap:normal!important;word-break:normal!important;text-overflow:clip!important}
     #coach-stats-summary{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(125px,1fr))!important;gap:.7rem!important;margin-bottom:1.35rem!important}
     #coach-stats-summary .stats-summary-item{min-width:0!important}
+    #coach-stats-summary .stats-summary-icon{flex:0 0 1.35rem!important;width:1.35rem!important;text-align:center!important;font-size:1rem!important;line-height:1!important}
+    #coach-stats-summary .stats-summary-item>div{min-width:0!important}
+    #coach-stats-summary .stats-summary-item>div>span{line-height:1.15!important}
     @media(max-width:560px){
       #stats-priority-block{padding:.85rem .72rem}
       #stats-priority-block .stats-priority-heading{align-items:flex-start;flex-direction:column;gap:.1rem}
@@ -34,6 +37,7 @@ function ensureStyles(){
       #stats-priority-grid strong{font-size:1.01rem!important}
       #stats-priority-grid span:not(.stats-summary-icon){font-size:.625rem!important;line-height:1.16!important;white-space:normal!important;overflow:visible!important;overflow-wrap:normal!important;word-break:normal!important}
       #coach-stats-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:.55rem!important}
+      #coach-stats-summary .stats-summary-icon{flex-basis:1.25rem!important;width:1.25rem!important;font-size:.95rem!important}
     }
     @media(max-width:390px){
       #stats-priority-grid{gap:.3rem}
@@ -42,6 +46,12 @@ function ensureStyles(){
     }
   `;
   document.head.appendChild(style);
+}
+
+function setCardIcon(valueId,iconText){
+  const item=document.getElementById(valueId)?.closest('.stats-summary-item');
+  const icon=item?.querySelector('.stats-summary-icon');
+  if(icon)icon.textContent=iconText;
 }
 
 function applyUx(){
@@ -62,8 +72,16 @@ function applyUx(){
   const grid=document.getElementById('stats-priority-grid');
   if(!grid)return;
 
-  const serveErrorIcon=document.getElementById('stats-total-serve-errors')?.closest('.stats-summary-item')?.querySelector('.stats-summary-icon');
-  if(serveErrorIcon)serveErrorIcon.textContent='❌';
+  const summaryIcons={
+    'stats-record':'⚖️',
+    'stats-total-aces':'⚡',
+    'stats-total-attack-errors':'❌',
+    'stats-total-serve-errors':'❌',
+    'stats-total-blocks':'🧱',
+    'stats-total-own-errors':'🔴',
+    'stats-total-opponent-errors':'🟢'
+  };
+  Object.entries(summaryIcons).forEach(([id,iconText])=>setCardIcon(id,iconText));
 
   const priorityIcons={
     'stats-avg-rec-perfect':'✅',
