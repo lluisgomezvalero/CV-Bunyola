@@ -20,9 +20,9 @@ function ensureStyles(){
     #stats-priority-block .stats-priority-heading span{font-size:.74rem;color:#64748b}
     #stats-priority-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.7rem}
     #stats-priority-grid .stats-summary-item{margin:0!important;min-width:0;padding:.85rem .75rem!important;border:1px solid #e2e8f0!important;border-radius:14px!important;background:#f8fafc!important;box-shadow:none!important;display:flex!important;align-items:center!important;gap:.65rem!important}
-    #stats-priority-grid .stats-summary-icon{flex:0 0 auto}
+    #stats-priority-grid .stats-summary-icon{display:none!important}
     #stats-priority-grid strong{font-size:1.15rem!important;line-height:1.1}
-    #stats-priority-grid span:not(.stats-summary-icon){font-size:.72rem!important;line-height:1.2}
+    #stats-priority-grid span:not(.stats-summary-icon){font-size:.72rem!important;line-height:1.2;white-space:normal!important;overflow-wrap:anywhere!important;word-break:normal!important;min-width:0!important}
     #coach-stats-summary{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(125px,1fr))!important;gap:.7rem!important;margin-bottom:1.35rem!important}
     #coach-stats-summary .stats-summary-item{min-width:0!important}
     @media(max-width:560px){
@@ -32,7 +32,7 @@ function ensureStyles(){
       #stats-priority-grid .stats-summary-item{padding:.7rem .5rem!important;gap:.4rem!important;flex-direction:column!important;align-items:flex-start!important}
       #stats-priority-grid .stats-summary-icon{font-size:1rem}
       #stats-priority-grid strong{font-size:1.02rem!important}
-      #stats-priority-grid span:not(.stats-summary-icon){font-size:.66rem!important}
+      #stats-priority-grid span:not(.stats-summary-icon){font-size:.66rem!important;white-space:normal!important;overflow-wrap:anywhere!important}
       #coach-stats-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:.55rem!important}
     }
   `;
@@ -56,6 +56,9 @@ function applyUx(){
 
   const grid=document.getElementById('stats-priority-grid');
   if(!grid)return;
+  const serveErrorIcon=document.getElementById('stats-total-serve-errors')?.closest('.stats-summary-item')?.querySelector('.stats-summary-icon');
+  if(serveErrorIcon)serveErrorIcon.textContent='❌';
+
   ['stats-avg-rec-perfect','stats-avg-rec-error','stats-avg-attack-efficiency'].forEach(id=>{
     const item=document.getElementById(id)?.closest('.stats-summary-item');
     if(item&&item.parentNode!==grid)grid.appendChild(item);
