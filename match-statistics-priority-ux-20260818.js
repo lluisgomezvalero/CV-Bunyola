@@ -34,6 +34,23 @@ function ensureStyles(){
     #coach-stats-charts .card-header h3{display:flex!important;align-items:flex-start!important;gap:.45rem!important;margin:0!important;font-size:1rem!important;line-height:1.22!important;color:#0f172a!important}
     #coach-stats-charts .card-header h3 i{flex:0 0 auto!important;width:18px!important;height:18px!important;margin-top:.05rem!important}
     #coach-stats-charts .card-header h3 span{min-width:0!important}
+
+    .stats-season-card{border-radius:18px!important;overflow:hidden!important}
+    .stats-season-card>.card-header{display:flex!important;align-items:flex-start!important;justify-content:space-between!important;gap:1rem!important;margin-bottom:1rem!important}
+    .stats-season-card #stats-list-title{font-family:var(--font-heading)!important;font-size:1.15rem!important;line-height:1.15!important;margin:0!important;color:#0f172a!important}
+    .stats-season-card #stats-list-help{margin:.28rem 0 0!important;font-size:.76rem!important;line-height:1.3!important;color:#64748b!important}
+    .stats-season-card .stats-publication-filter{flex:0 0 auto!important;min-height:38px!important;font-size:.78rem!important;border-radius:10px!important}
+    #stats-matches-list{gap:.75rem!important}
+    #stats-matches-list .match-stat-card{min-width:0!important;border:1px solid #e2e8f0!important;border-radius:15px!important;background:#fff!important;box-shadow:0 4px 14px rgba(15,23,42,.035)!important;padding:.9rem!important}
+    #stats-matches-list .match-stat-header{display:flex!important;align-items:flex-start!important;gap:.55rem!important;flex-wrap:wrap!important;margin-bottom:.7rem!important}
+    #stats-matches-list .match-stat-header>div:first-child{flex:1 1 190px!important;min-width:0!important}
+    #stats-matches-list .match-round-badge{display:inline-flex!important;align-items:center!important;font-size:.66rem!important;line-height:1!important;padding:.27rem .5rem!important;border-radius:999px!important}
+    #stats-matches-list .match-stat-title{font-family:var(--font-heading)!important;font-size:.98rem!important;line-height:1.18!important;margin:.38rem 0 .18rem!important;color:#0f172a!important;overflow-wrap:anywhere!important}
+    #stats-matches-list .match-stat-header p{font-size:.73rem!important;line-height:1.25!important}
+    #stats-matches-list .publication-badge,#stats-matches-list .badge{flex:0 0 auto!important;margin:0!important;white-space:nowrap!important}
+    #stats-matches-list .match-stat-body{min-width:0!important}
+    #stats-matches-list .stats-card-actions{margin-top:.75rem!important;padding-top:.75rem!important;border-top:1px solid #f1f5f9!important}
+
     @media(max-width:760px){
       #coach-stats-charts{grid-template-columns:1fr!important;gap:.85rem!important}
       #coach-stats-charts .card{padding:1rem!important}
@@ -50,6 +67,18 @@ function ensureStyles(){
       #stats-priority-grid span:not(.stats-summary-icon){font-size:.625rem!important;line-height:1.16!important;white-space:normal!important;overflow:visible!important;overflow-wrap:normal!important;word-break:normal!important}
       #coach-stats-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:.55rem!important}
       #coach-stats-summary .stats-summary-icon{flex-basis:1.25rem!important;width:1.25rem!important;font-size:.95rem!important}
+      .stats-season-card{padding:1rem!important}
+      .stats-season-card>.card-header{flex-direction:column!important;gap:.65rem!important;margin-bottom:.8rem!important}
+      .stats-season-card #stats-list-title{font-size:1.06rem!important}
+      .stats-season-card .stats-publication-filter{width:100%!important;max-width:none!important}
+      #stats-matches-list{display:grid!important;grid-template-columns:1fr!important;gap:.6rem!important}
+      #stats-matches-list .match-stat-card{padding:.78rem!important;border-radius:13px!important}
+      #stats-matches-list .match-stat-header{gap:.4rem!important;margin-bottom:.55rem!important}
+      #stats-matches-list .match-stat-header>div:first-child{flex:1 1 100%!important;width:100%!important}
+      #stats-matches-list .match-stat-title{font-size:.94rem!important}
+      #stats-matches-list .stats-card-actions{width:100%!important;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:.45rem!important}
+      #stats-matches-list .stats-card-actions .btn{width:100%!important;min-width:0!important;justify-content:center!important;font-size:.72rem!important;padding:.55rem .45rem!important}
+      #stats-matches-list .stats-card-actions .btn:last-child:nth-child(3){grid-column:1/-1!important}
     }
     @media(max-width:390px){
       #stats-priority-grid{gap:.3rem}
@@ -75,6 +104,17 @@ function polishChartHeader(canvasId,label){
   const text=document.createElement('span');
   text.textContent=label;
   heading.appendChild(text);
+}
+
+function polishSeasonList(){
+  const list=document.getElementById('stats-matches-list');
+  const card=list?.closest('.card');
+  if(!list||!card)return;
+  card.classList.add('stats-season-card');
+  const title=document.getElementById('stats-list-title');
+  const help=document.getElementById('stats-list-help');
+  if(title)title.textContent='🏐 Jornadas y estadísticas';
+  if(help)help.textContent='Consulta, edita y publica los datos de cada partido de liga.';
 }
 
 function applyUx(){
@@ -122,6 +162,7 @@ function applyUx(){
 
   polishChartHeader('chart-global-reception-error','Error en recepción (=)');
   polishChartHeader('chart-global-reception-perfect','Recepción perfecta (# +)');
+  polishSeasonList();
 }
 
 function install(){
