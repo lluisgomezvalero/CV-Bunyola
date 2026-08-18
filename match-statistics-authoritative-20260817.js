@@ -128,8 +128,24 @@ function formNumber(id,{integer=false,percent=false}={}){
   const el=document.getElementById(id);let value=integer?parseInt(el?.value,10):parseFloat(el?.value);
   if(!Number.isFinite(value))value=0;value=Math.max(0,value);if(percent)value=Math.min(100,value);return value;
 }
+function optionalPercent(id){
+  const raw=String(document.getElementById(id)?.value??'').trim();
+  if(raw==='')return null;
+  const value=parseFloat(raw);if(!Number.isFinite(value))return null;
+  return Math.max(0,Math.min(100,value));
+}
 function statsFromForm(match){
-  return {
+  const serveTotal=formNumber('stats-serve-total',{integer:true});
+  let serveErrorPct=optionalPercent('stats-serve-errors');
+  if(serveErrorPct==null){
+    const existingPct=Number(match?.stats?.serveErrorPct);
+    if(Number.isFinite(existingPct))serveErrorPct=Math.max(0,Math.min(100,existingPct));
+    else{
+      const legacyErrors=Number(match?.stats?.serveErrors??match?.stats?.saquesError);
+      if(serveTotal>0&&Number.isFinite(legacyErrors))serveErrorPct=Math.max(0,Math.min(100,(legacyErrors/serveTotal)*100));
+    }
+  }
+  const out={
     ...(clone(match?.stats)||{}),
     recPerfectPct:formNumber('stats-rec-perfect-pct',{percent:true}),
     recExclamPct:formNumber('stats-rec-exclam-pct',{percent:true}),
@@ -139,13 +155,14 @@ function statsFromForm(match){
     attackErrors:formNumber('stats-attack-errors',{integer:true}),
     attackTotal:formNumber('stats-attack-total',{integer:true}),
     aces:formNumber('stats-aces',{integer:true}),
-    serveErrorPct:formNumber('stats-serve-errors',{percent:true}),
-    serveTotal:formNumber('stats-serve-total',{integer:true}),
+    serveTotal,
     bloqueos:formNumber('stats-bloqueos',{integer:true}),
     blockTotal:formNumber('stats-block-total',{integer:true}),
     ownErrors:formNumber('stats-own-errors',{integer:true}),
     opponentErrors:formNumber('stats-opponent-errors',{integer:true})
   };
+  if(serveErrorPct!=null)out.serveErrorPct=serveErrorPct;
+  return out;
 }
 async function persist(match,stats,nextStatus,visibleMetrics){
   if(!coach())throw new Error('Solo el cuerpo técnico puede modificar estadísticas.');
