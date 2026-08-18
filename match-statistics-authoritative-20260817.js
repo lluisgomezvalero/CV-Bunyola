@@ -6,7 +6,7 @@ if(window[FLAG])return;
 window[FLAG]=true;
 
 const ROW_SELECT='id,event_id,club_id,team_id,status,visible_metrics,payload,published_at,created_by,created_at,updated_at';
-const DEFAULT_VISIBLE=['recPerfectPct','recExclamPct','recErrorPct','recTotal','attackEfficiencyPct','attackErrors','attackTotal','aces','serveErrors','serveTotal','bloqueos','blockTotal'];
+const DEFAULT_VISIBLE=['recPerfectPct','recExclamPct','recErrorPct','recTotal','attackEfficiencyPct','attackErrors','attackTotal','aces','serveErrorPct','serveTotal','bloqueos','blockTotal'];
 const rowByEvent=new Map();
 const remoteIdByLocal=new Map();
 let baseRenderStats=null;
@@ -139,7 +139,7 @@ function statsFromForm(match){
     attackErrors:formNumber('stats-attack-errors',{integer:true}),
     attackTotal:formNumber('stats-attack-total',{integer:true}),
     aces:formNumber('stats-aces',{integer:true}),
-    serveErrors:formNumber('stats-serve-errors',{integer:true}),
+    serveErrorPct:formNumber('stats-serve-errors',{percent:true}),
     serveTotal:formNumber('stats-serve-total',{integer:true}),
     bloqueos:formNumber('stats-bloqueos',{integer:true}),
     blockTotal:formNumber('stats-block-total',{integer:true}),
