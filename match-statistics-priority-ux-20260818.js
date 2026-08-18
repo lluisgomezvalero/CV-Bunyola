@@ -19,21 +19,26 @@ function ensureStyles(){
     #stats-priority-block .stats-priority-heading strong{font-family:var(--font-heading);font-size:1.05rem;color:#0f172a}
     #stats-priority-block .stats-priority-heading span{font-size:.74rem;color:#64748b}
     #stats-priority-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.7rem}
-    #stats-priority-grid .stats-summary-item{margin:0!important;min-width:0;padding:.85rem .75rem!important;border:1px solid #e2e8f0!important;border-radius:14px!important;background:#f8fafc!important;box-shadow:none!important;display:flex!important;align-items:center!important;gap:.65rem!important}
-    #stats-priority-grid .stats-summary-icon{display:none!important}
-    #stats-priority-grid strong{font-size:1.15rem!important;line-height:1.1}
-    #stats-priority-grid span:not(.stats-summary-icon){font-size:.72rem!important;line-height:1.2;white-space:normal!important;overflow-wrap:anywhere!important;word-break:normal!important;min-width:0!important}
+    #stats-priority-grid .stats-summary-item{margin:0!important;min-width:0!important;min-height:112px;padding:.8rem .7rem!important;border:1px solid #e2e8f0!important;border-radius:14px!important;background:#f8fafc!important;box-shadow:none!important;display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:flex-start!important;gap:.22rem!important;overflow:hidden!important}
+    #stats-priority-grid .stats-summary-icon{display:block!important;flex:0 0 auto!important;font-size:1rem!important;line-height:1!important;margin:0 0 .12rem!important}
+    #stats-priority-grid strong{display:block!important;width:100%!important;font-size:1.15rem!important;line-height:1.05!important;color:#0f172a!important}
+    #stats-priority-grid span:not(.stats-summary-icon){display:block!important;width:100%!important;max-width:100%!important;min-width:0!important;font-size:.72rem!important;line-height:1.18!important;white-space:normal!important;overflow:visible!important;overflow-wrap:normal!important;word-break:normal!important;text-overflow:clip!important}
     #coach-stats-summary{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(125px,1fr))!important;gap:.7rem!important;margin-bottom:1.35rem!important}
     #coach-stats-summary .stats-summary-item{min-width:0!important}
     @media(max-width:560px){
-      #stats-priority-block{padding:.85rem .75rem}
+      #stats-priority-block{padding:.85rem .72rem}
       #stats-priority-block .stats-priority-heading{align-items:flex-start;flex-direction:column;gap:.1rem}
-      #stats-priority-grid{gap:.45rem}
-      #stats-priority-grid .stats-summary-item{padding:.7rem .5rem!important;gap:.4rem!important;flex-direction:column!important;align-items:flex-start!important}
-      #stats-priority-grid .stats-summary-icon{font-size:1rem}
-      #stats-priority-grid strong{font-size:1.02rem!important}
-      #stats-priority-grid span:not(.stats-summary-icon){font-size:.66rem!important;white-space:normal!important;overflow-wrap:anywhere!important}
+      #stats-priority-grid{gap:.38rem}
+      #stats-priority-grid .stats-summary-item{min-height:104px;padding:.62rem .48rem!important;gap:.18rem!important}
+      #stats-priority-grid .stats-summary-icon{font-size:.95rem!important;margin-bottom:.08rem!important}
+      #stats-priority-grid strong{font-size:1.01rem!important}
+      #stats-priority-grid span:not(.stats-summary-icon){font-size:.625rem!important;line-height:1.16!important;white-space:normal!important;overflow:visible!important;overflow-wrap:normal!important;word-break:normal!important}
       #coach-stats-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:.55rem!important}
+    }
+    @media(max-width:390px){
+      #stats-priority-grid{gap:.3rem}
+      #stats-priority-grid .stats-summary-item{padding:.58rem .4rem!important}
+      #stats-priority-grid span:not(.stats-summary-icon){font-size:.59rem!important}
     }
   `;
   document.head.appendChild(style);
@@ -56,12 +61,22 @@ function applyUx(){
 
   const grid=document.getElementById('stats-priority-grid');
   if(!grid)return;
+
   const serveErrorIcon=document.getElementById('stats-total-serve-errors')?.closest('.stats-summary-item')?.querySelector('.stats-summary-icon');
   if(serveErrorIcon)serveErrorIcon.textContent='❌';
 
-  ['stats-avg-rec-perfect','stats-avg-rec-error','stats-avg-attack-efficiency'].forEach(id=>{
+  const priorityIcons={
+    'stats-avg-rec-perfect':'✅',
+    'stats-avg-rec-error':'❌',
+    'stats-avg-attack-efficiency':'📈'
+  };
+
+  Object.entries(priorityIcons).forEach(([id,iconText])=>{
     const item=document.getElementById(id)?.closest('.stats-summary-item');
-    if(item&&item.parentNode!==grid)grid.appendChild(item);
+    if(!item)return;
+    const icon=item.querySelector('.stats-summary-icon');
+    if(icon)icon.textContent=iconText;
+    if(item.parentNode!==grid)grid.appendChild(item);
   });
 }
 
