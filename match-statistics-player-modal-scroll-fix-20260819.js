@@ -17,8 +17,8 @@ function install(){
       #modal-player-match-stats .modal-header{position:relative!important;z-index:3!important;min-height:58px!important;padding:.78rem .9rem!important;background:#fff!important;border-bottom:1px solid #e2e8f0!important;box-shadow:0 1px 0 #e2e8f0!important}
       #modal-player-match-stats .modal-header h3{font-size:1rem!important;line-height:1.2!important;padding-right:.4rem!important}
       #modal-player-match-stats .modal-close{width:36px!important;height:36px!important;min-width:36px!important;display:grid!important;place-items:center!important}
-      #modal-player-match-stats .modal-body{padding:.8rem .85rem calc(124px + env(safe-area-inset-bottom,0px))!important;scroll-padding-bottom:calc(124px + env(safe-area-inset-bottom,0px))!important;background:#fbfcfe!important}
-      #modal-player-match-stats .player-stat-section:last-child{margin-bottom:calc(28px + env(safe-area-inset-bottom,0px))!important}
+      #modal-player-match-stats .modal-body{padding:.8rem .85rem calc(1.4rem + env(safe-area-inset-bottom))!important;background:#fbfcfe!important}
+      body:has(#modal-player-match-stats.active) .mobile-bottom-nav{visibility:hidden!important;pointer-events:none!important}
       body:has(#modal-player-match-stats.active) #module-header-nav{visibility:hidden!important;pointer-events:none!important}
     }
   `;
