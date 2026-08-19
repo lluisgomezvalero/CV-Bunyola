@@ -1,0 +1,29 @@
+name: Refresh stats record performance fix
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-stats-record-performance-cache.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refresh result assets
+        run: |
+          sed -i "s/window.VOLLEY_ASSET_VERSION = '20260819i'/window.VOLLEY_ASSET_VERSION = '20260819j'/g" supabase-config.js
+          sed -i 's/match-result-persistence-20260819.js?v=20260819d/match-result-persistence-20260819.js?v=20260819e/g' supabase-config.js
+          sed -i 's/supabase-config.js?v=20260819safe7/supabase-config.js?v=20260819safe8/g' index.html
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase-config.js index.html
+          if git diff --cached --quiet; then
+            echo "No cache change needed"
+          else
+            git commit -m "Refresh stats record performance assets"
+            git push
+          fi
