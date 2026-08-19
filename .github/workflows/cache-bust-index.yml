@@ -1,0 +1,27 @@
+name: Force fresh app config cache
+
+on:
+  push:
+    paths:
+      - '.github/workflows/cache-bust-index.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  cache-bust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bump supabase config cache key
+        run: |
+          sed -i 's/supabase-config.js?v=20260818b/supabase-config.js?v=20260819d/g' index.html
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "No cache key change needed"
+          else
+            git commit -m "Bust app config cache after rollback"
+            git push
+          fi
