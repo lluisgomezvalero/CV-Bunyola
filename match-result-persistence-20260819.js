@@ -8,7 +8,6 @@ window[FLAG]=true;
 const MATCH_TYPES=new Set(['Partido','Amistoso','Torneo']);
 let pending=null;
 let lastActive=false;
-let resultFieldDirty=false;
 let hydratedOpenKey=null;
 
 function state(){try{return typeof appState!=='undefined'?appState:null;}catch(_){return null;}}
@@ -75,7 +74,6 @@ function ensureStyles(){
   `;
   document.head.appendChild(style);
 }
-function markResultDirty(){resultFieldDirty=true;}
 function ensureStatsField(){
   const form=document.getElementById('form-match-stats');if(!form)return null;
   let block=document.getElementById('stats-result-block');
@@ -85,17 +83,9 @@ function ensureStatsField(){
   block.innerHTML=`<div class="stats-result-heading"><strong>Resultado del partido</strong><span class="stats-result-scope"></span></div><div class="stats-scoreboard"><span class="stats-score-team">CV Bunyola</span><input id="stats-result-own" type="number" inputmode="numeric" min="0" max="5" step="1" aria-label="Sets CV Bunyola"><span class="stats-score-dash">–</span><input id="stats-result-rival" type="number" inputmode="numeric" min="0" max="5" step="1" aria-label="Sets rival"><span id="stats-result-rival-name" class="stats-score-team is-rival">Rival</span></div><small class="stats-result-help">El marcador se guarda junto con la estadística y actualiza automáticamente el balance de victorias y derrotas.</small>`;
   const intro=form.querySelector('.stats-entry-intro');
   if(intro)intro.insertAdjacentElement('afterend',block);else form.prepend(block);
-  block.querySelectorAll('#stats-result-own,#stats-result-rival').forEach(input=>{
-    input.addEventListener('input',markResultDirty);
-    input.addEventListener('change',markResultDirty);
-    input.addEventListener('keydown',markResultDirty);
-  });
   return block;
 }
-function hydrateStatsField(force=false){
-  if(resultFieldDirty&&!force)return;
-  const active=document.activeElement;
-  if(!force&&(active?.id==='stats-result-own'||active?.id==='stats-result-rival'))return;
+function hydrateStatsField(){
   const block=ensureStatsField();const match=currentMatch();if(!block||!match)return;
   const parts=splitResult(resultOf(match));
   const own=document.getElementById('stats-result-own'),rival=document.getElementById('stats-result-rival');
@@ -109,8 +99,7 @@ function hydrateOpenModalOnce(){
   if(!modal?.classList.contains('active'))return;
   const match=currentMatch();if(!match)return;
   const key=matchKey(match);if(!key||hydratedOpenKey===key)return;
-  resultFieldDirty=false;
-  hydrateStatsField(true);
+  hydrateStatsField();
   hydratedOpenKey=key;
 }
 function readStatsResult(){
@@ -118,6 +107,36 @@ function readStatsResult(){
   const rival=String(document.getElementById('stats-result-rival')?.value??'').trim();
   return normalize(`${own}-${rival}`);
 }
+function recordValue(){
+  let wins=0,losses=0;
+  for(const match of state()?.events||[]){
+    if(!isMatchType(match?.type))continue;
+    const result=resultOf(match);if(!result)continue;
+    const [own,rival]=result.split('-').map(Number);
+    if(own>rival)wins++;else if(rival>own)losses++;
+  }
+  return `${wins}V · ${losses}D`;
+}
+function updateRecord(){
+  const el=document.getElementById('stats-record');if(!el)return false;
+  const next=recordValue();
+  if(el.textContent!==next)el.textContent=next;
+  return true;
+}
+function observeRecord(){
+  const el=document.getElementById('stats-record');if(!el)return false;
+  if(el.dataset.matchResultObserver==='1'){updateRecord();return true;}
+  el.dataset.matchResultObserver='1';
+  let queued=false;
+  new MutationObserver(()=>{
+    if(queued)return;queued=true;
+    queueMicrotask(()=>{queued=false;updateRecord();});
+  }).observe(el,{childList:true,characterData:true,subtree:true});
+  updateRecord();
+  return true;
+}
+window.refreshMatchResultRecord=updateRecord;
+
 function onStatsSubmit(event){
   if(event.target?.id!=='form-match-stats')return;
   const match=currentMatch();if(!match||!isMatchType(match.type))return;
@@ -130,79 +149,75 @@ function onStatsSubmit(event){
     (own?.value===''?own:rival)?.focus();
     return;
   }
-  pending={match,result,previous:resultOf(match),previousStatsUpdatedAt:match?.stats?.statsUpdatedAt||null,submittedAt:Date.now()};
+  pending={match,result,previous:resultOf(match),previousStatsUpdatedAt:match?.stats?.statsUpdatedAt||null};
   match.result=result;
   match.rawPayload={...(match.rawPayload||{}),result};
   updateRecord();
 }
 async function persistPending(){
   const job=pending;if(!job)return;
-  const changed=job.match?.stats?.statsUpdatedAt&&job.match.stats.statsUpdatedAt!==job.previousStatsUpdatedAt;
-  const created=!job.previousStatsUpdatedAt&&job.match?.stats?.statsSupabaseId;
-  if(!changed&&!created){
-    if(Date.now()-job.submittedAt<2500){setTimeout(persistPending,180);return;}
-    job.match.result=job.previous||null;job.match.rawPayload={...(job.match.rawPayload||{}),result:job.previous||null};pending=null;updateRecord();return;
-  }
   pending=null;
+  const statsSaved=(job.match?.stats?.statsUpdatedAt&&job.match.stats.statsUpdatedAt!==job.previousStatsUpdatedAt)||(!job.previousStatsUpdatedAt&&job.match?.stats?.statsSupabaseId);
+  if(!statsSaved){
+    job.match.result=job.previous||null;
+    job.match.rawPayload={...(job.match.rawPayload||{}),result:job.previous||null};
+    updateRecord();
+    return;
+  }
   try{
     const api=window.VolleySupabase;if(!api?.saveEvent)throw new Error('No se puede guardar el resultado.');
-    const identity=await api.getIdentity?.();if(identity?.error)throw identity.error;
-    const who=identity?.data||{};
-    const clubId=who.profile?.club_id||api.config?.clubId||window.VOLLEY_SUPABASE_CONFIG?.clubId;
-    const teamId=job.match.teamId||job.match.team_id||who.teams?.[0]?.id||null;
-    const userId=who.profile?.id||null;
-    const response=await api.saveEvent(job.match,clubId,teamId,userId);
+    const clubId=job.match.clubId||job.match.club_id||api.config?.clubId||window.VOLLEY_SUPABASE_CONFIG?.clubId;
+    const teamId=job.match.teamId||job.match.team_id||null;
+    const response=await api.saveEvent(job.match,clubId,teamId,null);
     if(response?.error)throw response.error;
     if(response?.data)Object.assign(job.match,response.data,{result:job.result,rawPayload:{...(response.data.rawPayload||job.match.rawPayload||{}),result:job.result}});
     try{if(typeof saveAppData==='function')saveAppData(state(),{immediate:true});}catch(_){}
     updateRecord();
   }catch(error){
     console.error('[MatchResultStats] save',error);
-    job.match.result=job.previous||null;job.match.rawPayload={...(job.match.rawPayload||{}),result:job.previous||null};
-    updateRecord();toast('La estadística se guardó, pero no se pudo guardar el marcador. Vuelve a intentarlo.','error');
+    job.match.result=job.previous||null;
+    job.match.rawPayload={...(job.match.rawPayload||{}),result:job.previous||null};
+    updateRecord();
+    toast('La estadística se guardó, pero no se pudo guardar el marcador. Vuelve a intentarlo.','error');
   }
-}
-function updateRecord(){
-  const el=document.getElementById('stats-record');if(!el)return;
-  let wins=0,losses=0;
-  for(const match of state()?.events||[]){
-    if(!isMatchType(match?.type))continue;
-    const result=resultOf(match);if(!result)continue;
-    const [own,rival]=result.split('-').map(Number);
-    if(own>rival)wins++;else if(rival>own)losses++;
-  }
-  el.textContent=`${wins}V · ${losses}D`;
 }
 function observeModal(){
-  const modal=document.getElementById('modal-edit-match-stats');if(!modal||modal.dataset.resultObserver==='1')return;
-  modal.dataset.resultObserver='1';lastActive=modal.classList.contains('active');
+  const modal=document.getElementById('modal-edit-match-stats');if(!modal)return false;
+  if(modal.dataset.resultObserver==='1')return true;
+  modal.dataset.resultObserver='1';
+  lastActive=modal.classList.contains('active');
+  if(lastActive)setTimeout(hydrateOpenModalOnce,0);
   new MutationObserver(()=>{
     const active=modal.classList.contains('active');
     if(active&&!lastActive){
-      resultFieldDirty=false;
       hydratedOpenKey=null;
       setTimeout(hydrateOpenModalOnce,0);
     }
     if(!active&&lastActive){
-      resultFieldDirty=false;
       hydratedOpenKey=null;
-      if(pending)setTimeout(persistPending,0);
+      if(pending)setTimeout(()=>void persistPending(),0);
     }
     lastActive=active;
   }).observe(modal,{attributes:true,attributeFilter:['class']});
+  return true;
+}
+function installUi(){
+  ensureStatsField();
+  const modalReady=observeModal();
+  const recordReady=observeRecord();
+  hydrateOpenModalOnce();
+  return modalReady&&recordReady;
 }
 function install(){
   ensureStyles();
   document.addEventListener('submit',onStatsSubmit,true);
-  let tries=0;
-  const timer=setInterval(()=>{
-    tries++;
-    ensureStatsField();
-    observeModal();
-    updateRecord();
-    hydrateOpenModalOnce();
-    if(tries>180)clearInterval(timer);
-  },120);
+  let attempts=0;
+  const boot=()=>{
+    attempts++;
+    if(installUi()||attempts>=20)return;
+    setTimeout(boot,250);
+  };
+  boot();
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
