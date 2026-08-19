@@ -5,6 +5,8 @@ const FLAG='__matchStatisticsPlayerPolish20260819';
 if(window[FLAG])return;
 window[FLAG]=true;
 
+let currentStats=null;
+
 const ICONS={
   'Recepción perfecta (#,+)':'circle-check',
   'Recepción exclamativa (!)':'triangle-alert',
@@ -119,6 +121,8 @@ function ensureStyles(){
       color:#475569!important;
     }
     #modal-player-match-stats .player-stat-metric.is-volume small{color:#64748b!important}
+    #modal-player-match-stats .player-stat-metric.is-unregistered strong{color:#94a3b8!important}
+    #modal-player-match-stats .player-stat-metric.is-unregistered .metric-icon{color:#94a3b8!important}
 
     @media(max-width:560px){
       #modal-player-match-stats .player-stats-hero{margin-bottom:.7rem!important}
@@ -141,24 +145,43 @@ function classify(label){
   return'';
 }
 
-function polish(){
+function positive(value){const n=Number(value);return Number.isFinite(n)&&n>0;}
+function zeroTotalIsProbablyMissing(label,stats){
+  if(!stats)return false;
+  if(label==='Total de recepciones')return positive(stats.recPerfectPct)||positive(stats.recExclamPct)||positive(stats.recErrorPct)||positive(stats.recPerfect)||positive(stats.recError);
+  if(label==='Total de ataques')return positive(stats.attackEfficiencyPct)||positive(stats.attackErrors);
+  if(label==='Total de saques')return positive(stats.aces)||positive(stats.serveErrorPct)||positive(stats.serveErrors)||positive(stats.saquesError);
+  if(label==='Total de bloqueos')return positive(stats.bloqueos);
+  return false;
+}
+
+function polish(stats=currentStats){
   const body=document.getElementById('player-match-stats-body');
   if(!body)return;
 
   body.querySelectorAll('.player-stat-metric').forEach(card=>{
     const label=card.querySelector('small')?.textContent?.trim()||'';
-    card.classList.remove('is-positive','is-negative','is-warning','is-volume');
+    card.classList.remove('is-positive','is-negative','is-warning','is-volume','is-unregistered');
     const type=classify(label);if(type)card.classList.add(type);
 
-    const icon=card.querySelector('.metric-icon');
-    if(icon){
-      icon.innerHTML=`<i data-lucide="${ICONS[label]||'activity'}"></i>`;
+    const value=card.querySelector('strong');
+    if(type==='is-volume'&&value?.textContent?.trim()==='0'&&zeroTotalIsProbablyMissing(label,stats)){
+      value.textContent='—';
+      card.classList.add('is-unregistered');
+      card.title='No registrado';
+    }else{
+      card.removeAttribute('title');
     }
+
+    const icon=card.querySelector('.metric-icon');
+    if(icon)icon.innerHTML=`<i data-lucide="${ICONS[label]||'activity'}"></i>`;
   });
 
   const hero=body.querySelector('.player-stats-hero');
   const heroLabel=hero?.querySelector('span');
-  if(heroLabel)heroLabel.textContent='Resultado final';
+  const heroValue=hero?.querySelector('strong')?.textContent?.trim()||'';
+  const hasScore=/\b\d+\s*[-–:]\s*\d+\b/.test(heroValue);
+  if(heroLabel)heroLabel.textContent=hasScore?'Resultado final':'Estado del partido';
 
   try{window.lucide?.createIcons();}catch(_){}
 }
@@ -168,8 +191,9 @@ function install(){
   const base=window.enhancePlayerMatchStatsModal;
   if(typeof base==='function'&&!base.__playerPolishWrapped){
     const wrapped=function(matchId,stats){
+      currentStats=stats||null;
       const result=base.apply(this,arguments);
-      polish();
+      polish(currentStats);
       return result;
     };
     wrapped.__playerPolishWrapped=true;
@@ -177,7 +201,7 @@ function install(){
   }
 
   const body=document.getElementById('player-match-stats-body');
-  if(body)new MutationObserver(()=>window.setTimeout(polish,0)).observe(body,{childList:true,subtree:true});
+  if(body)new MutationObserver(()=>window.setTimeout(()=>polish(currentStats),0)).observe(body,{childList:true,subtree:true});
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
