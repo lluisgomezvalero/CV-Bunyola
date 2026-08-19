@@ -252,6 +252,23 @@ function bindCompetitionForm(){
     setTimeout(()=>void saveManualTeam(id),0);
   });
 }
+function patchSaveEvent(){
+  const api=window.VolleySupabase;
+  if(!api||typeof api.saveEvent!=='function')return false;
+  if(api.saveEvent.__leagueStandingsAuthoritative20260819)return true;
+  const base=api.saveEvent;
+  const wrapped=async function(evt){
+    const response=await base.apply(this,arguments);
+    if(!response?.error&&['Partido','Amistoso','Torneo'].includes(String(evt?.type||''))){
+      try{await syncOwnStanding();}catch(error){console.warn('[LeagueStandings] No se pudo refrescar la fila automática.',error);}
+    }
+    return response;
+  };
+  wrapped.__leagueStandingsAuthoritative20260819=true;
+  api.saveEvent=wrapped;
+  return true;
+}
+
 function patchRender(){
   const current=window.renderCompetition;
   if(typeof current!=='function'||current.__leagueStandingsAuthoritative20260819)return false;
@@ -275,9 +292,10 @@ function install(){
   let tries=0;
   const boot=()=>{
     tries++;
-    const patched=patchRender();
+    const patchedRender=patchRender();
+    const patchedSave=patchSaveEvent();
     bindCompetitionForm();
-    if(patched||tries>=20)return;
+    if((patchedRender&&patchedSave)||tries>=20)return;
     setTimeout(boot,250);
   };
   setTimeout(boot,0);
