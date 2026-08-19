@@ -8,6 +8,7 @@ window[FLAG]=true;
 const MATCH_TYPES=new Set(['Partido','Amistoso','Torneo']);
 let pending=null;
 let lastActive=false;
+let resultFieldDirty=false;
 
 function state(){try{return typeof appState!=='undefined'?appState:null;}catch(_){return null;}}
 function toast(message,type){try{if(typeof showToast==='function')showToast(message,type);}catch(_){}}
@@ -72,6 +73,7 @@ function ensureStyles(){
   `;
   document.head.appendChild(style);
 }
+function markResultDirty(){resultFieldDirty=true;}
 function ensureStatsField(){
   const form=document.getElementById('form-match-stats');if(!form)return null;
   let block=document.getElementById('stats-result-block');
@@ -81,9 +83,15 @@ function ensureStatsField(){
   block.innerHTML=`<div class="stats-result-heading"><strong>Resultado del partido</strong><span class="stats-result-scope"></span></div><div class="stats-scoreboard"><span class="stats-score-team">CV Bunyola</span><input id="stats-result-own" type="number" inputmode="numeric" min="0" max="5" step="1" aria-label="Sets CV Bunyola"><span class="stats-score-dash">–</span><input id="stats-result-rival" type="number" inputmode="numeric" min="0" max="5" step="1" aria-label="Sets rival"><span id="stats-result-rival-name" class="stats-score-team is-rival">Rival</span></div><small class="stats-result-help">El marcador se guarda junto con la estadística y actualiza automáticamente el balance de victorias y derrotas.</small>`;
   const intro=form.querySelector('.stats-entry-intro');
   if(intro)intro.insertAdjacentElement('afterend',block);else form.prepend(block);
+  block.querySelectorAll('#stats-result-own,#stats-result-rival').forEach(input=>{
+    input.addEventListener('input',markResultDirty);
+    input.addEventListener('change',markResultDirty);
+    input.addEventListener('keydown',markResultDirty);
+  });
   return block;
 }
-function hydrateStatsField(){
+function hydrateStatsField(force=false){
+  if(resultFieldDirty&&!force)return;
   const block=ensureStatsField();const match=currentMatch();if(!block||!match)return;
   const parts=splitResult(resultOf(match));
   const own=document.getElementById('stats-result-own'),rival=document.getElementById('stats-result-rival');
@@ -157,8 +165,8 @@ function observeModal(){
   modal.dataset.resultObserver='1';lastActive=modal.classList.contains('active');
   new MutationObserver(()=>{
     const active=modal.classList.contains('active');
-    if(active&&!lastActive)setTimeout(hydrateStatsField,0);
-    if(!active&&lastActive&&pending)setTimeout(persistPending,0);
+    if(active&&!lastActive){resultFieldDirty=false;setTimeout(()=>hydrateStatsField(true),0);}
+    if(!active&&lastActive){resultFieldDirty=false;if(pending)setTimeout(persistPending,0);}
     lastActive=active;
   }).observe(modal,{attributes:true,attributeFilter:['class']});
 }
@@ -168,7 +176,8 @@ function install(){
   let tries=0;
   const timer=setInterval(()=>{
     tries++;ensureStatsField();observeModal();updateRecord();
-    if(document.getElementById('modal-edit-match-stats')?.classList.contains('active'))hydrateStatsField();
+    const modal=document.getElementById('modal-edit-match-stats');
+    if(modal?.classList.contains('active')&&!resultFieldDirty)hydrateStatsField();
     if(tries>180)clearInterval(timer);
   },120);
 }
