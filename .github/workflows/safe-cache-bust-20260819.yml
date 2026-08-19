@@ -1,0 +1,27 @@
+name: Safe cache bust after recovery
+
+on:
+  push:
+    paths:
+      - '.github/workflows/safe-cache-bust-20260819.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  cache-bust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Force fresh known-good config
+        run: |
+          sed -i 's/supabase-config.js?v=20260818b/supabase-config.js?v=20260819safe1/g' index.html
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "No cache key change needed"
+          else
+            git commit -m "Force fresh known-good app config"
+            git push
+          fi
