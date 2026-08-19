@@ -1,0 +1,29 @@
+name: Refresh coach statistics publish UX
+
+on:
+  push:
+    paths:
+      - '.github/workflows/coach-stats-publish-ux-cache-bust.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refresh coach statistics publish UX assets
+        run: |
+          sed -i "s/window.VOLLEY_ASSET_VERSION = '20260820a'/window.VOLLEY_ASSET_VERSION = '20260820b'/g" supabase-config.js
+          sed -i "/match-statistics-coach-chart-tabs-20260820.js?v=20260820a/a\\  'match-statistics-coach-publish-ux-20260820.js?v=20260820a'," supabase-config.js
+          sed -i 's/supabase-config.js?v=20260820safe14/supabase-config.js?v=20260820safe15/g' index.html
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase-config.js index.html
+          if git diff --cached --quiet; then
+            echo "No cache change needed"
+          else
+            git commit -m "Refresh coach statistics publish UX assets"
+            git push
+          fi
