@@ -3,7 +3,7 @@
  * La publishable key es segura en el navegador SIEMPRE que las tablas tengan RLS.
  * Nunca pongas aquí la service_role ni una secret key.
  */
-window.VOLLEY_ASSET_VERSION = '20260819d';
+window.VOLLEY_ASSET_VERSION = '20260819e';
 window.VOLLEY_SUPABASE_CONFIG = Object.freeze({
   url: 'https://zpvlkdjdfnvamfcjihyt.supabase.co',
   publishableKey: 'sb_publishable_seL2H6gAGBrUDR0O1vhJDA_Y9d7Ky-u',
@@ -13,6 +13,24 @@ window.VOLLEY_SUPABASE_CONFIG = Object.freeze({
   usernameDomain: 'cvbunyola.app',
   clubId: 'b0000000-0000-4000-8000-000000000001'
 });
+
+/*
+ * Seguro de arranque: app.js espera a restoreSupabaseSession() antes de añadir
+ * la clase auth-ready. Si el navegador, la red o Supabase dejan esa promesa
+ * pendiente, evitamos que el usuario quede atrapado para siempre en el spinner.
+ */
+(function installBootFailsafe(){
+  window.setTimeout(function(){
+    if(document.documentElement.classList.contains('auth-ready')) return;
+    console.warn('[VolleyCoach] La restauración de sesión está tardando demasiado; se libera la pantalla de acceso.');
+    document.documentElement.classList.add('auth-ready');
+    const login=document.getElementById('view-login');
+    const portal=document.querySelector('.app-portal-wrapper');
+    if(login && (!portal || portal.style.display==='none')) login.classList.add('active');
+    try{window.dispatchEvent(new CustomEvent('volley:boot-timeout'));}catch(_){}
+  },8000);
+})();
+
 (function primeAttendanceLoadingState(){document.documentElement.classList.remove('attendance-ready');if(!document.getElementById('attendance-preload-css')){const style=document.createElement('style');style.id='attendance-preload-css';style.textContent=`
 html:not(.attendance-ready) button[onclick*="confirmTrainingAttendance"],
 html:not(.attendance-ready) .btn-rsvp-yes,
