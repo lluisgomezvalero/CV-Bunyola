@@ -1,0 +1,27 @@
+name: Refresh final coach stats polish
+
+on:
+  push:
+    paths:
+      - '.github/workflows/coach-stats-final-polish-cache-bust.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refresh final coach stats assets
+        run: |
+          sed -i 's/supabase-config.js?v=20260819safe11/supabase-config.js?v=20260819safe12/g' index.html
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "No cache change needed"
+          else
+            git commit -m "Refresh final coach stats polish assets"
+            git push
+          fi
