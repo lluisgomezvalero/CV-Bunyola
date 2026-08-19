@@ -9,6 +9,7 @@ const MATCH_TYPES=new Set(['Partido','Amistoso','Torneo']);
 let pending=null;
 let lastActive=false;
 let resultFieldDirty=false;
+let hydratedOpenKey=null;
 
 function state(){try{return typeof appState!=='undefined'?appState:null;}catch(_){return null;}}
 function toast(message,type){try{if(typeof showToast==='function')showToast(message,type);}catch(_){}}
@@ -29,6 +30,7 @@ function findEvent(id){
   return (state()?.events||[]).find(evt=>[evt.id,evt.legacyId,evt.legacy_id,evt.supabaseId,evt.supabase_id].filter(Boolean).some(candidate=>String(candidate)===String(id)))||null;
 }
 function currentMatch(){return findEvent(document.getElementById('match-stats-id-input')?.value);}
+function matchKey(match){return String(match?.id||match?.legacyId||match?.legacy_id||match?.supabaseId||match?.supabase_id||'');}
 function isMatchType(type){return MATCH_TYPES.has(String(type||''));}
 function isLeagueEvent(evt){return String(evt?.type||'')==='Partido';}
 function resultOf(evt){return normalize(evt?.result||evt?.rawPayload?.result||evt?.payload?.result);}
@@ -92,6 +94,8 @@ function ensureStatsField(){
 }
 function hydrateStatsField(force=false){
   if(resultFieldDirty&&!force)return;
+  const active=document.activeElement;
+  if(!force&&(active?.id==='stats-result-own'||active?.id==='stats-result-rival'))return;
   const block=ensureStatsField();const match=currentMatch();if(!block||!match)return;
   const parts=splitResult(resultOf(match));
   const own=document.getElementById('stats-result-own'),rival=document.getElementById('stats-result-rival');
@@ -99,6 +103,15 @@ function hydrateStatsField(force=false){
   const rivalName=document.getElementById('stats-result-rival-name');if(rivalName)rivalName.textContent=opponentOf(match);
   const badge=block.querySelector('.stats-result-scope');
   if(badge){const league=isLeagueEvent(match);badge.classList.toggle('is-league',league);badge.textContent=league?'Liga · cuenta para clasificación':'No afecta a la clasificación';}
+}
+function hydrateOpenModalOnce(){
+  const modal=document.getElementById('modal-edit-match-stats');
+  if(!modal?.classList.contains('active'))return;
+  const match=currentMatch();if(!match)return;
+  const key=matchKey(match);if(!key||hydratedOpenKey===key)return;
+  resultFieldDirty=false;
+  hydrateStatsField(true);
+  hydratedOpenKey=key;
 }
 function readStatsResult(){
   const own=String(document.getElementById('stats-result-own')?.value??'').trim();
@@ -165,8 +178,16 @@ function observeModal(){
   modal.dataset.resultObserver='1';lastActive=modal.classList.contains('active');
   new MutationObserver(()=>{
     const active=modal.classList.contains('active');
-    if(active&&!lastActive){resultFieldDirty=false;setTimeout(()=>hydrateStatsField(true),0);}
-    if(!active&&lastActive){resultFieldDirty=false;if(pending)setTimeout(persistPending,0);}
+    if(active&&!lastActive){
+      resultFieldDirty=false;
+      hydratedOpenKey=null;
+      setTimeout(hydrateOpenModalOnce,0);
+    }
+    if(!active&&lastActive){
+      resultFieldDirty=false;
+      hydratedOpenKey=null;
+      if(pending)setTimeout(persistPending,0);
+    }
     lastActive=active;
   }).observe(modal,{attributes:true,attributeFilter:['class']});
 }
@@ -175,9 +196,11 @@ function install(){
   document.addEventListener('submit',onStatsSubmit,true);
   let tries=0;
   const timer=setInterval(()=>{
-    tries++;ensureStatsField();observeModal();updateRecord();
-    const modal=document.getElementById('modal-edit-match-stats');
-    if(modal?.classList.contains('active')&&!resultFieldDirty)hydrateStatsField();
+    tries++;
+    ensureStatsField();
+    observeModal();
+    updateRecord();
+    hydrateOpenModalOnce();
     if(tries>180)clearInterval(timer);
   },120);
 }
