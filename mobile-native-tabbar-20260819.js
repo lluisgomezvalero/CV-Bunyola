@@ -13,65 +13,60 @@ function ensureStyles(){
   style.id='mobile-native-tabbar-style';
   style.textContent=`
     :root{
+      --vc-tabbar-height:68px;
       --vc-safe-bottom:env(safe-area-inset-bottom,0px);
-      --vc-tabbar-reserve:calc(96px + var(--vc-safe-bottom));
+      --vc-tabbar-total:calc(var(--vc-tabbar-height) + var(--vc-safe-bottom));
     }
 
     @media(max-width:768px){
       html{min-height:100%;overscroll-behavior-x:none}
       body{
         min-height:100dvh!important;
-        padding-bottom:0!important;
+        padding-bottom:var(--vc-tabbar-total)!important;
         overscroll-behavior-x:none;
         -webkit-tap-highlight-color:transparent;
       }
 
-      /* Igual que en Swim Performance Hub: el layout reserva el espacio de la tab bar. */
       .app-portal-wrapper{
         min-height:100dvh!important;
-        padding-bottom:var(--vc-tabbar-reserve)!important;
+        padding-bottom:calc(var(--vc-tabbar-total) + 24px)!important;
       }
+
       .page-view.active{
-        min-height:calc(100dvh - var(--vc-tabbar-reserve))!important;
+        min-height:calc(100dvh - var(--vc-tabbar-total))!important;
       }
 
       .mobile-bottom-nav{
         display:flex!important;
         position:fixed!important;
-        left:.6rem!important;
-        right:.6rem!important;
-        bottom:.55rem!important;
+        left:0!important;
+        right:0!important;
+        bottom:0!important;
         z-index:9200!important;
-        height:auto!important;
-        min-height:64px!important;
-        padding:.35rem .3rem calc(.35rem + var(--vc-safe-bottom))!important;
-        align-items:stretch!important;
+        height:var(--vc-tabbar-total)!important;
+        min-height:var(--vc-tabbar-total)!important;
+        padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + var(--vc-safe-bottom)) max(8px,env(safe-area-inset-left,0px))!important;
+        align-items:flex-start!important;
         justify-content:space-around!important;
         gap:2px!important;
         background:rgba(255,255,255,.965)!important;
-        border:1px solid rgba(226,232,240,.96)!important;
-        border-radius:20px!important;
-        box-shadow:0 12px 35px rgba(15,23,42,.13)!important;
+        border-top:1px solid rgba(226,232,240,.96)!important;
+        box-shadow:0 -10px 28px rgba(15,23,42,.08)!important;
         backdrop-filter:blur(18px)!important;
         -webkit-backdrop-filter:blur(18px)!important;
-        overflow-x:auto!important;
-        overflow-y:hidden!important;
-        scrollbar-width:none!important;
-        -webkit-overflow-scrolling:touch!important;
         transform:translate3d(0,0,0);
-        transition:transform .18s ease,opacity .16s ease,visibility .16s ease!important;
+        transition:transform .2s ease,opacity .16s ease,visibility .16s ease!important;
         will-change:transform;
       }
-      .mobile-bottom-nav::-webkit-scrollbar{display:none!important}
 
       .mobile-bottom-nav .nav-item{
         position:relative!important;
         flex:1 1 0!important;
         width:auto!important;
-        min-width:64px!important;
-        min-height:52px!important;
+        min-width:0!important;
+        min-height:56px!important;
         margin:0!important;
-        padding:.4rem .12rem!important;
+        padding:5px 3px!important;
         border:0!important;
         border-radius:14px!important;
         background:transparent!important;
@@ -80,8 +75,8 @@ function ensureStyles(){
         flex-direction:column!important;
         align-items:center!important;
         justify-content:center!important;
-        gap:.2rem!important;
-        font-size:.66rem!important;
+        gap:3px!important;
+        font-size:.69rem!important;
         font-weight:750!important;
         line-height:1.05!important;
         touch-action:manipulation!important;
@@ -90,24 +85,36 @@ function ensureStyles(){
         transition:transform .08s ease,color .16s ease,background .16s ease!important;
       }
       .mobile-bottom-nav .nav-item svg{
-        width:22px!important;
-        height:22px!important;
+        width:23px!important;
+        height:23px!important;
         stroke-width:2.15!important;
-        flex:none!important;
       }
       .mobile-bottom-nav .nav-item:active{
-        transform:scale(.93)!important;
+        transform:scale(.92)!important;
         background:#f8fafc!important;
       }
       .mobile-bottom-nav .nav-item.active{
         color:#b45309!important;
         background:#fff7ed!important;
       }
+      .mobile-bottom-nav .nav-item.active::before{
+        content:'';
+        position:absolute;
+        top:2px;
+        left:50%;
+        width:28px;
+        height:3px;
+        border-radius:999px;
+        background:#d97706;
+        transform:translateX(-50%);
+      }
 
-      /* Los modales generales pasan por encima de la barra. */
-      body.vc-native-modal-open{overflow:hidden!important}
+      body.vc-native-modal-open{
+        overflow:hidden!important;
+        padding-bottom:0!important;
+      }
       body.vc-native-modal-open .mobile-bottom-nav{
-        transform:translate3d(0,125%,0)!important;
+        transform:translate3d(0,115%,0)!important;
         opacity:0!important;
         visibility:hidden!important;
         pointer-events:none!important;
@@ -116,7 +123,9 @@ function ensureStyles(){
       .modal-backdrop.active,
       .centered-notice-modal.active,
       .avatar-crop-modal.active,
-      #session-file-viewer.active{z-index:12000!important}
+      #session-file-viewer.active{
+        z-index:12000!important;
+      }
 
       .modal-backdrop.active .modal-body,
       .centered-notice-modal.active,
@@ -126,14 +135,6 @@ function ensureStyles(){
         overscroll-behavior:contain;
       }
 
-      /* El resumen de partido conserva la tab bar, igual que una pantalla de la app. */
-      body.vc-player-stats-open{overflow:hidden!important}
-      body.vc-player-stats-open .mobile-bottom-nav{
-        transform:translate3d(0,0,0)!important;
-        opacity:1!important;
-        visibility:visible!important;
-        pointer-events:auto!important;
-      }
       #modal-player-match-stats.active{
         position:fixed!important;
         inset:0!important;
@@ -157,52 +158,49 @@ function ensureStyles(){
         overflow:hidden!important;
         box-shadow:none!important;
       }
-      #modal-player-match-stats.active .modal-header{flex:0 0 auto!important}
+      #modal-player-match-stats.active .modal-header{
+        flex:0 0 auto!important;
+        position:relative!important;
+        z-index:2!important;
+        background:#fff!important;
+      }
       #modal-player-match-stats.active .modal-body{
         flex:1 1 auto!important;
         min-height:0!important;
         overflow-y:auto!important;
         overflow-x:hidden!important;
-        padding-bottom:calc(118px + var(--vc-safe-bottom))!important;
-        scroll-padding-bottom:calc(118px + var(--vc-safe-bottom))!important;
-        -webkit-overflow-scrolling:touch!important;
-      }
-      #modal-player-match-stats.active .player-stat-section:last-child{
-        margin-bottom:calc(26px + var(--vc-safe-bottom))!important;
+        padding-bottom:calc(32px + var(--vc-safe-bottom))!important;
+        scroll-padding-bottom:calc(32px + var(--vc-safe-bottom))!important;
       }
 
-      .page-view.vc-page-enter{animation:vcPageEnter .15s ease-out both}
+      .page-view.vc-page-enter{
+        animation:vcPageEnter .15s ease-out both;
+      }
       @keyframes vcPageEnter{
         from{opacity:.72;transform:translate3d(0,4px,0)}
         to{opacity:1;transform:translate3d(0,0,0)}
       }
+
       @media(prefers-reduced-motion:reduce){
         .mobile-bottom-nav,.mobile-bottom-nav .nav-item,.page-view.vc-page-enter{transition:none!important;animation:none!important}
       }
-    }
-
-    @media(max-width:520px){
-      .mobile-bottom-nav{left:.4rem!important;right:.4rem!important}
-      .mobile-bottom-nav .nav-item{min-width:62px!important}
     }
   `;
   document.head.appendChild(style);
 }
 
-function activeOverlays(){
-  return [...document.querySelectorAll('.modal-backdrop.active,.centered-notice-modal.active,.avatar-crop-modal.active,#session-file-viewer.active')];
+function hasOpenOverlay(){
+  return Boolean(document.querySelector(
+    '.modal-backdrop.active,.centered-notice-modal.active,.avatar-crop-modal.active,#session-file-viewer.active'
+  ));
 }
 
 function syncModalState(){
   if(!window.matchMedia(MOBILE).matches){
-    document.body.classList.remove('vc-native-modal-open','vc-player-stats-open');
+    document.body.classList.remove('vc-native-modal-open');
     return;
   }
-  const playerStats=document.getElementById('modal-player-match-stats');
-  const playerOpen=Boolean(playerStats?.classList.contains('active'));
-  const otherOpen=activeOverlays().some(el=>el!==playerStats);
-  document.body.classList.toggle('vc-player-stats-open',playerOpen);
-  document.body.classList.toggle('vc-native-modal-open',otherOpen&&!playerOpen);
+  document.body.classList.toggle('vc-native-modal-open',hasOpenOverlay());
 }
 
 function animateActivePage(target){
