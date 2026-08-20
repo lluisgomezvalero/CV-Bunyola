@@ -1,0 +1,35 @@
+name: Publish training add-button cleanup
+
+on:
+  push:
+    paths:
+      - '.github/workflows/training-top-add-hide-cache-bust.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Load cleanup and refresh cache
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('supabase-config.js')
+          s=p.read_text()
+          needle="  'training-mobile-app-ux-20260820.js?v=20260820a',\n"
+          line="  'training-top-add-hide-20260820.js?v=20260820a',\n"
+          if line not in s:
+              s=s.replace(needle, needle+line)
+          s=s.replace("window.VOLLEY_ASSET_VERSION = '20260820t'", "window.VOLLEY_ASSET_VERSION = '20260820u'")
+          p.write_text(s)
+          PY
+          sed -i 's/supabase-config.js?v=20260820safe35/supabase-config.js?v=20260820safe36/g' index.html
+          rm -f .github/workflows/training-top-add-hide-cache-bust.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase-config.js index.html .github/workflows/training-top-add-hide-cache-bust.yml
+          git commit -m "Publish training add-button cleanup"
+          git push
