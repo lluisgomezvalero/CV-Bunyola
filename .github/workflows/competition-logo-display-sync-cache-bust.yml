@@ -1,0 +1,29 @@
+name: Refresh competition logo display sync
+
+on:
+  push:
+    paths:
+      - '.github/workflows/competition-logo-display-sync-cache-bust.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Load competition logo display sync
+        run: |
+          sed -i "s/window.VOLLEY_ASSET_VERSION = '20260820f'/window.VOLLEY_ASSET_VERSION = '20260820g'/g" supabase-config.js
+          sed -i "/competition-app-ux-20260820.js?v=20260820a/a\\  'competition-logo-display-sync-20260820.js?v=20260820a'," supabase-config.js
+          sed -i 's/supabase-config.js?v=20260820safe19/supabase-config.js?v=20260820safe20/g' index.html
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase-config.js index.html
+          if git diff --cached --quiet; then
+            echo "No cache change needed"
+          else
+            git commit -m "Refresh competition logo display sync assets"
+            git push
+          fi
