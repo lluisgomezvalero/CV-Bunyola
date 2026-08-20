@@ -35,7 +35,7 @@ function fastRetry(){
     if(document.documentElement.classList.contains('wellness-unified-ready'))return;
     kick();
     attempts+=1;
-    if(attempts<32)timer=setTimeout(run,65);
+    if(attempts<60)timer=setTimeout(run,25);
   };
   run();
 }
