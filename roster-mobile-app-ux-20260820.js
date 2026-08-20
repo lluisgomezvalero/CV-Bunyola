@@ -21,11 +21,20 @@ function ensureStyles(){
         color:#263247!important;
       }
       body.volley-roster-context #view-roster .filter-bar{
+        display:flex!important;
+        flex-wrap:nowrap!important;
+        overflow-x:auto!important;
+        overflow-y:hidden!important;
+        width:100%!important;
         gap:.32rem!important;
         margin:0 0 .7rem!important;
-        padding:.05rem .05rem .12rem!important;
+        padding:.05rem .05rem .16rem!important;
+        scrollbar-width:none!important;
+        -webkit-overflow-scrolling:touch!important;
       }
+      body.volley-roster-context #view-roster .filter-bar::-webkit-scrollbar{display:none!important}
       body.volley-roster-context #view-roster .filter-bar .filter-btn{
+        flex:0 0 auto!important;
         min-height:31px!important;
         padding:.35rem .62rem!important;
         border:1px solid #e3e8ee!important;
@@ -35,6 +44,7 @@ function ensureStyles(){
         box-shadow:none!important;
         font-size:.65rem!important;
         font-weight:800!important;
+        white-space:nowrap!important;
       }
       body.volley-roster-context #view-roster .filter-bar .filter-btn.active{
         background:#fff7e8!important;
@@ -53,9 +63,7 @@ function ensureStyles(){
         overflow:hidden!important;
         transform:none!important;
       }
-      body.volley-roster-context .player-card.player-trading-card:active{
-        transform:scale(.985)!important;
-      }
+      body.volley-roster-context .player-card.player-trading-card:active{transform:scale(.985)!important}
       body.volley-roster-context .player-card.player-trading-card .trading-card-photo-wrap{
         display:block!important;
         aspect-ratio:4/4.65!important;
@@ -67,9 +75,21 @@ function ensureStyles(){
         object-fit:cover!important;
         object-position:center top!important;
       }
+      body.volley-roster-context .player-card.player-trading-card.roster-card-placeholder .trading-card-photo-wrap{
+        background:#f6f8fa!important;
+      }
+      body.volley-roster-context .player-card.player-trading-card.roster-card-placeholder .trading-card-photo{
+        object-fit:contain!important;
+        object-position:center!important;
+        padding:17%!important;
+        background:#f8fafc!important;
+      }
       body.volley-roster-context .player-card.player-trading-card .trading-card-photo-wrap::after{
         height:26%!important;
         background:linear-gradient(to top,rgba(15,23,42,.3),transparent)!important;
+      }
+      body.volley-roster-context .player-card.player-trading-card.roster-card-placeholder .trading-card-photo-wrap::after{
+        background:linear-gradient(to top,rgba(15,23,42,.14),transparent)!important;
       }
       body.volley-roster-context .player-card.player-trading-card .trading-card-number{
         left:.48rem!important;
@@ -89,6 +109,9 @@ function ensureStyles(){
         padding:.58rem .54rem .64rem!important;
         background:#fff!important;
         text-align:left!important;
+      }
+      body.volley-roster-context .player-card.player-trading-card.roster-card-no-date .trading-card-info{
+        min-height:68px!important;
       }
       body.volley-roster-context .player-card.player-trading-card .trading-card-name{
         margin:0!important;
@@ -128,6 +151,7 @@ function ensureStyles(){
         color:#9aa4b1!important;
         font-size:.56rem!important;
       }
+      body.volley-roster-context .player-card.player-trading-card .roster-pending-date{display:none!important}
       body.volley-roster-context .trading-card-coach-actions{display:none!important}
       body.volley-roster-context .roster-mobile-add{
         width:38px!important;
@@ -148,6 +172,31 @@ function ensureStyles(){
   document.head.appendChild(style);
 }
 
-function install(){ensureStyles();}
+function polishCards(){
+  const grid=document.getElementById('roster-grid-container');
+  if(!grid)return;
+  grid.querySelectorAll('.player-card.player-trading-card').forEach(card=>{
+    const img=card.querySelector('.trading-card-photo');
+    const src=String(img?.getAttribute('src')||'').toLowerCase();
+    const placeholder=src.includes('club_logo.png')||src.includes('default_avatar.svg');
+    card.classList.toggle('roster-card-placeholder',placeholder);
+
+    let hasPending=false;
+    card.querySelectorAll('.trading-card-meta span,.trading-card-meta small,.trading-card-meta div').forEach(node=>{
+      if(String(node.textContent||'').toLowerCase().includes('fecha pendiente')){
+        node.classList.add('roster-pending-date');
+        hasPending=true;
+      }
+    });
+    card.classList.toggle('roster-card-no-date',hasPending);
+  });
+}
+
+function install(){
+  ensureStyles();
+  requestAnimationFrame(polishCards);
+  const grid=document.getElementById('roster-grid-container');
+  if(grid)new MutationObserver(()=>requestAnimationFrame(polishCards)).observe(grid,{childList:true,subtree:true});
+}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
