@@ -104,3 +104,11 @@ html body #view-tactics.game-plan-preview-canonical #scouting-plan-content > .sc
     min-height:44px!important;
   }
 }
+
+/* Bienestar y Carga — impedir que la vista legacy aparezca antes del decorador unificado. */
+@media(max-width:760px), (max-width:1366px) and (any-pointer:coarse){
+  html body #view-wellness:not(.wellness-role-coach):not(.wellness-role-player) > *{
+    visibility:hidden!important;
+    pointer-events:none!important;
+  }
+}
