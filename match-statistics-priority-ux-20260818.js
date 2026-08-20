@@ -52,7 +52,7 @@ function ensureStyles(){
     #stats-matches-list .stats-card-actions{margin-top:.75rem!important;padding-top:.75rem!important;border-top:1px solid #f1f5f9!important}
     #stats-filter-empty{padding:1rem;border:1px dashed #cbd5e1;border-radius:13px;background:#f8fafc;color:#64748b;text-align:center;font-size:.8rem;line-height:1.35}
 
-    @media(max-width:760px){
+    @media(max-width:760px), (max-width:1366px) and (any-pointer:coarse){
       #coach-stats-charts{grid-template-columns:1fr!important;gap:.85rem!important}
       #coach-stats-charts .card{padding:1rem!important}
       #coach-stats-charts .card-header h3{font-size:.96rem!important;line-height:1.2!important}

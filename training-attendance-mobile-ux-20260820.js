@@ -8,7 +8,7 @@ function install(){
   const style=document.createElement('style');
   style.id='training-attendance-mobile-ux-20260820-style';
   style.textContent=`
-  @media(max-width:760px){
+  @media(max-width:760px), (max-width:1366px) and (any-pointer:coarse){
     #view-training .team-attendance-overview{gap:.72rem!important}
     #view-training .team-attendance-header{display:block!important;margin:0!important}
     #view-training .team-attendance-header>div:first-child{margin-bottom:.55rem!important}

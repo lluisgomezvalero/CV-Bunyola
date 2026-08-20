@@ -8,7 +8,7 @@ function install(){
   const style=document.createElement('style');
   style.id='training-session-header-fix-20260820-style';
   style.textContent=`
-  @media(max-width:760px){
+  @media(max-width:760px), (max-width:1366px) and (any-pointer:coarse){
     #view-training .session-detail-hero{
       display:flex!important;
       flex-wrap:wrap!important;

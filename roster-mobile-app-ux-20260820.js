@@ -9,7 +9,7 @@ function ensureStyles(){
   const style=document.createElement('style');
   style.id='roster-mobile-app-ux-20260820-style';
   style.textContent=`
-    @media(max-width:760px){
+    @media(max-width:760px), (max-width:1366px) and (any-pointer:coarse){
       body.volley-roster-context #view-roster{padding-left:0!important;padding-right:0!important}
       body.volley-roster-context #view-roster .roster-context-summary{
         margin:.05rem .12rem .55rem!important;

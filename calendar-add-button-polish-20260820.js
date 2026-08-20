@@ -7,7 +7,7 @@ function install(){
   const style=document.createElement('style');
   style.id='calendar-add-button-polish-20260820-style';
   style.textContent=`
-    @media(max-width:760px){
+    @media(max-width:760px), (max-width:1366px) and (any-pointer:coarse){
       #view-calendar #btn-add-event{
         width:38px!important;
         height:38px!important;

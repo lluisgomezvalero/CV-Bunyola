@@ -8,7 +8,7 @@ function install(){
   const style=document.createElement('style');
   style.id='training-session-detail-ux-20260820-style';
   style.textContent=`
-  @media(max-width:760px){
+  @media(max-width:760px), (max-width:1366px) and (any-pointer:coarse){
     #view-training #session-center-detail{margin:0!important}
     #view-training .session-detail-shell{padding:0 0 calc(92px + env(safe-area-inset-bottom))!important}
 

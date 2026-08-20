@@ -155,7 +155,7 @@ function ensureStyles(){
   const style=document.createElement('style');
   style.id='calendar-mobile-app-ux-20260820-style';
   style.textContent=`
-    @media(max-width:760px){
+    @media(max-width:760px), (max-width:1366px) and (any-pointer:coarse){
       #view-calendar .gcal-toolbar{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important;gap:.55rem!important;margin-bottom:.75rem!important;padding:0!important}
       #view-calendar .gcal-toolbar-left{display:grid!important;grid-template-columns:auto auto auto minmax(0,1fr)!important;align-items:center!important;gap:.3rem!important;min-width:0!important}
       #view-calendar .gcal-toolbar-right{display:flex!important;align-items:center!important;justify-content:center!important}

@@ -9,7 +9,7 @@ function ensureStyles(){
   const style=document.createElement('style');
   style.id='training-mobile-app-ux-20260820-style';
   style.textContent=`
-  @media(max-width:760px){
+  @media(max-width:760px), (max-width:1366px) and (any-pointer:coarse){
     #view-training .training-toolbar-row{
       display:grid!important;
       grid-template-columns:minmax(0,1fr) 40px!important;

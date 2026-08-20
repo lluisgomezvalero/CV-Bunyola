@@ -3,7 +3,7 @@
  * La publishable key es segura en el navegador SIEMPRE que las tablas tengan RLS.
  * Nunca pongas aquí la service_role ni una secret key.
  */
-window.VOLLEY_ASSET_VERSION = '20260820ze';
+window.VOLLEY_ASSET_VERSION = '20260820zf';
 window.VOLLEY_SUPABASE_CONFIG = Object.freeze({
   url: 'https://zpvlkdjdfnvamfcjihyt.supabase.co',
   publishableKey: 'sb_publishable_seL2H6gAGBrUDR0O1vhJDA_Y9d7Ky-u',
@@ -24,6 +24,7 @@ html:not(.attendance-ready) .btn-rsvp-no{visibility:hidden!important;pointer-eve
     const style=document.createElement('style');
     style.id='wellness-unified-preload-css';
     style.textContent=`html:not(.wellness-unified-ready) #view-wellness.active{visibility:hidden!important;opacity:0!important;pointer-events:none!important}`;
+    window.setTimeout(()=>document.documentElement.classList.add('wellness-unified-ready'),5000);
     document.head.appendChild(style);
   }
 })();
@@ -48,11 +49,11 @@ html:not(.attendance-ready) .btn-rsvp-no{visibility:hidden!important;pointer-eve
   'roll-call-effective-minutes-20260811.js?v=20260812f',
   'attendance-late-count-20260811.js?v=20260812f',
   'team-attendance-overview-20260812.js?v=20260812p',
-  'training-attendance-mobile-ux-20260820.js?v=20260820a',
-  'training-mobile-app-ux-20260820.js?v=20260820a',
+  'training-attendance-mobile-ux-20260820.js?v=20260820tablet1',
+  'training-mobile-app-ux-20260820.js?v=20260820tablet1',
   'training-top-add-hide-20260820.js?v=20260820a',
-  'training-session-detail-ux-20260820.js?v=20260820a',
-  'training-session-header-fix-20260820.js?v=20260820b',
+  'training-session-detail-ux-20260820.js?v=20260820tablet1',
+  'training-session-header-fix-20260820.js?v=20260820tablet1',
   'rpe-authoritative-20260810.js?v=20260812i',
   'rpe-pending-overview-authoritative-20260810.js?v=20260810p',
   'coach-training-windows-20260810.js?v=20260812f',
@@ -71,7 +72,7 @@ html:not(.attendance-ready) .btn-rsvp-no{visibility:hidden!important;pointer-eve
   'player-wellness-summary-20260813.js?v=20260813e',
   'player-passport-remove-commitment-20260813.js?v=20260813f',
   'roster-context-layout-20260813.js?v=20260813g',
-  'roster-mobile-app-ux-20260820.js?v=20260820b',
+  'roster-mobile-app-ux-20260820.js?v=20260820tablet1',
   'global-context-shell-20260813.js?v=20260813p',
   'mobile-modal-balance-20260813.js?v=20260813p',
   'modal-surface-clarity-20260813.js?v=20260813j',
@@ -84,21 +85,21 @@ html:not(.attendance-ready) .btn-rsvp-no{visibility:hidden!important;pointer-eve
   'match-opponent-legacy-repair-20260814.js?v=20260814p',
   'match-result-persistence-20260819.js?v=20260819e',
   'league-standings-authoritative-20260819.js?v=20260819a',
-  'competition-app-ux-20260820.js?v=20260820b',
+  'competition-app-ux-20260820.js?v=20260820tablet1',
   'competition-admin-reset-guard-20260820.js?v=20260820b',
-  'competition-team-editor-ux-20260820.js?v=20260820b',
+  'competition-team-editor-ux-20260820.js?v=20260820tablet1',
   'competition-logo-display-sync-20260820.js?v=20260820b',
-  'calendar-mobile-app-ux-20260820.js?v=20260820c',
-  'calendar-toolbar-polish-20260820.js?v=20260820a',
-  'calendar-add-button-polish-20260820.js?v=20260820a',
+  'calendar-mobile-app-ux-20260820.js?v=20260820tablet1',
+  'calendar-toolbar-polish-20260820.js?v=20260820tablet1',
+  'calendar-add-button-polish-20260820.js?v=20260820tablet1',
   'match-statistics-authoritative-20260817.js?v=20260818b',
-  'match-statistics-priority-ux-20260818.js?v=20260818e',
-  'match-statistics-form-ux-20260818.js?v=20260818b',
+  'match-statistics-priority-ux-20260818.js?v=20260820tablet1',
+  'match-statistics-form-ux-20260818.js?v=20260820tablet1',
   'match-statistics-extended-fields-20260818.js?v=20260818b',
-  'match-statistics-coach-app-ux-20260819.js?v=20260819b',
-  'match-statistics-coach-final-polish-20260819.js?v=20260819a',
-  'match-statistics-coach-chart-tabs-20260820.js?v=20260820a',
-  'match-statistics-coach-publish-ux-20260820.js?v=20260820a',
+  'match-statistics-coach-app-ux-20260819.js?v=20260820tablet1',
+  'match-statistics-coach-final-polish-20260819.js?v=20260820tablet1',
+  'match-statistics-coach-chart-tabs-20260820.js?v=20260820tablet1',
+  'match-statistics-coach-publish-ux-20260820.js?v=20260820tablet1',
   'match-statistics-performance-20260820.js?v=20260820a',
   'match-statistics-player-overview-20260819.js?v=20260819a',
   'match-statistics-player-polish-20260819.js?v=20260819b',

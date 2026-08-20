@@ -32,7 +32,7 @@ function ensureStyles(){
     #view-competition .competition-mobile-list{display:none}
     #view-competition .competition-table-host{min-width:0}
 
-    @media(max-width:760px){
+    @media(max-width:760px), (max-width:1366px) and (any-pointer:coarse){
       #view-competition>.card-header{margin-bottom:.75rem!important;gap:.5rem!important;align-items:center!important}
       #view-competition>.card-header>div:first-child{min-width:0;flex:1 1 auto}
       #view-competition>.card-header h2{font-size:1.08rem!important;line-height:1.12!important;gap:.3rem!important}
