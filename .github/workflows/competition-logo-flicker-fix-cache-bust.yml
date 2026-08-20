@@ -1,0 +1,29 @@
+name: Refresh competition logo flicker fix
+
+on:
+  push:
+    paths:
+      - '.github/workflows/competition-logo-flicker-fix-cache-bust.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove duplicate mobile standings renderer
+        run: |
+          sed -i "/competition-mobile-list-source-fix-20260820.js?v=20260820a/d" supabase-config.js
+          sed -i "s/window.VOLLEY_ASSET_VERSION = '20260820e'/window.VOLLEY_ASSET_VERSION = '20260820f'/g" supabase-config.js
+          sed -i 's/supabase-config.js?v=20260820safe18/supabase-config.js?v=20260820safe19/g' index.html
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase-config.js index.html
+          if git diff --cached --quiet; then
+            echo "No cache change needed"
+          else
+            git commit -m "Remove duplicate competition mobile renderer"
+            git push
+          fi
