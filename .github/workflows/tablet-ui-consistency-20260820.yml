@@ -1,0 +1,74 @@
+name: Tablet UI consistency refresh
+on:
+  push:
+    paths:
+      - '.github/workflows/tablet-ui-consistency-20260820.yml'
+permissions:
+  contents: write
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extend app-style cards to touch tablets
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          targets=[
+            'roster-mobile-app-ux-20260820.js',
+            'training-mobile-app-ux-20260820.js',
+            'training-attendance-mobile-ux-20260820.js',
+            'training-session-detail-ux-20260820.js',
+            'training-session-header-fix-20260820.js',
+            'calendar-mobile-app-ux-20260820.js',
+            'calendar-toolbar-polish-20260820.js',
+            'calendar-add-button-polish-20260820.js',
+            'competition-app-ux-20260820.js',
+            'competition-team-editor-ux-20260820.js',
+            'match-statistics-coach-app-ux-20260819.js',
+            'match-statistics-coach-final-polish-20260819.js',
+            'match-statistics-coach-chart-tabs-20260820.js',
+            'match-statistics-coach-publish-ux-20260820.js',
+            'match-statistics-form-ux-20260818.js',
+            'match-statistics-priority-ux-20260818.js'
+          ]
+          tablet='@media(max-width:760px), (max-width:1366px) and (any-pointer:coarse){'
+          for name in targets:
+            p=Path(name)
+            if not p.exists():
+              continue
+            s=p.read_text()
+            s=s.replace('@media(max-width:760px){',tablet)
+            s=s.replace('@media (max-width:760px){',tablet)
+            s=s.replace('@media(max-width:768px){',tablet)
+            s=s.replace('@media (max-width:768px){',tablet)
+            s=s.replace('@media(max-width:700px){',tablet)
+            s=s.replace('@media (max-width:700px){',tablet)
+            p.write_text(s)
+
+          p=Path('supabase-config.js')
+          s=p.read_text()
+          s=s.replace("window.VOLLEY_ASSET_VERSION = '20260820ze';", "window.VOLLEY_ASSET_VERSION = '20260820zf';")
+          for name in targets:
+            pattern=re.compile(r"('"+re.escape(name)+r"\?v=)[^']+(')")
+            s=pattern.sub(r"\g<1>20260820tablet1\2",s)
+          old="style.textContent=`html:not(.wellness-unified-ready) #view-wellness.active{visibility:hidden!important;opacity:0!important;pointer-events:none!important}`;"
+          new=old+"\n    window.setTimeout(()=>document.documentElement.classList.add('wellness-unified-ready'),5000);"
+          if old in s and "5000" not in s:
+            s=s.replace(old,new,1)
+          p.write_text(s)
+
+          p=Path('index.html')
+          s=p.read_text().replace('supabase-config.js?v=20260820safe46','supabase-config.js?v=20260820safe47')
+          p.write_text(s)
+          PY
+      - name: Commit refresh
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .
+          git reset .github/workflows/tablet-ui-consistency-20260820.yml
+          git diff --cached --quiet || git commit -m 'Align tablet cards with mobile app UI'
+          git push
