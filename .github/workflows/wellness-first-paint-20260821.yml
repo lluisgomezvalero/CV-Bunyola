@@ -1,0 +1,36 @@
+name: Wellness first-paint guard 20260821
+
+on:
+  push:
+    paths:
+      - '.github/workflows/wellness-first-paint-20260821.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-index:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add critical wellness first-paint guard
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('index.html')
+          text = path.read_text(encoding='utf-8')
+          marker = '    @keyframes rpeLoadingPulse{to{opacity:.25;transform:scale(.8)}}\n'
+          guard = '''    /* wellness-first-paint-guard-20260821 */\n    @media(max-width:760px), (max-width:1366px) and (any-pointer:coarse){\n      #view-wellness:not(:has(> .wellness-team-quick)):not(:has(> .player-wellness-app)) > *{\n        visibility:hidden!important;\n        pointer-events:none!important;\n      }\n    }\n'''
+          if 'wellness-first-paint-guard-20260821' not in text:
+              if marker not in text:
+                  raise SystemExit('Critical style marker not found')
+              text = text.replace(marker, marker + guard, 1)
+          text = text.replace('game-plan-actions-safe-20260816.css?v=20260816g', 'game-plan-actions-safe-20260816.css?v=20260821a')
+          path.write_text(text, encoding='utf-8')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git rm .github/workflows/wellness-first-paint-20260821.yml
+          git commit -m "Make wellness first paint use unified UI"
+          git push
