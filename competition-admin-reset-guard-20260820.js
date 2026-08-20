@@ -20,7 +20,15 @@ function apply(){
   if(!button)return;
   const allowed=isAdmin();
   button.hidden=!allowed;
-  button.style.display=allowed?'':'none';
+  if(allowed){
+    button.style.removeProperty('display');
+    button.style.removeProperty('visibility');
+    button.style.removeProperty('pointer-events');
+  }else{
+    button.style.setProperty('display','none','important');
+    button.style.setProperty('visibility','hidden','important');
+    button.style.setProperty('pointer-events','none','important');
+  }
   button.setAttribute('aria-hidden',allowed?'false':'true');
   button.tabIndex=allowed?0:-1;
 }
