@@ -1,0 +1,71 @@
+name: Wellness priority load
+on:
+  push:
+    paths:
+      - '.github/workflows/wellness-priority-load-20260820.yml'
+permissions:
+  contents: write
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prioritize wellness assets and render
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          # 1) Put wellness assets first in the dynamic patch queue.
+          p=Path('supabase-config.js')
+          s=p.read_text()
+          items=[
+            "  'wellness-v2-20260811.js?v=20260811n',",
+            "  'wellness-unified-mobile-20260820.js?v=20260820c',",
+            "  'wellness-render-controller-20260820.js?v=20260820a',",
+          ]
+          for item in items:
+            s=s.replace(item+'\n','')
+          marker="(function loadVolleySyncPatches(){const scripts=[\n"
+          if marker not in s:
+            raise SystemExit('scripts marker not found')
+          s=s.replace(marker, marker+'\n'.join(items)+'\n',1)
+          s=s.replace("window.VOLLEY_ASSET_VERSION = '20260820zg';", "window.VOLLEY_ASSET_VERSION = '20260820zh';")
+          p.write_text(s)
+
+          # 2) Render unified wellness on the next frame instead of waiting 45ms.
+          p=Path('wellness-unified-mobile-20260820.js')
+          s=p.read_text()
+          old="function schedule(){clearTimeout(schedule.t);schedule.t=setTimeout(decorate,45);}"
+          new="function schedule(){clearTimeout(schedule.t);cancelAnimationFrame(schedule.raf||0);schedule.raf=requestAnimationFrame(decorate);}"
+          if old not in s:
+            raise SystemExit('wellness schedule marker not found')
+          s=s.replace(old,new,1)
+          old2="function install(){ensureStyles();decorate();setTimeout(decorate,180);setTimeout(decorate,700);"
+          new2="function install(){ensureStyles();decorate();requestAnimationFrame(decorate);setTimeout(decorate,80);setTimeout(decorate,240);"
+          if old2 not in s:
+            raise SystemExit('wellness install marker not found')
+          s=s.replace(old2,new2,1)
+          p.write_text(s)
+
+          # 3) Faster role retry while the session is becoming available.
+          p=Path('wellness-render-controller-20260820.js')
+          s=p.read_text().replace('attempts<32)timer=setTimeout(run,65);','attempts<60)timer=setTimeout(run,25);')
+          p.write_text(s)
+
+          # 4) Cache bust.
+          p=Path('supabase-config.js')
+          s=p.read_text().replace("wellness-unified-mobile-20260820.js?v=20260820c", "wellness-unified-mobile-20260820.js?v=20260820d")
+          s=s.replace("wellness-render-controller-20260820.js?v=20260820a", "wellness-render-controller-20260820.js?v=20260820b")
+          p.write_text(s)
+
+          p=Path('index.html')
+          s=p.read_text().replace('supabase-config.js?v=20260820safe48','supabase-config.js?v=20260820safe49')
+          p.write_text(s)
+          PY
+      - name: Commit optimization
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase-config.js wellness-unified-mobile-20260820.js wellness-render-controller-20260820.js index.html
+          git diff --cached --quiet || git commit -m 'Prioritize wellness rendering'
+          git push
