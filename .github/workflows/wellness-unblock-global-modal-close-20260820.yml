@@ -1,0 +1,54 @@
+name: Unblock wellness and close player detail globally
+on:
+  push:
+    paths:
+      - '.github/workflows/wellness-unblock-global-modal-close-20260820.yml'
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply wellness stability and global modal close
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p=Path('wellness-unified-mobile-20260820.js')
+          s=p.read_text()
+          s=s.replace("function coach(){try{return typeof isCoachUser==='function'&&isCoachUser();}catch(_){return false;}}",
+                      "function coach(){try{if(typeof isCoachUser==='function'&&isCoachUser())return true;const role=String(user()?.role||'').toLowerCase();return role==='coach'||role==='administrator'||role==='admin';}catch(_){return false;}}")
+          s=s.replace("function markWellnessPending(){document.documentElement.classList.remove('wellness-unified-ready');}",
+                      "function markWellnessPending(){}")
+          s=s.replace("if(coach())decorateCoach(root);else if(player())decoratePlayer(root);",
+                      "if(coach())decorateCoach(root);else if(player())decoratePlayer(root);else markWellnessReady();")
+          p.write_text(s)
+
+          p=Path('supabase-config.js')
+          s=p.read_text()
+          start=s.find('(function primeWellnessUnifiedState(){')
+          end=s.find('(function loadVolleySyncPatches()', start)
+          if start<0 or end<0:
+              raise SystemExit('wellness preload block not found')
+          s=s[:start]+"(function primeWellnessUnifiedState(){document.documentElement.classList.add('wellness-unified-ready');})();\n"+s[end:]
+          s=s.replace("window.VOLLEY_ASSET_VERSION = '20260820zh';", "window.VOLLEY_ASSET_VERSION = '20260820zi';")
+          s=s.replace("  'wellness-render-controller-20260820.js?v=20260820b',\n",'')
+          s=s.replace("wellness-unified-mobile-20260820.js?v=20260820d", "wellness-unified-mobile-20260820.js?v=20260820e")
+          nav="  'navigation-shell-20260812.js?v=20260812k',"
+          dismiss="  'player-detail-global-dismiss-20260820.js?v=20260820a',"
+          if dismiss not in s:
+              s=s.replace(nav,nav+'\n'+dismiss,1)
+          p.write_text(s)
+
+          p=Path('index.html')
+          s=p.read_text().replace('supabase-config.js?v=20260820safe49','supabase-config.js?v=20260820safe50')
+          p.write_text(s)
+          PY
+      - name: Commit fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add wellness-unified-mobile-20260820.js supabase-config.js index.html
+          git diff --cached --quiet || git commit -m 'Unblock wellness and close player detail globally'
+          git push
