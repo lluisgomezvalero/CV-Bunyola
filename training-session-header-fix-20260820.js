@@ -13,8 +13,19 @@ function install(){
       display:flex!important;
       flex-wrap:wrap!important;
       align-items:center!important;
+      justify-content:flex-start!important;
       gap:.45rem!important;
-      padding:.72rem .8rem .82rem!important;
+      padding:.72rem .8rem .86rem!important;
+    }
+    #view-training .session-detail-hero>.session-back-button,
+    #view-training .session-detail-hero>button:not(.session-back-button){
+      position:static!important;
+      inset:auto!important;
+      top:auto!important;
+      right:auto!important;
+      bottom:auto!important;
+      left:auto!important;
+      transform:none!important;
     }
     #view-training .session-detail-hero>.session-back-button{
       order:1!important;
@@ -24,6 +35,9 @@ function install(){
     #view-training .session-detail-hero>button:not(.session-back-button){
       order:2!important;
       flex:0 0 38px!important;
+      width:38px!important;
+      height:38px!important;
+      min-width:38px!important;
       margin:0!important;
     }
     #view-training .session-detail-hero>div{
@@ -31,21 +45,30 @@ function install(){
       flex:1 0 100%!important;
       width:100%!important;
       min-width:100%!important;
-      padding-top:.12rem!important;
+      max-width:100%!important;
+      padding-top:.3rem!important;
+    }
+    #view-training .session-detail-kicker{
+      margin-bottom:.16rem!important;
     }
     #view-training .session-detail-hero h2{
+      margin:0!important;
+      max-width:100%!important;
       white-space:normal!important;
       overflow:visible!important;
       text-overflow:clip!important;
+      overflow-wrap:anywhere!important;
       font-size:1rem!important;
       line-height:1.15!important;
     }
     #view-training .session-detail-hero p{
-      max-width:none!important;
+      margin:.24rem 0 0!important;
+      max-width:100%!important;
       white-space:normal!important;
+      overflow:visible!important;
       overflow-wrap:anywhere!important;
       font-size:.64rem!important;
-      line-height:1.4!important;
+      line-height:1.42!important;
     }
     #view-training .session-panel textarea.form-control{
       min-height:64px!important;
