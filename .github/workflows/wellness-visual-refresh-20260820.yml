@@ -1,0 +1,32 @@
+name: Wellness visual refresh
+on:
+  push:
+    paths:
+      - '.github/workflows/wellness-visual-refresh-20260820.yml'
+permissions:
+  contents: write
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refresh wellness visual assets
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('supabase-config.js')
+          s=p.read_text()
+          s=s.replace("window.VOLLEY_ASSET_VERSION = '20260820za';", "window.VOLLEY_ASSET_VERSION = '20260820zb';")
+          s=s.replace("'wellness-coach-clarity-20260820.js?v=20260820a'", "'wellness-coach-clarity-20260820.js?v=20260820b'")
+          p.write_text(s)
+          p=Path('index.html')
+          s=p.read_text().replace('supabase-config.js?v=20260820safe42','supabase-config.js?v=20260820safe43')
+          p.write_text(s)
+          PY
+      - name: Commit refresh
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase-config.js index.html
+          git diff --cached --quiet || git commit -m 'Publish visual wellness dashboard'
+          git push
