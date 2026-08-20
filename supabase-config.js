@@ -3,7 +3,7 @@
  * La publishable key es segura en el navegador SIEMPRE que las tablas tengan RLS.
  * Nunca pongas aquí la service_role ni una secret key.
  */
-window.VOLLEY_ASSET_VERSION = '20260820zf';
+window.VOLLEY_ASSET_VERSION = '20260820zg';
 window.VOLLEY_SUPABASE_CONFIG = Object.freeze({
   url: 'https://zpvlkdjdfnvamfcjihyt.supabase.co',
   publishableKey: 'sb_publishable_seL2H6gAGBrUDR0O1vhJDA_Y9d7Ky-u',
@@ -23,8 +23,12 @@ html:not(.attendance-ready) .btn-rsvp-no{visibility:hidden!important;pointer-eve
   if(!document.getElementById('wellness-unified-preload-css')){
     const style=document.createElement('style');
     style.id='wellness-unified-preload-css';
-    style.textContent=`html:not(.wellness-unified-ready) #view-wellness.active{visibility:hidden!important;opacity:0!important;pointer-events:none!important}`;
-    window.setTimeout(()=>document.documentElement.classList.add('wellness-unified-ready'),5000);
+    style.textContent=`
+html:not(.wellness-unified-ready) #view-wellness.active{visibility:visible!important;opacity:1!important;pointer-events:none!important;position:relative!important;min-height:420px!important}
+html:not(.wellness-unified-ready) #view-wellness.active>*{visibility:hidden!important}
+html:not(.wellness-unified-ready) #view-wellness.active::before{content:'Preparando bienestar…';visibility:visible!important;position:absolute!important;left:0!important;right:0!important;top:.35rem!important;height:150px!important;border:1px solid #e4e9ef!important;border-radius:20px!important;background:linear-gradient(110deg,#fff 20%,#f4f7fa 38%,#fff 56%)!important;background-size:220% 100%!important;animation:wellnessPrep 1.1s linear infinite!important;display:flex!important;align-items:center!important;justify-content:center!important;color:#7b8798!important;font:800 .78rem/1.2 Inter,system-ui,sans-serif!important;box-shadow:0 5px 16px rgba(15,23,42,.03)!important}
+@keyframes wellnessPrep{to{background-position-x:-220%}}
+`;
     document.head.appendChild(style);
   }
 })();
@@ -62,6 +66,7 @@ html:not(.attendance-ready) .btn-rsvp-no{visibility:hidden!important;pointer-eve
   'dashboard-home-priority-20260812.js?v=20260812o',
   'player-dashboard-priority-20260812.js?v=20260812r',
   'wellness-v2-20260811.js?v=20260811n',
+  'wellness-render-controller-20260820.js?v=20260820a',
   'wellness-unified-mobile-20260820.js?v=20260820c',
   'navigation-shell-20260812.js?v=20260812k',
   'session-header-actions-fix-20260812.js?v=20260812c',
@@ -69,6 +74,7 @@ html:not(.attendance-ready) .btn-rsvp-no{visibility:hidden!important;pointer-eve
   'sidebar-viewport-stability-20260812.js?v=20260812y',
   'mobile-menu-greeting-20260813.js?v=20260813c',
   'player-passport-priority-20260813.js?v=20260813d',
+  'tablet-player-passport-fit-20260820.js?v=20260820a',
   'player-wellness-summary-20260813.js?v=20260813e',
   'player-passport-remove-commitment-20260813.js?v=20260813f',
   'roster-context-layout-20260813.js?v=20260813g',
