@@ -70,6 +70,7 @@ html:not(.attendance-ready) .btn-rsvp-no{visibility:hidden!important;pointer-eve
   'league-standings-authoritative-20260819.js?v=20260819a',
   'competition-app-ux-20260820.js?v=20260820b',
   'competition-admin-reset-guard-20260820.js?v=20260820b',
+  'competition-team-editor-ux-20260820.js?v=20260820a',
   'competition-logo-display-sync-20260820.js?v=20260820b',
   'match-statistics-authoritative-20260817.js?v=20260818b',
   'match-statistics-priority-ux-20260818.js?v=20260818e',
