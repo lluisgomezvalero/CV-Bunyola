@@ -11,7 +11,7 @@ let frame=0;
 function isCoach(){try{return typeof isCoachUser==='function'&&isCoachUser();}catch(_){return false;}}
 function text(el){return String(el?.textContent||'').replace(/\s+/g,' ').trim();}
 function number(value){const n=Number(String(value??'').replace(/[^0-9.-]/g,''));return Number.isFinite(n)?n:0;}
-function esc(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+function esc(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[ch]));}
 
 function ensureStyles(){
   if(document.getElementById('competition-app-ux-20260820-style'))return;
@@ -98,7 +98,7 @@ function cell(row,index){return index>=0?row.children[index]:null;}
 function rowData(row,index,map){
   const cells=[...row.children];
   const teamCell=cell(row,map.team>=0?map.team:1)||cells[1]||cells[0];
-  const img=teamCell?.querySelector('img');
+  const img=row.querySelector('img');
   const teamName=text(teamCell).replace(/Automático/gi,'').replace(/Editar/gi,'').trim()||`Equipo ${index+1}`;
   const own=row.classList.contains('league-own-team-row')||/CV\s*BUNYOLA/i.test(teamName);
   const val=(idx,fallback)=>number(text(cell(row,idx>=0?idx:fallback)));
