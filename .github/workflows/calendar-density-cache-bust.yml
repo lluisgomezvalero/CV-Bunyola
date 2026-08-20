@@ -1,0 +1,24 @@
+name: Publish compact calendar polish
+
+on:
+  push:
+    paths:
+      - '.github/workflows/calendar-density-cache-bust.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refresh calendar cache
+        run: |
+          sed -i 's/supabase-config.js?v=20260820safe28/supabase-config.js?v=20260820safe29/g' index.html
+          rm -f .github/workflows/calendar-density-cache-bust.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html .github/workflows/calendar-density-cache-bust.yml
+          git commit -m "Publish compact calendar polish"
+          git push
