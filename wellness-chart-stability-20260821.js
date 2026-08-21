@@ -3,8 +3,8 @@
 const FLAG='__wellnessChartStability20260821';
 if(window[FLAG])return;
 window[FLAG]=true;
-let rebuildBusy=false;
 let stableTimer=0;
+let lastViewportWidth=Math.round(window.innerWidth||0);
 
 function injectCompositingFix(){
  if(document.getElementById('wellness-chart-compositing-fix-20260821'))return;
@@ -48,6 +48,7 @@ function hasStableLayout(){
  const frameRect=frame?.getBoundingClientRect();
  return rect.width>120&&rect.height>120&&(!frameRect||frameRect.width>120&&frameRect.height>120);
 }
+function chartHasValidSize(chart){return !!chart&&Number(chart.width)>120&&Number(chart.height)>120;}
 
 function repaint(){
  if(!hasStableLayout())return;
@@ -55,54 +56,63 @@ function repaint(){
  try{chart.resize();chart.update('none');}catch(_){try{chart.update();}catch(__){}}
 }
 
-function hardRebuild(){
- if(!hasStableLayout()||rebuildBusy)return;
- rebuildBusy=true;
+function buildOnlyIfNeeded(){
+ if(!hasStableLayout())return;
+ const chart=getChart();
+ if(chartHasValidSize(chart)){
+  repaint();
+  return;
+ }
+ if(chart){try{chart.destroy();}catch(_){}}
+ try{window.activeChartTrend=null;}catch(_){ }
  try{
-  const chart=getChart();
-  if(chart){try{chart.destroy();}catch(_){}}
-  try{window.activeChartTrend=null;}catch(_){ }
   if(typeof window.renderWellnessCharts==='function')window.renderWellnessCharts();
-  else try{if(typeof renderWellnessCharts==='function')renderWellnessCharts();}catch(_){ }
-  requestAnimationFrame(()=>{repaint();setTimeout(repaint,100);});
- }catch(e){console.warn('[WellnessChart] rebuild',e);}
- finally{setTimeout(()=>{rebuildBusy=false;},180);}
+  else if(typeof renderWellnessCharts==='function')renderWellnessCharts();
+ }catch(e){console.warn('[WellnessChart] initial build',e);}
+ requestAnimationFrame(()=>{repaint();setTimeout(repaint,100);});
 }
 
-function rebuildWhenStable(attempt=0){
+function ensureStableChart(attempt=0){
  clearTimeout(stableTimer);
  if(!active())return;
  if(hasStableLayout()){
-  stableTimer=setTimeout(()=>requestAnimationFrame(hardRebuild),120);
+  stableTimer=setTimeout(()=>requestAnimationFrame(buildOnlyIfNeeded),120);
   return;
  }
- if(attempt<18)stableTimer=setTimeout(()=>rebuildWhenStable(attempt+1),80);
+ if(attempt<18)stableTimer=setTimeout(()=>ensureStableChart(attempt+1),80);
+}
+
+function repaintWhenStable(attempt=0){
+ clearTimeout(stableTimer);
+ if(!active())return;
+ if(hasStableLayout()){
+  stableTimer=setTimeout(()=>requestAnimationFrame(repaint),80);
+  return;
+ }
+ if(attempt<10)stableTimer=setTimeout(()=>repaintWhenStable(attempt+1),80);
+}
+
+function handleViewportResize(){
+ const width=Math.round(window.innerWidth||0);
+ if(Math.abs(width-lastViewportWidth)<4)return;
+ lastViewportWidth=width;
+ repaintWhenStable();
 }
 
 function install(){
  injectCompositingFix();
  const canvas=getCanvas();
  if(!canvas){setTimeout(install,120);return;}
- if(!canvas.dataset.wellnessChartVisibilityGuard){
-  canvas.dataset.wellnessChartVisibilityGuard='1';
-  if('IntersectionObserver'in window){
-   const io=new IntersectionObserver(entries=>{
-    for(const entry of entries){
-     if(entry.isIntersecting&&entry.intersectionRatio>0){rebuildWhenStable();break;}
-    }
-   },{threshold:[0,.01,.2]});
-   io.observe(canvas);
-  }
- }
  const root=document.getElementById('view-wellness');
  if(root&&!root.dataset.wellnessChartActiveGuard){
   root.dataset.wellnessChartActiveGuard='1';
-  new MutationObserver(()=>{if(root.classList.contains('active'))rebuildWhenStable();}).observe(root,{attributes:true,attributeFilter:['class']});
+  new MutationObserver(()=>{if(root.classList.contains('active'))ensureStableChart();}).observe(root,{attributes:true,attributeFilter:['class']});
  }
- window.addEventListener('pageshow',rebuildWhenStable,{passive:true});
- window.addEventListener('resize',rebuildWhenStable,{passive:true});
- document.addEventListener('visibilitychange',()=>{if(!document.hidden)rebuildWhenStable();},{passive:true});
- setTimeout(()=>rebuildWhenStable(),300);
+ window.addEventListener('pageshow',repaintWhenStable,{passive:true});
+ window.addEventListener('resize',handleViewportResize,{passive:true});
+ if(window.visualViewport)window.visualViewport.addEventListener('resize',handleViewportResize,{passive:true});
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)repaintWhenStable();},{passive:true});
+ setTimeout(()=>ensureStableChart(),300);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
