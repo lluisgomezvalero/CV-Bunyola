@@ -1,0 +1,37 @@
+name: Load wellness chart stability patch
+
+on:
+  push:
+    paths:
+      - '.github/workflows/wellness-chart-stability-load-20260821.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wire chart stability patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('supabase-config.js')
+          s=p.read_text()
+          s=s.replace("window.VOLLEY_ASSET_VERSION = '20260821b';","window.VOLLEY_ASSET_VERSION = '20260821c';")
+          needle="  'wellness-unified-mobile-20260820.js?v=20260821b',"
+          add=needle+"\n  'wellness-chart-stability-20260821.js?v=20260821a',"
+          if 'wellness-chart-stability-20260821.js' not in s:
+              s=s.replace(needle,add)
+          p.write_text(s)
+          p=Path('index.html')
+          s=p.read_text().replace('supabase-config.js?v=20260821safe52','supabase-config.js?v=20260821safe53')
+          p.write_text(s)
+          PY
+          rm .github/workflows/wellness-chart-stability-load-20260821.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase-config.js index.html .github/workflows/wellness-chart-stability-load-20260821.yml
+          git commit -m "Load wellness chart stability patch"
+          git push
