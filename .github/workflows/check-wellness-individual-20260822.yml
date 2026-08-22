@@ -1,0 +1,24 @@
+name: Check wellness individual tracking
+
+on:
+  push:
+    paths:
+      - '.github/workflows/check-wellness-individual-20260822.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check JavaScript syntax
+        run: node --check wellness-individual-tracking-20260822.js
+      - name: Remove one-time workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/check-wellness-individual-20260822.yml
+          git commit -m "Remove one-time individual tracking syntax check"
+          git push
