@@ -221,7 +221,7 @@
     const wellnessModal=document.getElementById('modal-add-wellness');if(wellnessModal){new MutationObserver(()=>{if(wellnessModal.classList.contains('active'))ensureSleepHoursField();}).observe(wellnessModal,{attributes:true,attributeFilter:['class']});}
 
     const baseWellness=window.renderWellness;
-    window.renderWellness=function(){const r=baseWellness.apply(this,arguments);removeCoachSleepAverageColumn();renderCoachWellnessInspector();if(!wellnessSyncBusy)syncWellness().then(()=>{baseWellness();removeCoachSleepAverageColumn();renderCoachWellnessInspector();});return r;};
+    window.renderWellness=function(){const r=baseWellness.apply(this,arguments);removeCoachSleepAverageColumn();renderCoachWellnessInspector();if(!wellnessSyncBusy)syncWellness().then(()=>{if(!document.getElementById('view-wellness')?.classList.contains('active'))return;try{typeof renderBorgMatrix==='function'&&renderBorgMatrix();}catch(_){}removeCoachSleepAverageColumn();renderCoachWellnessInspector();requestAnimationFrame(()=>{try{typeof window.renderWellnessCharts==='function'&&window.renderWellnessCharts();}catch(e){console.warn('[Corrections] wellness chart refresh',e);}});});return r;};
 
     const baseTactics=window.renderTactics;
     window.__correctionsBaseRenderTactics=baseTactics;
