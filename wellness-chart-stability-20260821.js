@@ -49,6 +49,7 @@ function hasStableLayout(){
  return rect.width>120&&rect.height>120&&(!frameRect||frameRect.width>120&&frameRect.height>120);
 }
 function chartHasValidSize(chart){return !!chart&&Number(chart.width)>120&&Number(chart.height)>120;}
+function afterLayout(fn){requestAnimationFrame(()=>requestAnimationFrame(fn));}
 
 function repaint(){
  if(!hasStableLayout())return;
@@ -69,27 +70,27 @@ function buildOnlyIfNeeded(){
   if(typeof window.renderWellnessCharts==='function')window.renderWellnessCharts();
   else if(typeof renderWellnessCharts==='function')renderWellnessCharts();
  }catch(e){console.warn('[WellnessChart] initial build',e);}
- requestAnimationFrame(()=>{repaint();setTimeout(repaint,100);});
+ afterLayout(repaint);
 }
 
 function ensureStableChart(attempt=0){
  clearTimeout(stableTimer);
  if(!active())return;
  if(hasStableLayout()){
-  stableTimer=setTimeout(()=>requestAnimationFrame(buildOnlyIfNeeded),120);
+  afterLayout(buildOnlyIfNeeded);
   return;
  }
- if(attempt<18)stableTimer=setTimeout(()=>ensureStableChart(attempt+1),80);
+ if(attempt<24)stableTimer=setTimeout(()=>ensureStableChart(attempt+1),32);
 }
 
 function repaintWhenStable(attempt=0){
  clearTimeout(stableTimer);
  if(!active())return;
  if(hasStableLayout()){
-  stableTimer=setTimeout(()=>requestAnimationFrame(repaint),80);
+  afterLayout(repaint);
   return;
  }
- if(attempt<10)stableTimer=setTimeout(()=>repaintWhenStable(attempt+1),80);
+ if(attempt<12)stableTimer=setTimeout(()=>repaintWhenStable(attempt+1),32);
 }
 
 function handleViewportResize(){
@@ -102,7 +103,7 @@ function handleViewportResize(){
 function install(){
  injectCompositingFix();
  const canvas=getCanvas();
- if(!canvas){setTimeout(install,120);return;}
+ if(!canvas){setTimeout(install,50);return;}
  const root=document.getElementById('view-wellness');
  if(root&&!root.dataset.wellnessChartActiveGuard){
   root.dataset.wellnessChartActiveGuard='1';
@@ -112,7 +113,7 @@ function install(){
  window.addEventListener('resize',handleViewportResize,{passive:true});
  if(window.visualViewport)window.visualViewport.addEventListener('resize',handleViewportResize,{passive:true});
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)repaintWhenStable();},{passive:true});
- setTimeout(()=>ensureStableChart(),300);
+ setTimeout(()=>ensureStableChart(),60);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
