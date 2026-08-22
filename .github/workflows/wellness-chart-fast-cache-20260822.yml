@@ -1,0 +1,29 @@
+name: Wellness chart fast cache bust
+
+on:
+  push:
+    paths:
+      - '.github/workflows/wellness-chart-fast-cache-20260822.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  cache-bust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Force fresh fast wellness chart assets
+        run: |
+          sed -i "s/window.VOLLEY_ASSET_VERSION = '20260821f'/window.VOLLEY_ASSET_VERSION = '20260822a'/g" supabase-config.js
+          sed -i 's/wellness-chart-stability-20260821.js?v=20260821d/wellness-chart-stability-20260821.js?v=20260822a/g' supabase-config.js
+          sed -i 's/supabase-config.js?v=20260821safe55/supabase-config.js?v=20260822safe56/g' index.html
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase-config.js index.html
+          if git diff --cached --quiet; then
+            echo "No cache key change needed"
+          else
+            git commit -m "Force fresh faster wellness chart assets"
+            git push
+          fi
