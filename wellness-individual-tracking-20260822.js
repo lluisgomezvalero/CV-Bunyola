@@ -82,9 +82,10 @@ function trendFor(rows){
     if(previous==null){recent=values[0];previous=values[1];}
   }else{recent=values[0];previous=values[1];}
   const delta=recent-previous;
-  if(Math.abs(delta)<.25)return{delta,label:'Fatiga estable',tone:'neutral'};
-  if(delta>0)return{delta,label:`Fatiga +${delta.toFixed(1)}`,tone:delta>=1?'attn':'warm'};
-  return{delta,label:`Fatiga ${delta.toFixed(1)}`,tone:'good'};
+  if(Math.abs(delta)<.25)return{delta,label:'→ estable',tone:'neutral'};
+  const shown=Math.abs(delta).toFixed(1).replace('.',',');
+  if(delta>0)return{delta,label:`↑ ${shown} · aumentando`,tone:delta>=1?'attn':'warm'};
+  return{delta,label:`↓ ${shown} · mejorando`,tone:'good'};
 }
 function loadAlert(playerId){
   const now=Date.now(),sevenDays=7*86400000;
@@ -102,6 +103,15 @@ function discomfort(row){
   return{value:null,suffix:'',label:'Molestias',tone:'neutral'};
 }
 function fatigueTone(value){return value==null?'neutral':value>=4?'attn':value>=3?'warm':'good';}
+function statusFor(item){
+  if(!item?.latest)return{label:'Sin datos',tone:'neutral'};
+  const f=item.latestFatigue,s=item.latestSleep,d=item.discomfort;
+  const attention=(f!=null&&f>=4)||(s!=null&&s<=2)||(d?.tone==='attn');
+  if(attention)return{label:'Atención',tone:'attn'};
+  const watch=(f!=null&&f>=3)||(s!=null&&s<=3)||(d?.tone==='warm');
+  if(watch)return{label:'Vigilar',tone:'warm'};
+  return{label:'Buen estado',tone:'good'};
+}
 function rpeTone(value){return value==null?'neutral':value>=8?'attn':value>=6?'warm':'good';}
 function sleepTone(value){return value==null?'neutral':value<=2?'attn':value<=3?'warm':'good';}
 function summary(player){
@@ -153,11 +163,13 @@ function ensureStyles(){
     #view-wellness .wellness-player-foot{display:flex;align-items:center;justify-content:space-between;gap:.5rem;color:#8793a2;font-size:.54rem}
     #view-wellness .wellness-trend-pill{display:inline-flex;align-items:center;gap:.25rem;padding:.24rem .38rem;border-radius:999px;background:#f1f5f9;color:#64748b;font-weight:800}.wellness-trend-pill.good{background:#ecfdf5;color:#047857}.wellness-trend-pill.warm{background:#fff7ed;color:#b45309}.wellness-trend-pill.attn{background:#fff1f2;color:#be123c}
     #view-wellness .wellness-alert-mini{display:inline-flex;align-items:center;gap:.22rem;color:#be123c;font-weight:850}
+    .wellness-player-tracking-modal{z-index:120000!important}
     .wellness-player-tracking-modal .modal-content{width:min(94vw,620px)!important;max-height:min(86vh,760px)!important;overflow:hidden!important;border-radius:20px!important}
     .wellness-player-tracking-modal .modal-header{align-items:flex-start!important}.wellness-player-tracking-modal .modal-header h3{margin:0 0 .16rem!important;color:#253044!important;font-size:1.05rem!important}.wellness-player-tracking-modal .modal-header small{color:#7d8998!important;font-size:.62rem!important}
+    .wellness-player-modal-meta{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap}.wellness-player-status{display:inline-flex;align-items:center;padding:.2rem .38rem;border-radius:999px;background:#f1f5f9;color:#64748b;font-size:.52rem;font-weight:850}.wellness-player-status.good{background:#ecfdf5;color:#047857}.wellness-player-status.warm{background:#fff7ed;color:#b45309}.wellness-player-status.attn{background:#fff1f2;color:#be123c}
     .wellness-player-tracking-modal .modal-body{overflow-y:auto!important;padding-bottom:1.2rem!important}
     .wellness-player-modal-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem;margin-bottom:.75rem}.wellness-player-modal-metric{padding:.68rem;border:1px solid #e6eaef;border-radius:13px;background:#fbfcfd}.wellness-player-modal-metric small{display:block;color:#8b97a5;font-size:.55rem;font-weight:850;text-transform:uppercase}.wellness-player-modal-metric strong{display:block;margin-top:.18rem;color:#253044;font-size:.92rem}.wellness-player-modal-metric.good strong{color:#047857}.wellness-player-modal-metric.warm strong{color:#b45309}.wellness-player-modal-metric.attn strong{color:#be123c}
-    .wellness-player-spark-wrap{margin:.2rem 0 .8rem;padding:.7rem;border:1px solid #e6eaef;border-radius:14px;background:#fbfcfd}.wellness-player-spark-head{display:flex;justify-content:space-between;gap:.5rem;align-items:center;margin-bottom:.35rem}.wellness-player-spark-head strong{font-size:.69rem;color:#334155}.wellness-player-spark-head span{font-size:.54rem;color:#8b97a5}.wellness-player-spark{display:block;width:100%;height:82px}
+    .wellness-player-spark-wrap{margin:.2rem 0 .8rem;padding:.7rem;border:1px solid #e6eaef;border-radius:14px;background:#fbfcfd}.wellness-player-spark-head{display:flex;justify-content:space-between;gap:.5rem;align-items:center;margin-bottom:.35rem}.wellness-player-spark-head strong{font-size:.69rem;color:#334155}.wellness-player-spark-head span{font-size:.54rem;color:#8b97a5}.wellness-player-spark{display:block;width:100%;height:100px}
     .wellness-player-detail-section{margin-top:.75rem}.wellness-player-detail-section h4{margin:0 0 .42rem;color:#334155;font-size:.72rem}.wellness-player-record-list{display:grid;gap:.38rem}.wellness-player-record{padding:.56rem .62rem;border:1px solid #e8ecf0;border-radius:12px;background:#fff}.wellness-player-record-top{display:flex;align-items:center;justify-content:space-between;gap:.55rem}.wellness-player-record-top strong{color:#475569;font-size:.62rem}.wellness-player-record-values{display:flex;flex-wrap:wrap;gap:.26rem;margin-top:.32rem}.wellness-player-record-values span{padding:.21rem .34rem;border-radius:999px;background:#f1f5f9;color:#64748b;font-size:.52rem;font-weight:750}.wellness-player-record p{margin:.38rem 0 0;color:#687587;font-size:.57rem;line-height:1.4;white-space:pre-wrap}
     .wellness-player-rpe-row{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.5rem .58rem;border-bottom:1px solid #edf0f3}.wellness-player-rpe-row:last-child{border-bottom:0}.wellness-player-rpe-row div{min-width:0}.wellness-player-rpe-row strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#475569;font-size:.61rem}.wellness-player-rpe-row small{display:block;margin-top:.08rem;color:#94a0ae;font-size:.52rem}.wellness-player-rpe-score{font-size:.68rem!important;color:#334155!important;flex:0 0 auto}
     .wellness-player-empty{padding:.75rem;border:1px dashed #dbe2e8;border-radius:12px;color:#8b97a5;font-size:.6rem;text-align:center}
@@ -215,12 +227,13 @@ function renderModernInspector(){
 function sparkline(rows){
   const values=rows.slice(0,8).reverse().map(row=>({value:fatigue(row),date:dateKey(row)})).filter(point=>point.value!=null);
   if(values.length<2)return'<div class="wellness-player-empty">Aún no hay suficientes registros para mostrar tendencia.</div>';
-  const width=320,height=82,left=8,right=8,top=8,bottom=12,plotW=width-left-right,plotH=height-top-bottom;
+  const width=320,height=100,left=10,right=10,top=8,bottom=26,plotW=width-left-right,plotH=height-top-bottom;
   const x=index=>left+(values.length===1?plotW/2:index*(plotW/(values.length-1)));
   const y=value=>top+((5-Math.max(0,Math.min(5,value)))/5)*plotH;
   const points=values.map((point,index)=>`${x(index).toFixed(1)},${y(point.value).toFixed(1)}`).join(' ');
   const circles=values.map((point,index)=>`<circle cx="${x(index).toFixed(1)}" cy="${y(point.value).toFixed(1)}" r="3.2" fill="#ffffff" stroke="#64748b" stroke-width="1.6"><title>${esc(shortDate(point.date))}: ${point.value}/5</title></circle>`).join('');
-  return `<svg class="wellness-player-spark" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="Evolución reciente de fatiga"><line x1="${left}" y1="${y(3).toFixed(1)}" x2="${width-right}" y2="${y(3).toFixed(1)}" stroke="#e8edf2" stroke-width="1" stroke-dasharray="3 4"/><polyline points="${points}" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>${circles}</svg>`;
+  const labels=values.map((point,index)=>`<text x="${x(index).toFixed(1)}" y="${height-5}" text-anchor="middle" font-size="7.5" fill="#94a3b8">${esc(shortDate(point.date))}</text>`).join('');
+  return `<svg class="wellness-player-spark" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="Evolución reciente de fatiga"><line x1="${left}" y1="${y(3).toFixed(1)}" x2="${width-right}" y2="${y(3).toFixed(1)}" stroke="#e8edf2" stroke-width="1" stroke-dasharray="3 4"/><polyline points="${points}" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>${circles}${labels}</svg>`;
 }
 function recordMarkup(row){
   const f=fatigue(row),s=sleep(row),d=discomfort(row),note=String(row?.notes||'').trim();
@@ -236,14 +249,14 @@ function rpeMarkup(row){
 function openPlayerModal(playerId){
   if(!mobileViewport()||!coach())return;
   const player=playerById(playerId);if(!player)return;
-  const item=summary(player),latest=item.latest,disc=item.discomfort;
+  const item=summary(player),latest=item.latest,disc=item.discomfort,status=statusFor(item);
   document.querySelector('.wellness-player-tracking-modal')?.remove();
   const modal=document.createElement('div');
   modal.className='modal-backdrop active wellness-player-tracking-modal';
   const lastLabel=item.lastDate?`Último bienestar: ${longDate(item.lastDate)}`:'Sin respuestas de bienestar';
   const logList=item.logs.slice(0,8).map(recordMarkup).join('')||'<div class="wellness-player-empty">No hay registros de bienestar para esta jugadora.</div>';
   const rpeList=item.rpes.slice(0,6).map(rpeMarkup).join('')||'<div class="wellness-player-empty">No hay RPE registrados para esta jugadora.</div>';
-  modal.innerHTML=`<div class="modal-content"><div class="modal-header"><div><h3>${esc(player.name||'Jugadora')}</h3><small>${esc(lastLabel)}</small></div><button type="button" class="modal-close" aria-label="Cerrar">&times;</button></div><div class="modal-body">
+  modal.innerHTML=`<div class="modal-content"><div class="modal-header"><div><h3>${esc(player.name||'Jugadora')}</h3><div class="wellness-player-modal-meta"><small>${esc(lastLabel)}</small><span class="wellness-player-status ${status.tone}">${esc(status.label)}</span></div></div><button type="button" class="modal-close" aria-label="Cerrar">&times;</button></div><div class="modal-body">
     <div class="wellness-player-modal-summary">
       <div class="wellness-player-modal-metric ${fatigueTone(item.latestFatigue)}"><small>Fatiga actual</small><strong>${item.latestFatigue==null?'—':`${item.latestFatigue.toFixed(1)}/5`}</strong></div>
       <div class="wellness-player-modal-metric ${sleepTone(item.latestSleep)}"><small>Sueño</small><strong>${item.latestSleep==null?'—':`${item.latestSleep.toFixed(1)}/5`}</strong></div>
