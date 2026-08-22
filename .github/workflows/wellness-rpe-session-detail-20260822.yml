@@ -1,0 +1,52 @@
+name: Wellness RPE session detail
+
+on:
+  push:
+    paths:
+      - '.github/workflows/wellness-rpe-session-detail-20260822.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Load enhanced RPE session detail
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          config = Path('supabase-config.js')
+          s = config.read_text()
+          old_version = "window.VOLLEY_ASSET_VERSION = '20260822d';"
+          new_version = "window.VOLLEY_ASSET_VERSION = '20260822e';"
+          if old_version not in s:
+              raise SystemExit('Expected asset version not found')
+          s = s.replace(old_version, new_version, 1)
+          anchor = "  'wellness-svg-chart-20260822.js?v=20260822a',"
+          addition = anchor + "\n  'wellness-rpe-session-detail-20260822.js?v=20260822a',"
+          if anchor not in s:
+              raise SystemExit('Expected wellness SVG anchor not found')
+          s = s.replace(anchor, addition, 1)
+          config.write_text(s)
+
+          index = Path('index.html')
+          s = index.read_text()
+          old_cache = 'supabase-config.js?v=20260822safe59'
+          new_cache = 'supabase-config.js?v=20260822safe60'
+          if old_cache not in s:
+              raise SystemExit('Expected index cache key not found')
+          index.write_text(s.replace(old_cache, new_cache, 1))
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase-config.js index.html
+          git commit -m "Load enhanced wellness RPE session detail"
+          git push
+
+          git rm .github/workflows/wellness-rpe-session-detail-20260822.yml
+          git commit -m "Remove one-time RPE detail workflow"
+          git push
