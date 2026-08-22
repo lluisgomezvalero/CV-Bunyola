@@ -1,0 +1,79 @@
+name: Polish wellness individual modal
+
+on:
+  push:
+    paths:
+      - '.github/workflows/polish-wellness-individual-modal-20260822.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply modal polish and refresh cache
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('wellness-individual-tracking-20260822.js')
+          s = path.read_text()
+
+          replacements = [
+            ("    .wellness-player-tracking-modal{z-index:120000!important}",
+             "    body.wellness-player-modal-open #mobile-bottom-nav{visibility:hidden!important;opacity:0!important;pointer-events:none!important}\n    .wellness-player-tracking-modal{z-index:2147483000!important}"),
+            (".wellness-player-status{display:inline-flex;align-items:center;padding:.2rem .38rem;border-radius:999px;background:#f1f5f9;color:#64748b;font-size:.52rem;font-weight:850}",
+             ".wellness-player-status{display:inline-flex;align-items:center;gap:.22rem;padding:.24rem .42rem;border-radius:999px;background:#f1f5f9;color:#64748b;font-size:.56rem;font-weight:900}"),
+            (".wellness-player-spark{display:block;width:100%;height:100px}",
+             ".wellness-player-spark{display:block;width:100%;height:112px}"),
+            ("  const width=320,height=100,left=10,right=10,top=8,bottom=26,plotW=width-left-right,plotH=height-top-bottom;",
+             "  const width=320,height=112,left=12,right=12,top=8,bottom=30,plotW=width-left-right,plotH=height-top-bottom;"),
+            ("text-anchor=\"middle\" font-size=\"7.5\" fill=\"#94a3b8\"",
+             "text-anchor=\"middle\" font-size=\"8.5\" font-weight=\"650\" fill=\"#7c8998\""),
+            ("<span class=\"wellness-player-status ${status.tone}\">${esc(status.label)}</span>",
+             "<span class=\"wellness-player-status ${status.tone}\"><span aria-hidden=\"true\">●</span>${esc(status.label)}</span>"),
+            ("  const close=()=>{modal.remove();document.body.classList.remove('modal-open');};",
+             "  const close=()=>{modal.remove();document.body.classList.remove('modal-open','wellness-player-modal-open');};"),
+            ("  document.body.classList.add('modal-open');",
+             "  document.body.classList.add('modal-open','wellness-player-modal-open');"),
+          ]
+
+          for old, new in replacements:
+            if old not in s:
+              raise SystemExit(f'Expected string not found: {old[:100]}')
+            s = s.replace(old, new, 1)
+          path.write_text(s)
+
+          config = Path('supabase-config.js')
+          s = config.read_text()
+          for old, new in [
+            ("window.VOLLEY_ASSET_VERSION = '20260822f';", "window.VOLLEY_ASSET_VERSION = '20260822g';"),
+            ("'wellness-individual-tracking-20260822.js?v=20260822a'", "'wellness-individual-tracking-20260822.js?v=20260822b'"),
+          ]:
+            if old not in s:
+              raise SystemExit(f'Expected config string not found: {old}')
+            s = s.replace(old, new, 1)
+          config.write_text(s)
+
+          index = Path('index.html')
+          s = index.read_text()
+          old = 'supabase-config.js?v=20260822safe61'
+          new = 'supabase-config.js?v=20260822safe62'
+          if old not in s:
+            raise SystemExit('Expected index cache key not found')
+          index.write_text(s.replace(old, new, 1))
+          PY
+
+          node --check wellness-individual-tracking-20260822.js
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wellness-individual-tracking-20260822.js supabase-config.js index.html
+          git commit -m "Polish individual wellness modal"
+          git push
+
+          git rm .github/workflows/polish-wellness-individual-modal-20260822.yml
+          git commit -m "Remove one-time individual wellness modal workflow"
+          git push
